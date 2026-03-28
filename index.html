@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Change Control Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <p class="eyebrow">Static prototype</p>
+          <h1>Change Control Center</h1>
+          <p class="brand-note">
+            Operator-first interface for <span>changes</span>, <span>gaps</span>, <span>runs</span> and
+            <span>evidence</span>.
+          </p>
+        </div>
+        <div class="topbar-actions">
+          <label class="search-field">
+            <span>Search</span>
+            <input id="searchInput" type="search" placeholder="change, requirement, blocker" />
+          </label>
+          <button class="ghost-button">New change</button>
+          <button class="primary-button" id="runNextGlobalButton">Run next step</button>
+        </div>
+      </header>
+
+      <section class="hero-ribbon">
+        <div>
+          <p class="ribbon-label">Operating mode</p>
+          <strong>Review pressure visible, traceability first</strong>
+        </div>
+        <div>
+          <p class="ribbon-label">Current queue</p>
+          <strong id="heroChangeCount">0 active changes</strong>
+        </div>
+        <div>
+          <p class="ribbon-label">Mandatory gaps</p>
+          <strong id="heroGapCount">0 open</strong>
+        </div>
+        <div>
+          <p class="ribbon-label">Signal</p>
+          <strong id="heroSignal">No change selected</strong>
+        </div>
+      </section>
+
+      <main class="workspace">
+        <aside class="sidebar">
+          <section class="sidebar-block">
+            <p class="block-label">Views</p>
+            <div id="viewList" class="stacked-list"></div>
+          </section>
+
+          <section class="sidebar-block">
+            <p class="block-label">Filters</p>
+            <div class="filter-grid" id="filterSummary">
+              <button class="filter-chip active">All severities</button>
+              <button class="filter-chip">Needs review</button>
+              <button class="filter-chip">Blocked</button>
+            </div>
+          </section>
+
+          <section class="sidebar-block">
+            <p class="block-label">Chief policy</p>
+            <div class="policy-card">
+              <dl>
+                <div>
+                  <dt>Auto cycles</dt>
+                  <dd>3 max</dd>
+                </div>
+                <div>
+                  <dt>Escalate</dt>
+                  <dd>Recurring fingerprint ×2</dd>
+                </div>
+                <div>
+                  <dt>Acceptance gate</dt>
+                  <dd>Req → Code → Test must be green</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+        </aside>
+
+        <section class="queue-panel panel">
+          <div class="panel-head">
+            <div>
+              <p class="block-label">Control queue</p>
+              <h2 id="queueTitle">Inbox</h2>
+            </div>
+            <div class="panel-head-actions">
+              <button class="ghost-button">Saved filters</button>
+              <button class="ghost-button">Export report</button>
+            </div>
+          </div>
+
+          <div class="queue-columns">
+            <span>ID</span>
+            <span>Title</span>
+            <span>State</span>
+            <span>Gaps</span>
+            <span>Loops</span>
+            <span>Last run</span>
+            <span>Current blocker</span>
+            <span>Next action</span>
+          </div>
+          <div id="queueList" class="queue-list"></div>
+        </section>
+
+        <aside class="inspector panel">
+          <div class="panel-head">
+            <div>
+              <p class="block-label">Inspector</p>
+              <h2>Selected change</h2>
+            </div>
+            <div class="panel-head-actions">
+              <button class="ghost-button" id="clearSelectionButton">Clear selection</button>
+            </div>
+          </div>
+          <div id="inspectorContent" class="inspector-content"></div>
+        </aside>
+      </main>
+
+      <section class="detail-workspace panel">
+        <div class="detail-header">
+          <div id="detailIdentity" class="detail-identity"></div>
+          <div class="detail-actions">
+            <button class="ghost-button hidden" id="detailBackToChangeButton">Back to change</button>
+            <button class="primary-button" id="detailRunNextButton">Run next step</button>
+            <button class="ghost-button" id="detailOpenRunStudioButton">Open run studio</button>
+            <button class="ghost-button" id="detailEscalateButton">Escalate</button>
+            <button class="ghost-button" id="detailBlockBySpecButton">Mark blocked by spec</button>
+          </div>
+        </div>
+
+        <nav class="detail-tabs" id="detailTabs"></nav>
+        <div id="detailContent" class="detail-content"></div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" aria-live="polite"></div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
