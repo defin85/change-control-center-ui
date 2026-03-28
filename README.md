@@ -1,65 +1,97 @@
-# Change Control Center UI
+# Change Control Center
 
-Статичный `desktop-first` prototype для управления change-driven разработкой без kanban-метафоры. Основная сущность здесь не карточка, а `change` с явной прослеживаемостью по `runs`, `gaps`, `traceability` и `evidence`.
+Новый primary path в репо это не статический prototype, а реальный foundation stack:
+
+- `FastAPI` backend как source of truth для `tenant`, `change`, `run`, `evidence`, `clarification rounds`
+- отдельный runtime sidecar для `codex app-server` с поддержкой `stdio` и `websocket`
+- `React/Vite` operator shell поверх backend-only contracts
+- persistent state в `sqlite`
+
+Legacy prototype на [index.html](/home/egor/code/change-control-center-ui/index.html), [styles.css](/home/egor/code/change-control-center-ui/styles.css) и [app.js](/home/egor/code/change-control-center-ui/app.js) оставлен как reference artifact, но больше не является основным entrypoint.
 
 ## Что внутри
 
-- `Control Queue` вместо доски: плотная очередь change с `next action`, blocker и gap-сигналами
-- `Change Detail` с вкладками `Overview`, `Traceability`, `Runs`, `Gaps`, `Evidence`, `Git`, `Chief`
-- отдельный `Run Studio` режим внутри detail-pane для просмотра выбранного run и запуска follow-up действий
-- mock `chief-orchestrator` state machine:
-  - `draft`
-  - `approved`
-  - `executing`
-  - `review_pending`
-  - `gap_fixing`
-  - `ready_for_acceptance`
-  - `done`
-  - `blocked_by_spec`
-  - `escalated`
-- demo-данные по сущностям:
-  - `Change`
-  - `Requirement`
-  - `Run`
-  - `Gap`
-  - `EvidenceArtifact`
-- интерактивные actions на чистом HTML/CSS/JS:
-  - `Run next step`
-  - `Create targeted fix run`
-  - `Close after verification`
-  - `Escalate`
-  - `Mark blocked by spec`
+- `backend/app/main.py` — FastAPI Control API и backend-served startup path
+- `backend/app/runtime_sidecar_client.py` — backend-side HTTP client к runtime sidecar
+- `backend/app/store.py` — persistent storage для tenants, changes, runs, approvals, evidence, clarifications
+- `backend/sidecar/main.py` — отдельный FastAPI sidecar для запуска `codex app-server`
+- `backend/sidecar/runner.py` — transport-specific handshake с `codex app-server`
+- `backend/app/domain.py` — change-centric workflow, curated memory packet, focus graph, clarification logic
+- `web/` — новый React/Vite shell с `Control Queue`, `Change Detail`, `Run Studio`, `Chief`, clarification flow
 
-## Demo workflow
+## Локальный запуск
 
-В prototype уже зашиты несколько сценариев:
-
-- `ch-142`: активный review loop с recurring fingerprint и открытыми mandatory gaps
-- `ch-143`: первый apply-run, после которого chief может породить review findings
-- `ch-145`: change, остановленный в `blocked_by_spec`
-- `ch-146`: чистый happy path из `approved` в execution loop
-
-Поведение chief смоделировано детерминированно:
-
-- `approved` запускает apply-run
-- `executing` переводится в review
-- `review_pending` порождает targeted fix или escalation при recurring fingerprint
-- `ready_for_acceptance` можно закрыть только без обязательных open gaps
-- repeated high-severity finding ведет в `escalated` или `blocked_by_spec`
-
-## Структура файлов
-
-- `index.html` — общий shell, queue, detail workspace
-- `styles.css` — визуальная система и layout для queue, inspector, chief-pane, run studio
-- `app.js` — demo model, state machine, rendering, mock actions
-
-## Запуск
+1. Backend dependencies:
 
 ```bash
 cd /home/egor/code/change-control-center-ui
-python -m http.server 4173
+uv sync --all-groups
 ```
 
-После этого откройте `http://127.0.0.1:4173`.
+2. Frontend dependencies:
 
-Можно открыть и `index.html` напрямую, но через локальный HTTP сервер поведение ближе к реальному режиму эксплуатации.
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm install
+```
+
+3. Runtime sidecar:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+export CCC_RUNTIME_TRANSPORT=stdio
+export CCC_RUNTIME_COMMAND="codex app-server --listen stdio://"
+uv run uvicorn backend.sidecar.main:create_app --factory --reload --host 127.0.0.1 --port 8010
+```
+
+4. Backend development mode:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+export CCC_RUNTIME_SIDECAR_URL=http://127.0.0.1:8010
+uv run uvicorn backend.app.main:create_app --factory --reload
+```
+
+5. Frontend development mode:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run dev
+```
+
+6. Backend-served shell:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run build
+cd /home/egor/code/change-control-center-ui
+export CCC_RUNTIME_SIDECAR_URL=http://127.0.0.1:8010
+uv run uvicorn backend.app.main:create_app --factory
+```
+
+После этого откройте `http://127.0.0.1:8000`.
+
+Для `websocket` режима sidecar запускается с `CCC_RUNTIME_TRANSPORT=websocket` и `CCC_RUNTIME_WS_URL=ws://...`; backend продолжает смотреть только в `CCC_RUNTIME_SIDECAR_URL`.
+
+## Проверки
+
+Backend contracts:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+uv run pytest backend/tests -q
+```
+
+Frontend build:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run build
+```
+
+Browser e2e:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run test:e2e
+```
