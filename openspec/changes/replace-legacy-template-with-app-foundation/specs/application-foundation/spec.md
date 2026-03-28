@@ -92,11 +92,18 @@ The system SHALL persist clarification rounds and answers as part of the change 
 - **AND** later planning turns can use those answers without asking the same resolved question again
 
 ### Requirement: Codex App-Server Runtime Integration
-The system SHALL integrate interactive Codex execution through `codex app-server` instead of relying on PTY mirroring of the terminal UI as the primary execution interface.
+The system SHALL integrate interactive Codex execution through `codex app-server` via a runtime adapter that supports both `stdio` and `websocket` transports instead of relying on PTY mirroring of the terminal UI as the primary execution interface.
 
 #### Scenario: Runtime adapter starts an interactive session
-- **WHEN** the backend requests a Codex-backed run
+- **WHEN** the backend requests a Codex-backed run using the default local transport
 - **THEN** the runtime adapter launches or connects to `codex app-server`
+- **AND** the adapter can exchange structured protocol messages over `stdio`
+- **AND** the adapter exchanges structured protocol messages rather than parsing terminal text
+
+#### Scenario: Deployment selects websocket transport
+- **WHEN** the deployment config selects `websocket` transport for `codex app-server`
+- **THEN** the runtime adapter connects to the configured `ws://` endpoint for interactive Codex execution
+- **AND** the backend-owned run, approval, and event contracts remain the same as in `stdio` mode
 - **AND** the adapter exchanges structured protocol messages rather than parsing terminal text
 
 ### Requirement: Run-to-Thread Lineage

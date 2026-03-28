@@ -14,7 +14,7 @@ The same change should also reduce maintenance overhead from separately curating
 - Define a backend-owned domain model for `change`, `run`, `gap`, `traceability`, and `evidence`.
 - Define tenant scope in the dimension of repository/workspace.
 - Define `change` as the primary task thread that carries contract, working memory, and derived execution focus.
-- Define `codex app-server` as the interactive Codex runtime boundary behind a dedicated adapter.
+- Define `codex app-server` as the interactive Codex runtime boundary behind a dedicated adapter with both `stdio` and `websocket` transport support.
 - Add an interactive clarification loop for change design with structured question/answer rounds.
 - Require the UI to consume normalized backend state instead of connecting to Codex transports directly.
 - Reduce reliance on separately maintained spec and bead-style memory artifacts for the same unit of work.

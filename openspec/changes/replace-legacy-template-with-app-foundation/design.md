@@ -58,7 +58,9 @@ The planning phase also needs a first-class clarification loop. When a new chang
   - Why: It isolates protocol churn and keeps the core backend independent from app-server transport details.
 - Decision: The runtime adapter may use a separate Node/TypeScript process.
   - Why: The adapter benefits from a thin environment close to the Codex CLI and app-server protocol tooling.
-- Decision: The adapter uses `stdio` transport for `codex app-server`.
+- Decision: The adapter supports both `stdio` and `websocket` transports for `codex app-server`.
+  - Why: `stdio` is the default local integration path, while `websocket` support keeps the adapter usable in deployments where Codex runtime is exposed through a managed or remote endpoint.
+- Decision: `stdio` remains the default and preferred local transport.
   - Why: It is the default transport and the least exposed integration surface.
 - Decision: A `run` maps to one Codex thread lineage.
   - Why: This keeps execution auditable and avoids one giant thread for the whole change lifecycle.
@@ -82,6 +84,8 @@ The planning phase also needs a first-class clarification loop. When a new chang
   - Mitigation: keep each round small, require bounded question batches, and store rationale for why the round blocked planning.
 - `codex app-server` is still an evolving surface.
   - Mitigation: pin Codex version and hide protocol details behind the runtime adapter.
+- `websocket` transport for `codex app-server` is a less stable surface than `stdio`.
+  - Mitigation: keep transport selection configuration-driven, preserve identical backend contracts across transports, and treat `stdio` as the default deployment path.
 - Run-per-thread lineage may increase the number of stored thread records.
   - Mitigation: treat that as an audit benefit and add archival later if needed.
 

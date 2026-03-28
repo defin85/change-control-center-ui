@@ -1,7 +1,7 @@
 ## 1. Application Skeleton
 - [ ] 1.1 Create a production app shell for the operator UI.
 - [ ] 1.2 Create the Control API service that owns `change`, `run`, `gap`, `traceability`, and `evidence` state.
-- [ ] 1.3 Create a dedicated Codex runtime adapter that launches and communicates with `codex app-server`.
+- [ ] 1.3 Create a dedicated Codex runtime adapter that launches or connects to `codex app-server` over `stdio` and `websocket`.
 - [ ] 1.4 Add persistent storage for runs, runtime events, approval requests, and evidence artifacts.
 - [ ] 1.5 Add tenant modeling in the dimension of repository/workspace ownership.
 
@@ -15,6 +15,7 @@
 - [ ] 3.2 Persist `threadId`, `turnId`, lifecycle events, and approval state for each run.
 - [ ] 3.3 Normalize streamed runtime events into backend-owned run status for the UI.
 - [ ] 3.4 Ensure the UI never talks to `codex app-server` directly.
+- [ ] 3.5 Make transport selection (`stdio` or `websocket`) adapter-owned configuration that does not change product API contracts.
 
 ## 4. Memory Model
 - [ ] 4.1 Define tenant-level repository memory that survives across changes and sessions.
@@ -30,7 +31,7 @@
 - [ ] 5.4 Allow the planning loop to continue iteratively until the change reaches a ready-to-propose state.
 
 ## 6. Verification
-- [ ] 6.1 Add contract tests for the Control API and runtime adapter.
+- [ ] 6.1 Add contract tests for the Control API and runtime adapter, including both `stdio` and `websocket` transport modes.
 - [ ] 6.2 Add end-to-end verification for `change -> run -> review -> approval/evidence` flow.
 - [ ] 6.3 Add a startup path that verifies the new app shell works without the legacy static prototype.
 - [ ] 6.4 Add verification that a resumed change rehydrates the same working memory and task focus in a later session.
