@@ -98,25 +98,72 @@ def _base_run(
     runtime_result: dict[str, Any],
     memory_packet: dict[str, Any],
     kind: str,
+    run: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    run_record = run or {
+        "id": _next_run_id(change, existing_runs),
+        "changeId": change["id"],
+        "tenantId": change["tenantId"],
+        "kind": kind,
+        "memoryPacket": memory_packet,
+    }
+    run_record.update(
+        {
+            "kind": kind,
+            "status": runtime_result["status"],
+            "transport": runtime_result["transport"],
+            "threadId": runtime_result.get("threadId"),
+            "turnId": runtime_result.get("turnId"),
+            "worktree": change["git"]["worktree"],
+            "result": run_record.get("result", "pending"),
+            "duration": runtime_result.get("duration", "n/a"),
+            "outcome": runtime_result.get("summary", "Run started"),
+            "prompt": runtime_result["prompt"],
+            "checks": runtime_result.get("checks", []),
+            "decision": run_record.get("decision", "Chief will inspect the run outcome."),
+            "memoryPacket": memory_packet,
+        }
+    )
+    return run_record
+
+
+def create_pending_run(
+    change: dict[str, Any],
+    existing_runs: list[dict[str, Any]],
+    kind: str,
+    memory_packet: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "id": _next_run_id(change, existing_runs),
         "changeId": change["id"],
         "tenantId": change["tenantId"],
         "kind": kind,
-        "status": runtime_result["status"],
-        "transport": runtime_result["transport"],
-        "threadId": runtime_result.get("threadId"),
-        "turnId": runtime_result.get("turnId"),
+        "status": "queued",
+        "transport": "pending",
+        "threadId": None,
+        "turnId": None,
         "worktree": change["git"]["worktree"],
         "result": "pending",
-        "duration": runtime_result.get("duration", "n/a"),
-        "outcome": runtime_result.get("summary", "Run started"),
-        "prompt": runtime_result["prompt"],
-        "checks": runtime_result.get("checks", []),
+        "duration": "n/a",
+        "outcome": "Waiting for runtime adapter to start the run.",
+        "prompt": f"/{kind} {change['id']}",
+        "checks": [],
         "decision": "Chief will inspect the run outcome.",
         "memoryPacket": memory_packet,
     }
+
+
+def mark_change_run_started(change: dict[str, Any], kind: str) -> dict[str, Any]:
+    change["lastRunAgo"] = "just now"
+    change["summary"] = "A backend-owned run is currently executing."
+    change["nextAction"] = "Run in progress"
+    change["blocker"] = "Waiting for runtime completion"
+    if kind != "design":
+        change["state"] = "executing"
+    touch_change(change)
+    prepend_timeline(change, f"{kind.title()} queued", "Chief recorded the run before runtime execution started.")
+    add_chief_event(change, "Run queued", f"{kind} run was persisted before runtime execution started.")
+    return change
 
 
 def create_apply_run(
@@ -124,8 +171,9 @@ def create_apply_run(
     existing_runs: list[dict[str, Any]],
     runtime_result: dict[str, Any],
     memory_packet: dict[str, Any],
+    run: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
-    run = _base_run(change, existing_runs, runtime_result, memory_packet, "apply")
+    run = _base_run(change, existing_runs, runtime_result, memory_packet, "apply", run=run)
     run["result"] = "done" if runtime_result["status"] == "completed" else "failed"
     run["outcome"] = "initial implementation pass complete" if run["result"] == "done" else "apply run failed"
     run["decision"] = "Chief scheduled review next." if run["result"] == "done" else "Chief requires intervention."
@@ -160,8 +208,9 @@ def create_design_run(
     existing_runs: list[dict[str, Any]],
     runtime_result: dict[str, Any],
     memory_packet: dict[str, Any],
+    run: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
-    run = _base_run(change, existing_runs, runtime_result, memory_packet, "design")
+    run = _base_run(change, existing_runs, runtime_result, memory_packet, "design", run=run)
     run["result"] = "done" if runtime_result["status"] == "completed" else "failed"
     run["outcome"] = "design refinement complete" if run["result"] == "done" else "design run failed"
     run["decision"] = "Chief can continue planning on the same change thread."
@@ -177,6 +226,10 @@ def create_design_run(
 
     change["lastRunAgo"] = "just now"
     change["summary"] = "Planning run executed with curated memory packet."
+    if not change["memory"].get("openQuestions"):
+        change["state"] = "ready_to_propose"
+        change["nextAction"] = "Create proposal"
+        change["blocker"] = "No blocker"
     touch_change(change)
     prepend_timeline(change, f"Design {run['id']}", "Architect skill executed against current change memory.")
     add_chief_event(change, "Planning run executed", f"Thread {run.get('threadId') or 'pending'} used curated memory.")
@@ -188,8 +241,9 @@ def create_review_run(
     existing_runs: list[dict[str, Any]],
     runtime_result: dict[str, Any],
     memory_packet: dict[str, Any],
+    run: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
-    run = _base_run(change, existing_runs, runtime_result, memory_packet, "review")
+    run = _base_run(change, existing_runs, runtime_result, memory_packet, "review", run=run)
     run["result"] = "partial"
     run["outcome"] = "review findings collected"
     run["decision"] = "Chief will decide whether to fix, accept, or escalate."
@@ -241,6 +295,7 @@ def infer_run_kind(change: dict[str, Any]) -> str:
         "review_pending": "finish",
         "gap_fixing": "review",
         "draft": "design",
+        "ready_to_propose": "design",
     }.get(change["state"], "design")
 
 
@@ -249,8 +304,9 @@ def create_targeted_fix_run(
     existing_runs: list[dict[str, Any]],
     runtime_result: dict[str, Any],
     memory_packet: dict[str, Any],
+    run: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
-    run = _base_run(change, existing_runs, runtime_result, memory_packet, "finish")
+    run = _base_run(change, existing_runs, runtime_result, memory_packet, "finish", run=run)
     run["result"] = "done" if runtime_result["status"] == "completed" else "failed"
     run["outcome"] = "targeted fix pass complete" if run["result"] == "done" else "targeted fix failed"
     run["decision"] = "Chief will re-run review on the remaining surface."
@@ -288,14 +344,15 @@ def apply_run_transition(
     runtime_result: dict[str, Any],
     memory_packet: dict[str, Any],
     kind: str,
+    run: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
     if kind == "apply":
-        return create_apply_run(change, existing_runs, runtime_result, memory_packet)
+        return create_apply_run(change, existing_runs, runtime_result, memory_packet, run=run)
     if kind == "review":
-        return create_review_run(change, existing_runs, runtime_result, memory_packet)
+        return create_review_run(change, existing_runs, runtime_result, memory_packet, run=run)
     if kind == "finish":
-        return create_targeted_fix_run(change, existing_runs, runtime_result, memory_packet)
-    return create_design_run(change, existing_runs, runtime_result, memory_packet)
+        return create_targeted_fix_run(change, existing_runs, runtime_result, memory_packet, run=run)
+    return create_design_run(change, existing_runs, runtime_result, memory_packet, run=run)
 
 
 def create_auto_clarification_round(change: dict[str, Any]) -> dict[str, Any]:
@@ -356,6 +413,37 @@ def answer_clarification_round(round_data: dict[str, Any], answers: list[dict[st
     return round_data
 
 
+def record_clarification_answers(change: dict[str, Any], round_data: dict[str, Any]) -> dict[str, Any]:
+    questions = {question["id"]: question for question in round_data["questions"]}
+    clarifications = change["memory"].setdefault("clarifications", [])
+    for answer in round_data["answers"]:
+        question = questions[answer["questionId"]]
+        clarifications.append(
+            {
+                "questionId": answer["questionId"],
+                "question": question["label"],
+                "selectedOptionId": answer["selectedOptionId"],
+                "freeformNote": answer.get("freeformNote"),
+            }
+        )
+        if question["label"] in change["memory"].get("openQuestions", []):
+            change["memory"]["openQuestions"].remove(question["label"])
+        decision_note = f"{question['label']} -> {answer['selectedOptionId']}"
+        if answer.get("freeformNote"):
+            decision_note = f"{decision_note} ({answer['freeformNote']})"
+        change["memory"]["decisions"].append(decision_note)
+
+    if not change["memory"].get("openQuestions"):
+        change["state"] = "ready_to_propose"
+        change["nextAction"] = "Create proposal"
+        change["blocker"] = "No blocker"
+        change["summary"] = "Clarifications are resolved and the change is ready for proposal."
+    touch_change(change)
+    prepend_timeline(change, "Clarifications answered", "Structured planning answers were written into change memory.")
+    add_chief_event(change, "Clarifications stored", "Planning can resume on the same change thread.")
+    return change
+
+
 def create_tenant_fact(tenant_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": f"fact-{uuid.uuid4().hex[:8]}",
@@ -366,21 +454,105 @@ def create_tenant_fact(tenant_id: str, payload: dict[str, Any]) -> dict[str, Any
     }
 
 
+def build_approval_record(tenant_id: str, run_id: str, event: dict[str, Any], index: int) -> dict[str, Any]:
+    payload = event["payload"]
+    return {
+        "id": f"apr-{run_id}-{index}",
+        "runId": run_id,
+        "tenantId": tenant_id,
+        "status": "pending",
+        "kind": event["type"],
+        "reason": payload.get("reason", ""),
+        "payload": payload,
+    }
+
+
 def normalize_approvals(tenant_id: str, run_id: str, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    approvals: list[dict[str, Any]] = []
-    for index, event in enumerate(events, start=1):
-        if not event["type"].endswith("requestApproval"):
-            continue
-        payload = event["payload"]
-        approvals.append(
-            {
-                "id": f"apr-{run_id}-{index}",
-                "runId": run_id,
-                "tenantId": tenant_id,
-                "status": "pending",
-                "kind": event["type"],
-                "reason": payload.get("reason", ""),
-                "payload": payload,
-            }
-        )
-    return approvals
+    return [
+        build_approval_record(tenant_id, run_id, event, index)
+        for index, event in enumerate(events, start=1)
+        if event["type"].endswith("requestApproval")
+    ]
+
+
+def apply_approval_decision(approval: dict[str, Any], decision: str) -> dict[str, Any]:
+    approval["status"] = "accepted" if decision in {"accept", "acceptForSession"} else "declined"
+    approval["decision"] = decision
+    return approval
+
+
+def create_change(tenant_id: str, title: str | None = None) -> dict[str, Any]:
+    suffix = uuid.uuid4().hex[:4]
+    human_title = title or "New change"
+    return {
+        "id": f"ch-{suffix}",
+        "tenantId": tenant_id,
+        "title": human_title,
+        "subtitle": "Draft change created from the new product shell",
+        "state": "draft",
+        "owner": "chief",
+        "createdAt": iso_now(),
+        "updatedAt": iso_now(),
+        "lastRunAgo": "not started",
+        "blocker": "Clarify goals and scope",
+        "nextAction": "Design change",
+        "requirementsLinked": 0,
+        "requirementsTotal": 0,
+        "loopCount": 0,
+        "specStatus": "draft",
+        "verificationStatus": "not started",
+        "summary": "Draft change created in the backend-owned shell.",
+        "policy": {
+            "maxAutoCycles": 3,
+            "escalationRule": "fingerprint repeated twice",
+            "acceptanceGate": "Req -> Code -> Test",
+        },
+        "chiefHistory": [],
+        "traceability": [],
+        "gaps": [],
+        "git": {
+            "worktree": "not created",
+            "branch": "not created",
+            "changedFiles": 0,
+            "commitStatus": "not started",
+            "prStatus": "no PR",
+            "mergeReadiness": "not ready",
+        },
+        "timeline": [{"title": "Draft created", "note": "New change started from the operator shell."}],
+        "contract": {
+            "goal": human_title,
+            "scope": [],
+            "acceptanceCriteria": [],
+            "constraints": [],
+        },
+        "memory": {
+            "summary": "Draft change awaiting clarification.",
+            "openQuestions": ["What problem should this change solve?"],
+            "decisions": [],
+            "facts": [],
+            "activeFocus": ["Clarify goal"],
+            "clarifications": [],
+        },
+    }
+
+
+def escalate_change(change: dict[str, Any]) -> dict[str, Any]:
+    change["state"] = "escalated"
+    change["nextAction"] = "Operator intervention required"
+    change["blocker"] = "Escalated by chief"
+    change["summary"] = "Chief escalated the change for operator review."
+    touch_change(change)
+    prepend_timeline(change, "Escalated", "Chief escalated the change for human intervention.")
+    add_chief_event(change, "Escalated", "Operator review is required.")
+    return change
+
+
+def block_change_by_spec(change: dict[str, Any]) -> dict[str, Any]:
+    change["state"] = "blocked_by_spec"
+    change["nextAction"] = "Clarify specification"
+    change["blocker"] = "Blocked by specification ambiguity"
+    change["summary"] = "Chief blocked the change until the specification is clarified."
+    touch_change(change)
+    prepend_timeline(change, "Blocked by spec", "Specification ambiguity blocks further runtime execution.")
+    add_chief_event(change, "Blocked by spec", "Specification clarification is required.")
+    return change

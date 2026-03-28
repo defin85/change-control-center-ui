@@ -1,1 +1,1 @@
-{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/components/ChangeDetail.tsx","./src/components/ClarificationPanel.tsx","./src/components/QueuePanel.tsx","./src/components/RunStudio.tsx"],"version":"5.9.3"}
+{"root":["./src/App.tsx","./src/api.ts","./src/lib.ts","./src/main.tsx","./src/types.ts","./src/components/ChangeDetail.tsx","./src/components/ClarificationPanel.tsx","./src/components/InspectorPanel.tsx","./src/components/OperatorRail.tsx","./src/components/QueuePanel.tsx","./src/components/RunStudio.tsx"],"version":"5.9.3"}

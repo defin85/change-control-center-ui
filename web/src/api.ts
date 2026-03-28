@@ -4,6 +4,8 @@ import type {
   ChangeDetailResponse,
   ClarificationAnswer,
   ClarificationRound,
+  RuntimeEvent,
+  RunDetailResponse,
   RunRecord,
 } from "./types";
 
@@ -32,11 +34,18 @@ export function fetchChangeDetail(tenantId: string, changeId: string): Promise<C
   return request(`/api/tenants/${tenantId}/changes/${changeId}`);
 }
 
+type RunMutationResponse = {
+  run: RunRecord;
+  events: RuntimeEvent[];
+  approvals: ApprovalRecord[];
+  change: ChangeDetailResponse["change"];
+};
+
 export function createRun(
   tenantId: string,
   changeId: string,
   kind: string,
-): Promise<{ run: RunRecord; change: ChangeDetailResponse["change"] }> {
+): Promise<RunMutationResponse> {
   return request(`/api/tenants/${tenantId}/changes/${changeId}/runs`, {
     method: "POST",
     body: JSON.stringify({ kind }),
@@ -46,7 +55,7 @@ export function createRun(
 export function runNext(
   tenantId: string,
   changeId: string,
-): Promise<{ run: RunRecord; change: ChangeDetailResponse["change"] }> {
+): Promise<RunMutationResponse> {
   return request(`/api/tenants/${tenantId}/changes/${changeId}/actions/run-next`, {
     method: "POST",
   });
@@ -55,7 +64,7 @@ export function runNext(
 export function fetchRunDetail(
   tenantId: string,
   runId: string,
-): Promise<{ run: RunRecord; approvals: ApprovalRecord[] }> {
+): Promise<RunDetailResponse> {
   return request(`/api/tenants/${tenantId}/runs/${runId}`);
 }
 
@@ -88,5 +97,44 @@ export function promoteFact(
   return request(`/api/tenants/${tenantId}/changes/${changeId}/promotions`, {
     method: "POST",
     body: JSON.stringify({ fact: { title, body } }),
+  });
+}
+
+export function createChange(
+  tenantId: string,
+  title?: string,
+): Promise<{ change: ChangeDetailResponse["change"] }> {
+  return request(`/api/tenants/${tenantId}/changes`, {
+    method: "POST",
+    body: JSON.stringify(title ? { title } : {}),
+  });
+}
+
+export function escalateChange(
+  tenantId: string,
+  changeId: string,
+): Promise<{ change: ChangeDetailResponse["change"] }> {
+  return request(`/api/tenants/${tenantId}/changes/${changeId}/actions/escalate`, {
+    method: "POST",
+  });
+}
+
+export function blockChangeBySpec(
+  tenantId: string,
+  changeId: string,
+): Promise<{ change: ChangeDetailResponse["change"] }> {
+  return request(`/api/tenants/${tenantId}/changes/${changeId}/actions/block-by-spec`, {
+    method: "POST",
+  });
+}
+
+export function decideApproval(
+  tenantId: string,
+  approvalId: string,
+  decision: "accept" | "decline",
+): Promise<{ approval: ApprovalRecord }> {
+  return request(`/api/tenants/${tenantId}/approvals/${approvalId}/decision`, {
+    method: "POST",
+    body: JSON.stringify({ decision }),
   });
 }

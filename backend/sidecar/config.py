@@ -19,7 +19,8 @@ def load_settings() -> SidecarSettings:
     if transport not in {"stdio", "websocket"}:
         raise ValueError(f"Unsupported runtime transport: {transport}")
 
-    command_text = os.environ.get("CCC_RUNTIME_COMMAND", "").strip()
+    default_command = "codex app-server --listen stdio://"
+    command_text = os.environ.get("CCC_RUNTIME_COMMAND", default_command if transport == "stdio" else "").strip()
     command = shlex.split(command_text) if command_text else []
     ws_url = os.environ.get("CCC_RUNTIME_WS_URL") or None
 

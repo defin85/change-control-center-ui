@@ -26,6 +26,11 @@ export type FocusItem = {
   status: string;
 };
 
+export type RuntimeEvent = {
+  type: string;
+  payload: Record<string, unknown>;
+};
+
 export type RunRecord = {
   id: string;
   changeId: string;
@@ -106,6 +111,12 @@ export type ChangeDetailResponse = {
     nextAction: string;
     verificationStatus: string;
     loopCount: number;
+    owner?: string;
+    policy?: {
+      maxAutoCycles: number;
+      escalationRule: string;
+      acceptanceGate: string;
+    };
     contract: {
       goal: string;
       scope: string[];
@@ -128,6 +139,7 @@ export type ChangeDetailResponse = {
       status: string;
       summary: string;
       recurrence: number;
+      reqRef?: string;
     }>;
     timeline: Array<{ title: string; note: string }>;
     git: {
@@ -144,6 +156,12 @@ export type ChangeDetailResponse = {
   clarificationRounds: ClarificationRound[];
   focusGraph: { items: FocusItem[] };
   tenantMemory: Array<{ id?: string; title: string; body: string }>;
+};
+
+export type RunDetailResponse = {
+  run: RunRecord;
+  events: RuntimeEvent[];
+  approvals: ApprovalRecord[];
 };
 
 export type BootstrapResponse = {
