@@ -12,7 +12,7 @@ export type WorkflowSurfaceDescriptor = {
 export const WORKFLOW_SURFACES: WorkflowSurfaceDescriptor[] = [
   {
     id: "run-execution",
-    label: "Run execution and selected run context",
+    label: "Run execution commands and selected run context",
     entrypoint: "Change Detail actions -> Run next step / Open run studio",
     backendEntities: ["change", "run", "runtime events", "evidence"],
     currentEntrypoints: [
@@ -21,9 +21,10 @@ export const WORKFLOW_SURFACES: WorkflowSurfaceDescriptor[] = [
       "web/src/platform/server-state/useOperatorServerState.ts",
     ],
     reason:
-      "Selected run context mutates across run creation, run selection, runtime-event refresh, and detail reconciliation. This is a multi-step operator flow rather than a presentational toggle.",
+      "Run execution uses an explicit command boundary for mutation lifecycle, while selected run context stays under shared server-state orchestration so browser navigation and backend rehydration remain the single source of truth.",
     boundaryStatus: "implemented",
-    boundaryOwner: "web/src/platform/workflow/useAsyncWorkflowCommandMachine.ts",
+    boundaryOwner:
+      "web/src/platform/workflow/useAsyncWorkflowCommandMachine.ts + web/src/platform/server-state/useOperatorServerState.ts",
   },
   {
     id: "approval-resolution",

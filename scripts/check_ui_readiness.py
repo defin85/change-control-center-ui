@@ -56,6 +56,8 @@ def main() -> int:
         [
             "docs/agent/verification.md",
             "default smoke path",
+            "npm run lint",
+            "npm run test:e2e:platform",
         ],
         errors,
     )

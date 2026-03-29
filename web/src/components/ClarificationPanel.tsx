@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { PlatformPrimitives } from "../platform/foundation";
+import { PlatformPrimitives, PlatformTextArea } from "../platform/foundation";
 import { useAsyncWorkflowCommandMachine } from "../platform/workflow";
 import { AuthoringShell } from "../platform/shells/AuthoringShell";
 import type { ClarificationAnswer, ClarificationRound } from "../types";
@@ -136,8 +136,9 @@ export function ClarificationPanel({
                 ))}
               </PlatformPrimitives.RadioGroup>
               {question.allowOther && (
-                <textarea
+                <PlatformTextArea
                   value={notes[question.id] ?? ""}
+                  data-platform-foundation="platform-clarification-textarea"
                   placeholder="Дополнительный комментарий"
                   onChange={(event) =>
                     setNotes((current) => ({

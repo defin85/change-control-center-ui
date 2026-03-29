@@ -108,6 +108,7 @@ test("wires the approved foundations on the default operator path @platform", as
 
   await expect(page.locator('[data-platform-foundation="base-ui-clarification-actions"]')).toHaveCount(2);
   await expect(page.locator('[data-platform-foundation="base-ui-radio-group"]')).toHaveCount(1);
+  await expect(page.locator('[data-platform-foundation="platform-clarification-textarea"]')).toHaveCount(1);
 });
 
 test("creates a run and shows runtime lineage in run studio @platform", async ({ page }) => {
@@ -219,6 +220,29 @@ test("restores search query through browser navigation @platform", async ({ page
 
   await expect(search).toHaveValue("ch-142");
   await expect(page).toHaveURL(/q=ch-142/);
+});
+
+test("keeps selected operator context inside the visible filtered queue slice @platform", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(page.getByRole("heading", { name: "Replace static template with real operator shell" })).toBeVisible();
+
+  const search = page.getByLabel("Search");
+  await search.fill("ch-146");
+
+  await expect(page).toHaveURL(/q=ch-146/);
+  await expect(page).toHaveURL(/change=ch-146/);
+  await expect(page.getByRole("heading", { name: "Bootstrap real app stack" })).toBeVisible();
+  await expect(page.locator(".queue-panel").getByRole("button", { name: /ch-142/i })).toHaveCount(0);
+  await expect(page.locator(".queue-panel").getByRole("button", { name: /ch-146/i })).toHaveCount(1);
+
+  await page.goBack();
+
+  await expect(search).toHaveValue("");
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(page.getByRole("heading", { name: "Replace static template with real operator shell" })).toBeVisible();
 });
 
 test("rehydrates queue context from backend state during same-tenant browser navigation @platform", async ({ page }) => {
@@ -392,4 +416,34 @@ test("operator actions create a change, mutate its state, and resolve runtime ap
 
   await expect(runStudio.getByText(/accepted/i)).toBeVisible();
   await expect(runStudio.getByText("serverRequest/resolved")).toBeVisible();
+});
+
+test("uses approved platform foundations across required operator surfaces @platform", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-view-action"]')).toHaveCount(5);
+  await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-filter-action"]')).toHaveCount(3);
+  await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(2);
+
+  await page.getByLabel("Search").fill("ch-142");
+  await page.getByRole("button", { name: /ch-142/i }).click();
+
+  await expect(page.locator('[data-platform-foundation="base-ui-queue-row"]')).toHaveCount(1);
+  await expect(page.locator('[data-platform-foundation="base-ui-inspector-actions"]')).toHaveCount(1);
+
+  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  await detailPanel.getByRole("tab", { name: "Runs" }).click();
+  await expect(page.getByRole("button", { name: /run-30/i })).toHaveAttribute("data-platform-foundation", "base-ui-run-row");
+
+  await detailPanel.getByRole("tab", { name: "Gaps" }).click();
+  await expect(page.locator('[data-platform-foundation="base-ui-gap-row"]')).toHaveCount(1);
+
+  await detailPanel.getByRole("tab", { name: "Chief" }).click();
+  await expect(page.locator('[data-platform-foundation="base-ui-chief-input"]')).toHaveCount(1);
+  await expect(page.locator('[data-platform-foundation="platform-chief-textarea"]')).toHaveCount(1);
+  await expect(page.locator('[data-platform-foundation="base-ui-chief-actions"]')).toHaveCount(1);
+
+  await detailPanel.getByRole("tab", { name: "Clarifications" }).click();
+  await detailPanel.getByRole("button", { name: /generate round/i }).click();
+  await expect(page.locator('[data-platform-foundation="platform-clarification-textarea"]')).toHaveCount(2);
 });

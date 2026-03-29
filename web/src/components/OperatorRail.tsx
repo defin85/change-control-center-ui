@@ -1,4 +1,5 @@
 import type { BootstrapResponse, ChangeDetailResponse, ChangeSummary } from "../types";
+import { PlatformPrimitives } from "../platform/foundation";
 import { describeView, matchesView, OPERATOR_FILTERS } from "../platform/server-state";
 
 type OperatorRailProps = {
@@ -37,10 +38,11 @@ export function OperatorRail({
           {views.map((view) => {
             const count = viewCounts[view.id] ?? changes.filter((change) => matchesView(change, view.id)).length;
             return (
-              <button
+              <PlatformPrimitives.Button
                 key={view.id}
                 type="button"
                 className={`rail-chip ${activeViewId === view.id ? "active" : ""}`}
+                data-platform-foundation="base-ui-operator-rail-view-action"
                 onClick={() => onSelectView(view.id)}
               >
                 <span>
@@ -48,7 +50,7 @@ export function OperatorRail({
                   <small>{describeView(view.id)}</small>
                 </span>
                 <span>{count}</span>
-              </button>
+              </PlatformPrimitives.Button>
             );
           })}
         </div>
@@ -63,15 +65,16 @@ export function OperatorRail({
         </div>
         <div className="chip-grid">
           {OPERATOR_FILTERS.map((filter) => (
-            <button
+            <PlatformPrimitives.Button
               key={filter.id}
               type="button"
               className={`filter-chip ${activeFilterId === filter.id ? "active" : ""}`}
+              data-platform-foundation="base-ui-operator-rail-filter-action"
               onClick={() => onSelectFilter(filter.id)}
             >
               <strong>{filter.label}</strong>
               <small>{filter.hint}</small>
-            </button>
+            </PlatformPrimitives.Button>
           ))}
         </div>
       </section>

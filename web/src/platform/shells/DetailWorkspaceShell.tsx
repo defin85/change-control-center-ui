@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { PlatformPrimitives } from "../foundation";
+
 type DetailWorkspaceShellProps = {
   detail: ReactNode;
   runInspection: ReactNode;
@@ -10,7 +12,7 @@ type DetailWorkspaceShellProps = {
 export function DetailWorkspaceShell({ detail, runInspection, isOpen, onClose }: DetailWorkspaceShellProps) {
   return (
     <section className="detail-stage" data-platform-shell="detail-workspace" data-platform-open={isOpen ? "true" : "false"}>
-      <button
+      <PlatformPrimitives.Button
         type="button"
         className="detail-stage-backdrop"
         aria-label="Close detail workspace"
@@ -22,9 +24,9 @@ export function DetailWorkspaceShell({ detail, runInspection, isOpen, onClose }:
             <p className="block-label">Detail workspace</p>
             <strong>Selected change context</strong>
           </div>
-          <button type="button" className="ghost-button" onClick={onClose}>
+          <PlatformPrimitives.Button type="button" className="ghost-button" onClick={onClose}>
             Close workspace
-          </button>
+          </PlatformPrimitives.Button>
         </div>
         <div className="detail-stage-content">
           <div data-platform-slot="detail">{detail}</div>

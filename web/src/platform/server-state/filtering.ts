@@ -78,6 +78,19 @@ export function describeFilter(filterId: string) {
   );
 }
 
+export function resolveVisibleChangeSelection(
+  changes: ChangeSummary[],
+  context: OperatorFilterContext,
+  preferredChangeId: string | null | undefined,
+  shouldAutoSelectChange: boolean,
+) {
+  const visibleChanges = filterChanges(changes, context);
+  if (!preferredChangeId && !shouldAutoSelectChange) {
+    return null;
+  }
+  return resolveChangeSelection(visibleChanges, preferredChangeId);
+}
+
 export function describeView(viewId: string) {
   return OPERATOR_VIEW_HINTS[viewId] ?? "Operator workbench slice";
 }

@@ -1,3 +1,4 @@
+import { PlatformPrimitives } from "../platform/foundation";
 import type { ChangeDetailResponse } from "../types";
 
 type InspectorPanelProps = {
@@ -16,9 +17,15 @@ export function InspectorPanel({ detail, selectedChangeId, onClearSelection }: I
           <p className="block-label">Inspector</p>
           <h2>{selectedChangeId ? "Selected change" : "No selection"}</h2>
         </div>
-        <button type="button" className="ghost-button" onClick={onClearSelection} disabled={!selectedChangeId}>
+        <PlatformPrimitives.Button
+          type="button"
+          className="ghost-button"
+          data-platform-foundation="base-ui-inspector-actions"
+          onClick={onClearSelection}
+          disabled={!selectedChangeId}
+        >
           Clear selection
-        </button>
+        </PlatformPrimitives.Button>
       </div>
 
       {!change ? (

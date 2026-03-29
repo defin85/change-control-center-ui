@@ -8,10 +8,14 @@
   - Purpose: primitive interaction building blocks such as dialogs, drawers, popovers, menus, tabs, fields, and form helpers.
   - Use it for: low-level behavior inside platform shells and feature internals.
   - Do not use it for: route-level page composition or as a second page framework.
+- `web/src/platform/foundation/*`
+  - Purpose: project-owned thin wrappers that keep missing primitives, such as multiline authoring fields, inside the approved foundation boundary instead of scattering raw controls across features.
+  - Use it for: the smallest possible bridge when the approved primitive stack does not ship an exact control.
+  - Do not use it for: inventing a second primitive system or bypassing `@base-ui/react` where it already provides the needed control.
 
 - `xstate` and `@xstate/react`
   - Purpose: explicit workflow state boundaries for multi-step operator flows.
-  - Use it for: run execution, approvals, clarifications, and similar transition-heavy flows.
+  - Use it for: command lifecycles in run execution, approvals, clarifications, and similar transition-heavy flows.
   - Do not use it for: simple presentational toggles, one-field drafts, or ordinary local component state.
 
 - `@tanstack/react-table`
@@ -36,6 +40,7 @@
 ## Current approved entrypoints
 
 - `platform/foundation/primitives.ts`
+- `platform/foundation/fields.tsx`
 - `platform/foundation/state.ts`
 - `platform/foundation/table.ts`
 - `platform/foundation/stack.ts`
@@ -52,7 +57,7 @@
 
 - `platform/workflow/surfaces.ts`
   - Workflow-heavy surfaces currently shipped behind explicit state boundaries:
-    - `run-execution`
+    - `run-execution` command lifecycle via `useAsyncWorkflowCommandMachine`, with selected-run context preserved in shared server-state orchestration
     - `approval-resolution`
     - `clarification-rounds`
   - Presentational state that should stay outside the workflow layer:

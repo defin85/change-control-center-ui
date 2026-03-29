@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { ClarificationPanel } from "./ClarificationPanel";
 import { formatStateLabel } from "../lib";
-import { PlatformPrimitives } from "../platform/foundation";
+import { PlatformPrimitives, PlatformTextArea } from "../platform/foundation";
 import { DetailPanelShell } from "../platform/shells/DetailPanelShell";
 import { StatusBadge } from "../platform/shells/StatusBadge";
 import { useAsyncWorkflowCommandMachine } from "../platform/workflow";
@@ -246,7 +246,13 @@ export function ChangeDetail({
             <span>Outcome</span>
           </div>
           {runs.map((run) => (
-            <button key={run.id} type="button" className="table-row run-row" onClick={() => onSelectRun(run.id)}>
+            <PlatformPrimitives.Button
+              key={run.id}
+              type="button"
+              className="table-row run-row"
+              data-platform-foundation="base-ui-run-row"
+              onClick={() => onSelectRun(run.id)}
+            >
               <span>
                 <strong>{run.id}</strong>
               </span>
@@ -256,7 +262,7 @@ export function ChangeDetail({
                 {run.threadId ?? "no thread"} / {run.turnId ?? "no turn"}
               </span>
               <span>{run.outcome}</span>
-            </button>
+            </PlatformPrimitives.Button>
           ))}
         </div>
       )}
@@ -276,7 +282,13 @@ export function ChangeDetail({
             <div className="empty-state">No open findings yet.</div>
           ) : (
             change.gaps.map((gap) => (
-              <button key={gap.id} type="button" className="table-row gap-row" onClick={() => onBlockBySpec()}>
+              <PlatformPrimitives.Button
+                key={gap.id}
+                type="button"
+                className="table-row gap-row"
+                data-platform-foundation="base-ui-gap-row"
+                onClick={() => onBlockBySpec()}
+              >
                 <span>
                   <strong>{gap.id}</strong>
                 </span>
@@ -286,7 +298,7 @@ export function ChangeDetail({
                 <span>{gap.status}</span>
                 <span>{gap.recurrence}</span>
                 <span>{gap.summary}</span>
-              </button>
+              </PlatformPrimitives.Button>
             ))
           )}
         </div>
@@ -363,19 +375,22 @@ export function ChangeDetail({
           </div>
           <div className="card">
             <p className="eyebrow">Promote Durable Fact</p>
-            <input
+            <PlatformPrimitives.Input
               value={factTitle}
+              data-platform-foundation="base-ui-chief-input"
               onChange={(event) => setFactTitle(event.target.value)}
               placeholder="Fact title"
             />
-            <textarea
+            <PlatformTextArea
               value={factBody}
+              data-platform-foundation="platform-chief-textarea"
               onChange={(event) => setFactBody(event.target.value)}
               placeholder="Why this fact should enter tenant memory"
             />
-            <button
+            <PlatformPrimitives.Button
               type="button"
               className="ghost-button"
+              data-platform-foundation="base-ui-chief-actions"
               onClick={() => {
                 if (!factTitle.trim() || !factBody.trim()) {
                   return;
@@ -387,7 +402,7 @@ export function ChangeDetail({
               }}
             >
               Promote fact
-            </button>
+            </PlatformPrimitives.Button>
           </div>
           <div className="card">
             <p className="eyebrow">Tenant Memory</p>

@@ -85,13 +85,13 @@ uv run uvicorn backend.app.main:create_app --factory
 
 Для `websocket` режима sidecar запускается с `CCC_RUNTIME_TRANSPORT=websocket` и `CCC_RUNTIME_WS_URL=ws://...`; backend продолжает смотреть только в `CCC_RUNTIME_SIDECAR_URL`.
 
-## Что уже работает на default path
+## Что уже работает на shipped operator path
 
 - `New change` создает backend-owned draft change и добавляет его в control queue
 - `Escalate` и `Mark blocked by spec` меняют состояние change через Control API
 - `Run next step` создает persisted run до старта runtime
-- `Run Studio` показывает `threadId`, `turnId`, runtime events и approval records
-- pending approvals принимаются или отклоняются из UI, после чего backend продолжает run и фиксирует итоговые events/evidence
+- `Run Studio` читает lineage, approvals, evidence и runtime events из backend-owned state
+- operator approvals и clarification flows идут через тот же backend-owned shell, без frontend-only fallback path
 
 ## Проверки
 
@@ -108,6 +108,8 @@ npm run test:e2e
 ```
 
 `npm run test:e2e` не должен заменяться frontend-only dev server path. Для manual backend-served проверки и fast dev loop используйте тот же runbook.
+
+Default smoke path доказывает backend-served shell health и минимальный operator flow. Более глубокая проверка platform contract, route-addressable context, run lineage и расширенных browser scenarios живет в `npm run test:e2e:platform` и `npm run test:e2e:full`.
 
 Если изменение затрагивает operator UI platform contract, поверх default smoke path дополнительно запускайте:
 

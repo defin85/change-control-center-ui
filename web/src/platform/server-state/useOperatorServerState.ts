@@ -32,7 +32,7 @@ import {
 } from "../navigation";
 import { useTenantRealtimeBoundary } from "../realtime";
 import type { OperatorWorkbenchProps } from "../workbench/OperatorWorkbench";
-import { filterChanges, resolveChangeSelection, resolveTenantId, resolveViewId } from "./filtering";
+import { filterChanges, resolveTenantId, resolveViewId, resolveVisibleChangeSelection } from "./filtering";
 
 type OperatorServerStateResult =
   | {
@@ -123,16 +123,26 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
     const nextTenantId = resolveTenantId(bootstrap, routeState.tenantId ?? activeTenantRef.current ?? bootstrap.activeTenantId);
     const nextViewId = resolveViewId(bootstrap, routeState.viewId ?? DEFAULT_OPERATOR_VIEW_ID, DEFAULT_OPERATOR_VIEW_ID);
+    const nextFilterId = routeState.filterId ?? DEFAULT_OPERATOR_FILTER_ID;
+    const nextSearchQuery = routeState.searchQuery ?? "";
     const queueSnapshot = (await fetchChanges(nextTenantId)).changes;
-    const nextSelectedChangeId =
-      routeState.changeId || shouldAutoSelectChange ? resolveChangeSelection(queueSnapshot, routeState.changeId) : null;
+    const nextSelectedChangeId = resolveVisibleChangeSelection(
+      queueSnapshot,
+      {
+        activeViewId: nextViewId,
+        activeFilterId: nextFilterId,
+        searchQuery: nextSearchQuery,
+      },
+      routeState.changeId,
+      shouldAutoSelectChange,
+    );
 
     setActiveTenantId(nextTenantId);
     activeTenantRef.current = nextTenantId;
     setChanges(queueSnapshot);
     setActiveViewId(nextViewId);
-    setActiveFilterId(routeState.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
-    setSearchQuery(routeState.searchQuery ?? "");
+    setActiveFilterId(nextFilterId);
+    setSearchQuery(nextSearchQuery);
     setActiveTabId(routeState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
     selectChange(nextSelectedChangeId);
 
@@ -163,14 +173,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
   );
 
   const activeSelectedChangeId = useMemo(() => {
-    if (selectedChangeId && changes.some((change) => change.id === selectedChangeId)) {
+    if (selectedChangeId && filteredChanges.some((change) => change.id === selectedChangeId)) {
       return selectedChangeId;
     }
     if (!shouldAutoSelectChange) {
       return null;
     }
     return filteredChanges[0]?.id ?? null;
-  }, [changes, filteredChanges, selectedChangeId, shouldAutoSelectChange]);
+  }, [filteredChanges, selectedChangeId, shouldAutoSelectChange]);
 
   const activeDetail = useMemo(() => {
     if (!activeSelectedChangeId) {
@@ -201,6 +211,8 @@ export function useOperatorServerState(): OperatorServerStateResult {
           initialRouteState.viewId ?? DEFAULT_OPERATOR_VIEW_ID,
           DEFAULT_OPERATOR_VIEW_ID,
         );
+        const initialFilterId = initialRouteState.filterId ?? DEFAULT_OPERATOR_FILTER_ID;
+        const initialSearchQuery = initialRouteState.searchQuery ?? "";
         const initialChanges =
           initialTenantId === payload.activeTenantId ? payload.changes : (await fetchChanges(initialTenantId)).changes;
 
@@ -209,13 +221,20 @@ export function useOperatorServerState(): OperatorServerStateResult {
         activeTenantRef.current = initialTenantId;
         setChanges(initialChanges);
         selectChange(
-          initialRouteState.changeId || shouldAutoSelectChange
-            ? resolveChangeSelection(initialChanges, initialRouteState.changeId)
-            : null,
+          resolveVisibleChangeSelection(
+            initialChanges,
+            {
+              activeViewId: initialViewId,
+              activeFilterId: initialFilterId,
+              searchQuery: initialSearchQuery,
+            },
+            initialRouteState.changeId,
+            shouldAutoSelectChange,
+          ),
         );
         setActiveViewId(initialViewId);
-        setActiveFilterId(initialRouteState.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
-        setSearchQuery(initialRouteState.searchQuery ?? "");
+        setActiveFilterId(initialFilterId);
+        setSearchQuery(initialSearchQuery);
         setActiveTabId(initialRouteState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
         setRealtimeNotice(null);
       })

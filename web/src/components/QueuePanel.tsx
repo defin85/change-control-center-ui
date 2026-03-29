@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import type { ChangeSummary } from "../types";
 import { formatStateLabel } from "../lib";
-import { PlatformTable } from "../platform/foundation";
+import { PlatformPrimitives, PlatformTable } from "../platform/foundation";
 import { StatusBadge } from "../platform/shells/StatusBadge";
 
 type QueuePanelProps = {
@@ -88,24 +88,26 @@ export function QueuePanel({
           <p className="subtitle">{activeViewCount} active changes in the current slice</p>
         </div>
         <div className="panel-head-actions">
-          <button
+          <PlatformPrimitives.Button
             type="button"
             className="ghost-button"
+            data-platform-foundation="base-ui-queue-actions"
             data-platform-action="saved-filters"
             title="Requires an approved OpenSpec change before it can become a product action."
             disabled
           >
             Saved filters
-          </button>
-          <button
+          </PlatformPrimitives.Button>
+          <PlatformPrimitives.Button
             type="button"
             className="ghost-button"
+            data-platform-foundation="base-ui-queue-actions"
             data-platform-action="export-report"
             title="Requires an approved OpenSpec change before it can become a product action."
             disabled
           >
             Export report
-          </button>
+          </PlatformPrimitives.Button>
         </div>
       </div>
 
@@ -147,10 +149,11 @@ export function QueuePanel({
             <div className="empty-state">No changes match the current slice. Try another view or clear search.</div>
           ) : (
             queueTable.getRowModel().rows.map((row) => (
-              <button
+              <PlatformPrimitives.Button
                 key={row.id}
                 type="button"
                 className={`queue-row ${selectedChangeId === row.original.id ? "active" : ""}`}
+                data-platform-foundation="base-ui-queue-row"
                 onClick={() => onSelectChange(row.original.id)}
               >
                 {row.getVisibleCells().map((cell) => (
@@ -158,7 +161,7 @@ export function QueuePanel({
                     {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </span>
                 ))}
-              </button>
+              </PlatformPrimitives.Button>
             ))
           )}
         </div>
