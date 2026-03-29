@@ -7,6 +7,7 @@ test("renders the operator console surfaces and mandatory detail tabs", async ({
   await expect(page.locator('[data-platform-shell="workspace-page"]')).toBeVisible();
   await expect(page.locator('[data-platform-shell="master-detail"]')).toBeVisible();
   await expect(page.locator('[data-platform-shell="detail-workspace"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
 
   await page.getByRole("button", { name: /ch-146/i }).click();
   await expect(page.getByRole("button", { name: "New change" })).toBeVisible();

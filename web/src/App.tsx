@@ -14,15 +14,7 @@ import {
   promoteFact,
   runNext,
 } from "./api";
-import { ChangeDetail } from "./components/ChangeDetail";
-import { InspectorPanel } from "./components/InspectorPanel";
-import { OperatorRail } from "./components/OperatorRail";
-import { QueuePanel } from "./components/QueuePanel";
-import { RunStudio } from "./components/RunStudio";
-import { formatStateLabel } from "./lib";
-import { DetailWorkspaceShell } from "./platform/shells/DetailWorkspaceShell";
-import { MasterDetailShell } from "./platform/shells/MasterDetailShell";
-import { WorkspacePageShell } from "./platform/shells/WorkspacePageShell";
+import { OperatorWorkbench, OperatorWorkbenchState } from "./platform";
 import type { ApprovalRecord, BootstrapResponse, ChangeDetailResponse, ChangeSummary, RuntimeEvent } from "./types";
 
 import "./styles.css";
@@ -170,14 +162,6 @@ export default function App() {
     [bootstrap, activeTenantId],
   );
 
-  const viewCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const view of bootstrap?.views ?? []) {
-      counts[view.id] = changes.filter((change) => matchesView(change, view.id)).length;
-    }
-    return counts;
-  }, [bootstrap?.views, changes]);
-
   const filteredChanges = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return changes.filter((change) => {
@@ -211,7 +195,6 @@ export default function App() {
     }
   }, [filteredChanges, selectedChangeId]);
 
-  const selectedRun = detail?.runs.find((run) => run.id === selectedRunId) ?? null;
   const selectedRunApprovals = selectedRunId ? runApprovals[selectedRunId] ?? [] : [];
   const selectedRunEvents = selectedRunId ? runEvents[selectedRunId] ?? [] : [];
 
@@ -338,144 +321,51 @@ export default function App() {
   }
 
   if (error) {
-    return (
-      <WorkspacePageShell
-        header={<header className="topbar" />}
-        workspace={<div className="error-card">Error: {error}</div>}
-      />
-    );
+    return <OperatorWorkbenchState tone="error" message={`Error: ${error}`} />;
   }
 
   if (!bootstrap || !activeTenant) {
-    return (
-      <WorkspacePageShell
-        header={<header className="topbar" />}
-        workspace={<div className="loading-card">Loading backend state...</div>}
-      />
-    );
+    return <OperatorWorkbenchState tone="loading" message="Loading backend state..." />;
   }
 
   return (
-    <WorkspacePageShell
-      header={
-        <header className="topbar">
-        <div className="topbar-title">
-          <p className="eyebrow">Application Foundation</p>
-          <h1>Change Control Center</h1>
-          <p className="subtitle">Backend-owned operator shell with tenant memory, run lineage and clarification rounds.</p>
-        </div>
-        <div className="topbar-actions">
-          <label className="search-field">
-            <span>Search</span>
-            <input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="change, requirement, blocker"
-              type="search"
-            />
-          </label>
-          <button type="button" className="ghost-button" onClick={() => void handleCreateChange()}>
-            New change
-          </button>
-          <button type="button" className="primary-button" onClick={() => void handleRunNext()}>
-            Run next step
-          </button>
-          <label className="tenant-picker">
-            <span>Tenant</span>
-            <select value={activeTenantId ?? ""} onChange={(event) => void handleTenantChange(event.target.value)}>
-              {bootstrap.tenants.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenant.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        </header>
-      }
-      hero={
-        <>
-        <div className="hero-card">
-          <span>Repository</span>
-          <strong>{activeTenant.repoPath}</strong>
-        </div>
-        <div className="hero-card">
-          <span>Changes</span>
-          <strong>{filteredChanges.length}</strong>
-        </div>
-        <div className="hero-card">
-          <span>Mandatory gaps</span>
-          <strong>{detail?.change.gaps.filter((gap) => gap.mandatory && gap.status !== "closed").length ?? 0}</strong>
-        </div>
-        <div className="hero-card">
-          <span>Selected State</span>
-          <strong>{detail ? formatStateLabel(detail.change.state) : "none"}</strong>
-        </div>
-        </>
-      }
-      workspace={
-        <MasterDetailShell
-          navigation={
-            <OperatorRail
-              views={bootstrap.views}
-              changes={changes}
-              detail={detail}
-              viewCounts={viewCounts}
-              activeViewId={activeViewId}
-              activeFilterId={activeFilterId}
-              onSelectView={setActiveViewId}
-              onSelectFilter={setActiveFilterId}
-            />
-          }
-          list={
-            <QueuePanel
-              changes={filteredChanges}
-              selectedChangeId={selectedChangeId}
-              activeViewLabel={bootstrap.views.find((view) => view.id === activeViewId)?.label ?? "Inbox"}
-              activeViewCount={filteredChanges.length}
-              onSelectChange={selectChange}
-              onSavedFilters={() => setToast("Saved filters will be wired in a later delivery.")}
-              onExportReport={() => setToast("Export report is intentionally left as a shell action in this pass.")}
-            />
-          }
-          inspector={
-            <InspectorPanel
-              detail={detail}
-              selectedChangeId={selectedChangeId}
-              onClearSelection={() => {
-                selectChange(null);
-                setDetail(null);
-              }}
-            />
-          }
-        />
-      }
-      detailWorkspace={
-        <DetailWorkspaceShell
-          detail={
-            <ChangeDetail
-              detail={detail}
-              onRunNext={handleRunNext}
-              onOpenRunStudio={handleOpenRunStudio}
-              onEscalate={handleEscalate}
-              onBlockBySpec={handleBlockBySpec}
-              onCreateClarificationRound={handleCreateClarificationRound}
-              onAnswerClarificationRound={handleAnswerClarificationRound}
-              onSelectRun={setSelectedRunId}
-              onPromoteFact={handlePromoteFact}
-            />
-          }
-          runInspection={
-            <RunStudio
-              run={selectedRun}
-              events={selectedRunEvents}
-              approvals={selectedRunApprovals}
-              onApprovalDecision={handleApprovalDecision}
-            />
-          }
-        />
-      }
-      toast={toast ? <div className="toast">{toast}</div> : null}
+    <OperatorWorkbench
+      bootstrap={bootstrap}
+      activeTenantId={activeTenant.id}
+      activeViewId={activeViewId}
+      activeFilterId={activeFilterId}
+      activeViewCount={filteredChanges.length}
+      activeTenantRepoPath={activeTenant.repoPath}
+      searchQuery={searchQuery}
+      selectedChangeId={selectedChangeId}
+      selectedRunId={selectedRunId}
+      detail={detail}
+      changes={changes}
+      filteredChanges={filteredChanges}
+      selectedRunApprovals={selectedRunApprovals}
+      selectedRunEvents={selectedRunEvents}
+      toast={toast}
+      onSearchQueryChange={setSearchQuery}
+      onCreateChange={handleCreateChange}
+      onRunNext={handleRunNext}
+      onTenantChange={handleTenantChange}
+      onSelectView={setActiveViewId}
+      onSelectFilter={setActiveFilterId}
+      onSelectChange={selectChange}
+      onClearSelection={() => {
+        selectChange(null);
+        setDetail(null);
+      }}
+      onSavedFilters={() => setToast("Saved filters will be wired in a later delivery.")}
+      onExportReport={() => setToast("Export report is intentionally left as a shell action in this pass.")}
+      onOpenRunStudio={handleOpenRunStudio}
+      onEscalate={handleEscalate}
+      onBlockBySpec={handleBlockBySpec}
+      onCreateClarificationRound={handleCreateClarificationRound}
+      onAnswerClarificationRound={handleAnswerClarificationRound}
+      onSelectRun={setSelectedRunId}
+      onPromoteFact={handlePromoteFact}
+      onApprovalDecision={handleApprovalDecision}
     />
   );
 }
