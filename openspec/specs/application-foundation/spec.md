@@ -1,7 +1,7 @@
 # application-foundation Specification
 
 ## Purpose
-TBD - created by archiving change replace-legacy-template-with-app-foundation. Update Purpose after archive.
+Define the production application foundation that replaces the legacy static template with a backend-owned, tenant-scoped Change Control Center composed of a React operator UI, a product Control API, and a dedicated Codex runtime integration layer.
 ## Requirements
 ### Requirement: Production Application Skeleton
 The system SHALL provide a production-oriented application skeleton composed of an operator UI, a backend Control API, and a Codex runtime integration layer.
@@ -140,4 +140,3 @@ The system SHALL require the browser UI to read run status, approvals, and evide
 - **WHEN** an operator opens the detail view for a running change
 - **THEN** the UI loads normalized run state from the backend
 - **AND** the browser does not require direct access to Codex transport credentials or process endpoints
-
