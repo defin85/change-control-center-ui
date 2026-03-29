@@ -12,8 +12,6 @@ type QueuePanelProps = {
   activeFilterHint: string;
   searchQuery: string;
   onSelectChange: (changeId: string) => void;
-  onSavedFilters: () => void;
-  onExportReport: () => void;
 };
 
 export function QueuePanel({
@@ -26,8 +24,6 @@ export function QueuePanel({
   activeFilterHint,
   searchQuery,
   onSelectChange,
-  onSavedFilters,
-  onExportReport,
 }: QueuePanelProps) {
   const normalizedQuery = searchQuery.trim();
 
@@ -40,10 +36,22 @@ export function QueuePanel({
           <p className="subtitle">{activeViewCount} active changes in the current slice</p>
         </div>
         <div className="panel-head-actions">
-          <button type="button" className="ghost-button" data-platform-action="saved-filters" onClick={onSavedFilters}>
+          <button
+            type="button"
+            className="ghost-button"
+            data-platform-action="saved-filters"
+            title="Requires an approved OpenSpec change before it can become a product action."
+            disabled
+          >
             Saved filters
           </button>
-          <button type="button" className="ghost-button" data-platform-action="export-report" onClick={onExportReport}>
+          <button
+            type="button"
+            className="ghost-button"
+            data-platform-action="export-report"
+            title="Requires an approved OpenSpec change before it can become a product action."
+            disabled
+          >
             Export report
           </button>
         </div>
@@ -66,6 +74,10 @@ export function QueuePanel({
           <small>{normalizedQuery ? "Queue results are narrowed by the current query." : "Showing the full current slice."}</small>
         </article>
       </div>
+
+      <p className="governance-note" data-platform-governance="queue-actions-closed">
+        Saved filters and report export stay unavailable until an approved OpenSpec change defines their backend contract.
+      </p>
 
       <div className="queue-table">
         <div className="queue-table-head">

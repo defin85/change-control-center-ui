@@ -163,6 +163,7 @@ textarea {
 .subtitle,
 .queue-title span,
 .empty-state,
+.governance-note,
 .muted,
 .option-card small,
 .rail-chip small,
@@ -354,6 +355,11 @@ textarea {
 
 .queue-table {
   gap: 8px;
+}
+
+.governance-note {
+  margin: 4px 0 0;
+  font-size: 0.92rem;
 }
 
 .queue-table-head,

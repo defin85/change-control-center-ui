@@ -442,8 +442,6 @@ export function useOperatorServerState(): OperatorServerStateResult {
         selectChange(null);
         setDetail(null);
       },
-      onSavedFilters: () => setToast("Saved filters will be wired in a later delivery."),
-      onExportReport: () => setToast("Export report is intentionally left as a shell action in this pass."),
       onOpenRunStudio: handleOpenRunStudio,
       onEscalate: handleEscalate,
       onBlockBySpec: handleBlockBySpec,

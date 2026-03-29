@@ -3,6 +3,39 @@ import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
+const governancePlaceholderPatterns = [
+  /will be wired/i,
+  /later delivery/i,
+  /intentionally left/i,
+  /shell action in this pass/i,
+  /temporary fallback/i,
+  /mock surface/i,
+  /client-only mock/i,
+];
+
+const prohibitedPrimaryUiPatterns = [
+  {
+    group: [
+      "antd",
+      "antd/*",
+      "@ant-design/*",
+      "@mui/*",
+      "@chakra-ui/*",
+      "@radix-ui/*",
+      "@headlessui/react",
+      "react-admin",
+      "@refinedev/*",
+      "@mantine/*",
+      "@nextui-org/*",
+      "flowbite-react",
+      "primereact/*",
+      "**/components/ui/*",
+    ],
+    message:
+      "A second primary design system is blocked by governance. Extend the approved platform layer or land an OpenSpec change first.",
+  },
+];
+
 const foundationRestrictedPaths = [
   {
     name: "@base-ui/react",
@@ -28,6 +61,50 @@ const appBoundaryPatterns = [
     message: "Route-level composition must go through the `./platform` barrel instead of deep feature or platform imports.",
   },
 ];
+
+const governancePlugin = {
+  rules: {
+    "no-placeholder-fallback-copy": {
+      meta: {
+        type: "problem",
+        docs: {
+          description: "Block placeholder fallback copy that hides missing product behavior behind soft messaging.",
+        },
+        schema: [],
+      },
+      create(context) {
+        function reportIfGovernancePlaceholder(node, rawText) {
+          const text = typeof rawText === "string" ? rawText : "";
+          if (!text) {
+            return;
+          }
+
+          const matchedPattern = governancePlaceholderPatterns.find((pattern) => pattern.test(text));
+          if (!matchedPattern) {
+            return;
+          }
+
+          context.report({
+            node,
+            message:
+              "Placeholder fallback copy is blocked by UI governance. Disable the path explicitly or land an approved OpenSpec change.",
+          });
+        }
+
+        return {
+          Literal(node) {
+            if (typeof node.value === "string") {
+              reportIfGovernancePlaceholder(node, node.value);
+            }
+          },
+          TemplateElement(node) {
+            reportIfGovernancePlaceholder(node, node.value.raw);
+          },
+        };
+      },
+    },
+  },
+};
 
 export default tseslint.config(
   {
@@ -55,17 +132,25 @@ export default tseslint.config(
       },
     },
     plugins: {
+      governance: governancePlugin,
       "react-hooks": reactHooks,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      "governance/no-placeholder-fallback-copy": "error",
     },
   },
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/platform/foundation/**/*.{ts,tsx}"],
     rules: {
-      "no-restricted-imports": ["error", { paths: foundationRestrictedPaths }],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: foundationRestrictedPaths,
+          patterns: prohibitedPrimaryUiPatterns,
+        },
+      ],
     },
   },
   {
@@ -75,7 +160,7 @@ export default tseslint.config(
         "error",
         {
           paths: foundationRestrictedPaths,
-          patterns: appBoundaryPatterns,
+          patterns: [...appBoundaryPatterns, ...prohibitedPrimaryUiPatterns],
         },
       ],
     },

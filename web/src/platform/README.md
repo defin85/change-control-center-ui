@@ -29,7 +29,9 @@
 - Route pages compose through `platform/*` first.
 - Feature internals may use foundation primitives directly when the concern stays inside the feature and does not define the page shell.
 - New top-level UI responsibilities must extend `platform/*`, not introduce a parallel primary design system.
+- Alternate primary stacks such as `antd`, `MUI`, `Radix-first page shells`, `Chakra`, `Headless UI`, `react-admin`, or `Refine` are blocked by repository governance unless a new OpenSpec change approves them.
 - Silent UI fallback paths and client-only mock surfaces are not an accepted substitute for backend-owned operator state.
+- Shell actions without an approved backend contract must stay explicitly unavailable instead of pretending to work through placeholder toasts or temporary fallback copy.
 
 ## Current approved entrypoints
 

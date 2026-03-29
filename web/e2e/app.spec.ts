@@ -56,6 +56,9 @@ test("renders the operator console surfaces and mandatory detail tabs", async ({
   await expect(page.locator(".queue-panel").getByText("Control Queue", { exact: true })).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Active slice")).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Queue filter")).toBeVisible();
+  await expect(page.locator('[data-platform-governance="queue-actions-closed"]')).toBeVisible();
+  await expect(page.locator('[data-platform-action="saved-filters"]')).toBeDisabled();
+  await expect(page.locator('[data-platform-action="export-report"]')).toBeDisabled();
   await expect(page.locator("header").getByRole("button", { name: "Run next step" })).toBeVisible();
   await expect(detailActions.getByRole("button", { name: "Open run studio" })).toHaveAttribute("aria-controls", "run-studio");
   await expect(detailActions.getByRole("button", { name: "Escalate" })).toBeVisible();

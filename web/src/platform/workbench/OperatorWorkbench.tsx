@@ -44,8 +44,6 @@ export type OperatorWorkbenchProps = {
   onSelectFilter: (filterId: string) => void;
   onSelectChange: (changeId: string | null) => void;
   onClearSelection: () => void;
-  onSavedFilters: () => void;
-  onExportReport: () => void;
   onOpenRunStudio: () => void;
   onEscalate: () => Promise<void>;
   onBlockBySpec: () => Promise<void>;
@@ -100,8 +98,6 @@ export function OperatorWorkbench({
   onSelectFilter,
   onSelectChange,
   onClearSelection,
-  onSavedFilters,
-  onExportReport,
   onOpenRunStudio,
   onEscalate,
   onBlockBySpec,
@@ -163,8 +159,6 @@ export function OperatorWorkbench({
                 activeFilterHint={activeFilter.hint}
                 searchQuery={searchQuery}
                 onSelectChange={onSelectChange}
-                onSavedFilters={onSavedFilters}
-                onExportReport={onExportReport}
               />
             }
             inspector={
