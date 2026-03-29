@@ -37,6 +37,7 @@
 - `platform/foundation/state.ts`
 - `platform/foundation/table.ts`
 - `platform/foundation/stack.ts`
+- `platform/contracts/controlApi.ts`
 - `platform/navigation/operatorRouteState.ts`
 - `platform/workbench/OperatorWorkbench.tsx`
 - `platform/index.ts`

@@ -36,7 +36,7 @@ export type FocusItem = {
   id: string;
   kind: string;
   title: string;
-  status: string;
+  status?: string;
 };
 
 export type RuntimeEvent = {

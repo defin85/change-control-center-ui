@@ -147,7 +147,7 @@ export function ChangeDetail({
             <ul>
               {focusGraph.items.map((item) => (
                 <li key={item.id}>
-                  <strong>{item.kind}</strong>: {item.title} ({item.status})
+                  <strong>{item.kind}</strong>: {item.title} ({item.status ?? "unknown"})
                 </li>
               ))}
             </ul>

@@ -1,5 +1,34 @@
 import { expect, test } from "@playwright/test";
 
+test("shows a normalized contract failure when bootstrap payload is invalid", async ({ page }) => {
+  await page.route("**/api/bootstrap", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ activeTenantId: "tenant-demo" }),
+    });
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByText(/Control API contract failure/i)).toBeVisible();
+});
+
+test("shows a normalized HTTP failure when bootstrap request fails", async ({ page }) => {
+  await page.route("**/api/bootstrap", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "bootstrap unavailable" }),
+    });
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByText(/Control API request failed \(HTTP 503\)/i)).toBeVisible();
+  await expect(page.getByText(/bootstrap unavailable/i)).toBeVisible();
+});
+
 test("renders the operator console surfaces and mandatory detail tabs", async ({ page }) => {
   await page.goto("/");
   const detailActions = page.locator(".detail-stage .detail-panel").first();

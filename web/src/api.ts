@@ -8,30 +8,29 @@ import type {
   RunDetailResponse,
   RunRecord,
 } from "./types";
-
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-
-  return (await response.json()) as T;
-}
+import {
+  approvalDecisionResponseSchema,
+  bootstrapResponseSchema,
+  changeDetailResponseSchema,
+  changesResponseSchema,
+  clarificationRoundResponseSchema,
+  createChangeResponseSchema,
+  promotedFactResponseSchema,
+  requestControlApi,
+  runDetailResponseSchema,
+  runMutationResponseSchema,
+} from "./platform";
 
 export function fetchBootstrap(): Promise<BootstrapResponse> {
-  return request<BootstrapResponse>("/api/bootstrap");
+  return requestControlApi("/api/bootstrap", bootstrapResponseSchema);
 }
 
 export function fetchChanges(tenantId: string): Promise<{ changes: BootstrapResponse["changes"] }> {
-  return request(`/api/tenants/${tenantId}/changes`);
+  return requestControlApi(`/api/tenants/${tenantId}/changes`, changesResponseSchema);
 }
 
 export function fetchChangeDetail(tenantId: string, changeId: string): Promise<ChangeDetailResponse> {
-  return request(`/api/tenants/${tenantId}/changes/${changeId}`);
+  return requestControlApi(`/api/tenants/${tenantId}/changes/${changeId}`, changeDetailResponseSchema);
 }
 
 type RunMutationResponse = {
@@ -46,7 +45,7 @@ export function createRun(
   changeId: string,
   kind: string,
 ): Promise<RunMutationResponse> {
-  return request(`/api/tenants/${tenantId}/changes/${changeId}/runs`, {
+  return requestControlApi(`/api/tenants/${tenantId}/changes/${changeId}/runs`, runMutationResponseSchema, {
     method: "POST",
     body: JSON.stringify({ kind }),
   });
@@ -56,7 +55,7 @@ export function runNext(
   tenantId: string,
   changeId: string,
 ): Promise<RunMutationResponse> {
-  return request(`/api/tenants/${tenantId}/changes/${changeId}/actions/run-next`, {
+  return requestControlApi(`/api/tenants/${tenantId}/changes/${changeId}/actions/run-next`, runMutationResponseSchema, {
     method: "POST",
   });
 }
@@ -65,16 +64,20 @@ export function fetchRunDetail(
   tenantId: string,
   runId: string,
 ): Promise<RunDetailResponse> {
-  return request(`/api/tenants/${tenantId}/runs/${runId}`);
+  return requestControlApi(`/api/tenants/${tenantId}/runs/${runId}`, runDetailResponseSchema);
 }
 
 export function createClarificationRound(
   tenantId: string,
   changeId: string,
 ): Promise<{ round: ClarificationRound }> {
-  return request(`/api/tenants/${tenantId}/changes/${changeId}/clarifications/auto`, {
+  return requestControlApi(
+    `/api/tenants/${tenantId}/changes/${changeId}/clarifications/auto`,
+    clarificationRoundResponseSchema,
+    {
     method: "POST",
-  });
+    },
+  );
 }
 
 export function answerClarificationRound(
@@ -82,7 +85,7 @@ export function answerClarificationRound(
   roundId: string,
   answers: ClarificationAnswer[],
 ): Promise<{ round: ClarificationRound }> {
-  return request(`/api/tenants/${tenantId}/clarifications/${roundId}/answers`, {
+  return requestControlApi(`/api/tenants/${tenantId}/clarifications/${roundId}/answers`, clarificationRoundResponseSchema, {
     method: "POST",
     body: JSON.stringify({ answers }),
   });
@@ -94,7 +97,7 @@ export function promoteFact(
   title: string,
   body: string,
 ): Promise<{ fact: { id: string; title: string; body: string } }> {
-  return request(`/api/tenants/${tenantId}/changes/${changeId}/promotions`, {
+  return requestControlApi(`/api/tenants/${tenantId}/changes/${changeId}/promotions`, promotedFactResponseSchema, {
     method: "POST",
     body: JSON.stringify({ fact: { title, body } }),
   });
@@ -104,7 +107,7 @@ export function createChange(
   tenantId: string,
   title?: string,
 ): Promise<{ change: ChangeDetailResponse["change"] }> {
-  return request(`/api/tenants/${tenantId}/changes`, {
+  return requestControlApi(`/api/tenants/${tenantId}/changes`, createChangeResponseSchema, {
     method: "POST",
     body: JSON.stringify(title ? { title } : {}),
   });
@@ -114,7 +117,7 @@ export function escalateChange(
   tenantId: string,
   changeId: string,
 ): Promise<{ change: ChangeDetailResponse["change"] }> {
-  return request(`/api/tenants/${tenantId}/changes/${changeId}/actions/escalate`, {
+  return requestControlApi(`/api/tenants/${tenantId}/changes/${changeId}/actions/escalate`, createChangeResponseSchema, {
     method: "POST",
   });
 }
@@ -123,9 +126,13 @@ export function blockChangeBySpec(
   tenantId: string,
   changeId: string,
 ): Promise<{ change: ChangeDetailResponse["change"] }> {
-  return request(`/api/tenants/${tenantId}/changes/${changeId}/actions/block-by-spec`, {
+  return requestControlApi(
+    `/api/tenants/${tenantId}/changes/${changeId}/actions/block-by-spec`,
+    createChangeResponseSchema,
+    {
     method: "POST",
-  });
+    },
+  );
 }
 
 export function decideApproval(
@@ -133,7 +140,7 @@ export function decideApproval(
   approvalId: string,
   decision: "accept" | "decline",
 ): Promise<{ approval: ApprovalRecord }> {
-  return request(`/api/tenants/${tenantId}/approvals/${approvalId}/decision`, {
+  return requestControlApi(`/api/tenants/${tenantId}/approvals/${approvalId}/decision`, approvalDecisionResponseSchema, {
     method: "POST",
     body: JSON.stringify({ decision }),
   });
