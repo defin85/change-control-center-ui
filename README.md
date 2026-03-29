@@ -81,6 +81,8 @@ uv run uvicorn backend.app.main:create_app --factory
 
 После этого откройте `http://127.0.0.1:8000`.
 
+Для backend-served shell `web/dist/` считается обязательным build artifact, а канонический verification workflow зафиксирован в [docs/agent/verification.md](/home/egor/code/change-control-center-ui/docs/agent/verification.md).
+
 Для `websocket` режима sidecar запускается с `CCC_RUNTIME_TRANSPORT=websocket` и `CCC_RUNTIME_WS_URL=ws://...`; backend продолжает смотреть только в `CCC_RUNTIME_SIDECAR_URL`.
 
 ## Что уже работает на default path
@@ -93,23 +95,18 @@ uv run uvicorn backend.app.main:create_app --factory
 
 ## Проверки
 
-Backend contracts:
+Канонический source of truth для UI verification находится в [docs/agent/verification.md](/home/egor/code/change-control-center-ui/docs/agent/verification.md).
+
+Default smoke path для UI-affecting и backend-served UI изменений:
 
 ```bash
 cd /home/egor/code/change-control-center-ui
 uv run pytest backend/tests -q
-```
-
-Frontend build:
-
-```bash
 cd /home/egor/code/change-control-center-ui/web
 npm run build
-```
-
-Browser e2e:
-
-```bash
-cd /home/egor/code/change-control-center-ui/web
 npm run test:e2e
 ```
+
+`npm run test:e2e` не должен заменяться frontend-only dev server path. Для manual backend-served проверки и fast dev loop используйте тот же runbook.
+
+Для расширенного browser pass поверх default smoke path используйте `npm run test:e2e:full` в `web/`. Machine-checkable readiness gate запускается через `uv run python scripts/check_ui_readiness.py`.

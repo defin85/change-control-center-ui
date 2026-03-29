@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from backend.app.config import load_settings
 from backend.app.runtime_sidecar_client import RuntimeSidecarClient, RuntimeSidecarClientConfig
+from backend.app.ui_delivery import inspect_web_artifact
 from backend.app.domain import (
     apply_approval_decision,
     answer_clarification_round,
@@ -81,7 +82,10 @@ def _build_runtime_client() -> RuntimeSidecarClient:
     )
 
 
-def create_app(runtime_client: RuntimeSidecarClient | None = None) -> FastAPI:
+def create_app(
+    runtime_client: RuntimeSidecarClient | None = None,
+    web_dist: Path | None = None,
+) -> FastAPI:
     settings = load_settings()
     store = SQLiteStore(settings.db_path)
     store.initialize()
@@ -186,13 +190,23 @@ def create_app(runtime_client: RuntimeSidecarClient | None = None) -> FastAPI:
                 store.update_run(run)
                 return
 
-    web_dist = Path("web/dist")
-    if web_dist.exists():
-        app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="assets")
+    artifact = inspect_web_artifact(web_dist)
+    if artifact.ready:
+        app.mount("/assets", StaticFiles(directory=artifact.assets_dir), name="assets")
 
-        @app.get("/", include_in_schema=False)
-        def serve_root() -> FileResponse:
-            return FileResponse(web_dist / "index.html")
+    @app.get("/healthz/ui-artifact", include_in_schema=False)
+    def ui_artifact_health() -> dict[str, str]:
+        current_artifact = inspect_web_artifact(web_dist)
+        if not current_artifact.ready:
+            raise HTTPException(status_code=503, detail=current_artifact.detail)
+        return current_artifact.as_dict()
+
+    @app.get("/", include_in_schema=False)
+    def serve_root() -> FileResponse:
+        current_artifact = inspect_web_artifact(web_dist)
+        if not current_artifact.ready:
+            raise HTTPException(status_code=503, detail=current_artifact.detail)
+        return FileResponse(current_artifact.index_html)
 
     @app.get("/api/bootstrap")
     def get_bootstrap() -> dict[str, Any]:

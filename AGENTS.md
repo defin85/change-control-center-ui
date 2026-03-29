@@ -100,9 +100,15 @@ bd automatically syncs with git:
 - ❌ Do NOT use external issue trackers
 - ❌ Do NOT duplicate tracking systems
 
-For more details, see README.md and docs/QUICKSTART.md.
+For more details, see README.md and docs/agent/verification.md.
 
 <!-- END BEADS INTEGRATION -->
+
+## UI verification contract
+
+- Для UI-affecting и backend-served UI изменений используйте [docs/agent/verification.md](/home/egor/code/change-control-center-ui/docs/agent/verification.md) как канонический source of truth.
+- Не придумывайте ad hoc smoke commands: `README.md`, agent instructions и helper automation должны ссылаться на один и тот же workflow.
+- Frontend-only dev server не считается достаточным доказательством backend-served UI health.
 
 ## Landing the Plane (Session Completion)
 
@@ -112,6 +118,7 @@ For more details, see README.md and docs/QUICKSTART.md.
 
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
+   - Для UI-affecting и backend-served UI изменений сначала сверяйся с `docs/agent/verification.md` и используй его default smoke path как минимальный gate
 3. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash

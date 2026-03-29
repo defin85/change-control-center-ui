@@ -1,0 +1,120 @@
+# UI Verification Workflow
+
+Этот документ является каноническим source of truth для UI-affected и backend-served UI изменений в репозитории.
+
+## Когда применять
+
+Используйте этот workflow, если изменение затрагивает хотя бы одно из условий:
+
+- изменяет поведение operator UI;
+- меняет backend-served shell или доставку `web/dist`;
+- влияет на backend/frontend integration path, который использует browser smoke;
+- меняет команды, скрипты или инструкции, связанные с UI build и verification.
+
+## Default Smoke Path
+
+Это минимальное доказательство того, что backend-served operator UI остаётся рабочим.
+
+1. Backend contracts:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+uv run pytest backend/tests -q
+```
+
+2. Fresh web artifact:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run build
+```
+
+3. Backend-entrypoint browser smoke:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run test:e2e
+```
+
+## Что именно доказывает smoke path
+
+- `npm run build` создаёт текущий backend-served artifact в `web/dist/`.
+- `npm run test:e2e` запускает минимальный Playwright smoke suite через backend entrypoint `http://127.0.0.1:8000`, а не через frontend-only dev server.
+- Browser smoke дополнительно rebuild-ит web artifact перед стартом backend stack, чтобы smoke path не зависел от старого `web/dist`.
+- Smoke path считается пройденным только после всех трёх шагов.
+- Уже существующий `web/dist` не считается достаточным доказательством: smoke всегда начинается с нового `npm run build`.
+
+## Required Artifact Contract
+
+Для backend-served smoke и delivery обязательным artifact считается:
+
+- `web/dist/index.html`
+- `web/dist/assets/*`
+
+Если этот artifact отсутствует или устарел относительно текущих исходников, backend-served UI нельзя считать проверенным.
+
+## Extended Validation
+
+Эти проверки полезны, но не заменяют default smoke path.
+
+### Manual Backend-Served Check
+
+1. Запустить sidecar:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+export CCC_RUNTIME_TRANSPORT=stdio
+uv run uvicorn backend.sidecar.main:create_app --factory --reload --host 127.0.0.1 --port 8010
+```
+
+2. Собрать текущий web artifact:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run build
+```
+
+3. Запустить backend product entrypoint:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+export CCC_RUNTIME_SIDECAR_URL=http://127.0.0.1:8010
+uv run uvicorn backend.app.main:create_app --factory --reload
+```
+
+4. Открыть `http://127.0.0.1:8000` и пройти нужный сценарий вручную.
+
+### Extended Browser Coverage
+
+Если нужен более широкий browser pass поверх default smoke path, запускайте полный Playwright suite отдельно:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run test:e2e:full
+```
+
+### Fast Development Loop
+
+Этот путь годится для локальной разработки, но не считается smoke evidence для backend-served UI health.
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run dev
+```
+
+Используйте его только вместе с backend development mode из [README.md](/home/egor/code/change-control-center-ui/README.md), когда нужна быстрая итерация, а не release-style verification.
+
+## Запрещённые подмены
+
+- Нельзя считать `npm run dev` эквивалентом backend-served smoke.
+- Нельзя считать один только `npm run build` достаточной проверкой UI health.
+- Нельзя заменять этот workflow ad hoc командами без обновления этого документа, `README.md` и репозиторных инструкций.
+
+## Readiness Gate
+
+Machine-checkable drift gate для этого контракта:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+uv run python scripts/check_ui_readiness.py
+```

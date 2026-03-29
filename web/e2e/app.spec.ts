@@ -29,7 +29,7 @@ test("shows a normalized HTTP failure when bootstrap request fails", async ({ pa
   await expect(page.getByText(/bootstrap unavailable/i)).toBeVisible();
 });
 
-test("renders the operator console surfaces and mandatory detail tabs", async ({ page }) => {
+test("renders the operator console surfaces and mandatory detail tabs @smoke", async ({ page }) => {
   await page.goto("/");
   const detailActions = page.locator(".detail-stage .detail-panel").first();
 
@@ -106,7 +106,7 @@ test("creates a run and shows runtime lineage in run studio", async ({ page }) =
   await expect(page.getByText("Compact review output")).toBeVisible();
 });
 
-test("persists clarification answers across reload", async ({ page }) => {
+test("persists clarification answers across reload @smoke", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: /ch-150/i }).click();
@@ -160,7 +160,7 @@ test("uses a drawer-style detail workspace on narrow viewports", async ({ page }
   await expect(page).not.toHaveURL(/change=ch-142/);
 });
 
-test("operator actions create a change, mutate its state, and resolve runtime approvals", async ({ page }) => {
+test("operator actions create a change, mutate its state, and resolve runtime approvals @smoke", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "New change" }).click();
