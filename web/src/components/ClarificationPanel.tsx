@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useAsyncWorkflowCommandMachine } from "../platform/workflow";
 import { AuthoringShell } from "../platform/shells/AuthoringShell";
 import type { ClarificationAnswer, ClarificationRound } from "../types";
 
@@ -17,8 +18,9 @@ export function ClarificationPanel({
   const openRound = rounds.find((round) => round.status === "open") ?? rounds[0] ?? null;
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Record<string, string>>({});
+  const clarificationWorkflow = useAsyncWorkflowCommandMachine();
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!openRound) {
       return;
     }
@@ -41,9 +43,14 @@ export function ClarificationPanel({
       return;
     }
 
-    await onAnswerRound(openRound.id, answers);
-    setNotes({});
-    setSelected({});
+    clarificationWorkflow.runCommand({
+      label: "Submit clarification answers",
+      execute: async () => {
+        await onAnswerRound(openRound.id, answers);
+        setNotes({});
+        setSelected({});
+      },
+    });
   };
 
   return (
@@ -51,12 +58,29 @@ export function ClarificationPanel({
       eyebrow="Clarifications"
       title="Design Ambiguities"
       actions={
-        <button type="button" className="ghost-button" onClick={() => void onCreateRound()}>
+        <button
+          type="button"
+          className="ghost-button"
+          onClick={() =>
+            clarificationWorkflow.runCommand({
+              label: "Generate clarification round",
+              execute: onCreateRound,
+            })
+          }
+          disabled={clarificationWorkflow.isPending}
+        >
           Generate round
         </button>
       }
     >
-
+      {clarificationWorkflow.error ? (
+        <div className="empty-state">
+          <strong>Clarification workflow failed.</strong> {clarificationWorkflow.error}
+        </div>
+      ) : null}
+      {clarificationWorkflow.isPending ? (
+        <div className="empty-state">{clarificationWorkflow.activeLabel ?? "Clarification workflow in progress."}</div>
+      ) : null}
       {!openRound && <p className="empty-state">No clarification rounds yet.</p>}
 
       {openRound && (
@@ -113,7 +137,7 @@ export function ClarificationPanel({
               )}
             </div>
           ))}
-          <button type="button" className="primary-button" onClick={() => void handleSubmit()}>
+          <button type="button" className="primary-button" onClick={handleSubmit} disabled={clarificationWorkflow.isPending}>
             Submit answers
           </button>
         </div>

@@ -29,6 +29,7 @@ import {
   DEFAULT_OPERATOR_VIEW_ID,
   readOperatorRouteState,
 } from "../navigation";
+import { useTenantRealtimeBoundary } from "../realtime";
 import type { OperatorWorkbenchProps } from "../workbench/OperatorWorkbench";
 import { filterChanges, resolveChangeSelection, resolveTenantId, resolveViewId } from "./filtering";
 
@@ -180,37 +181,37 @@ export function useOperatorServerState(): OperatorServerStateResult {
     }
   }, [bootstrap, activeFilterId, activeTabId, activeTenantId, activeViewId, searchQuery, selectedChangeId, selectedRunId]);
 
-  useEffect(() => {
-    if (!activeTenantId) {
-      return;
-    }
-
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const socket = new WebSocket(`${protocol}//${window.location.host}/api/tenants/${activeTenantId}/events`);
-
-    socket.onopen = () => socket.send("subscribe");
-    socket.onmessage = () => {
-      void fetchChanges(activeTenantId).then((payload) => setChanges(payload.changes));
-      if (selectedChangeId) {
-        const targetTenantId = activeTenantId;
-        const targetChangeId = selectedChangeId;
-        void fetchChangeDetail(activeTenantId, selectedChangeId).then((payload) => {
-          if (activeTenantRef.current !== targetTenantId || selectedChangeRef.current !== targetChangeId) {
-            return;
-          }
-          const preferredRunId = payload.runs.some((run) => run.id === selectedRunId)
-            ? selectedRunId
-            : payload.runs[0]?.id ?? null;
-          applyDetailPayload(payload, preferredRunId);
-          if (preferredRunId) {
-            void refreshRunDetail(activeTenantId, preferredRunId);
-          }
-        });
+  useTenantRealtimeBoundary({
+    tenantId: activeTenantId,
+    onTenantEvent: async () => {
+      if (!activeTenantId) {
+        return;
       }
-    };
 
-    return () => socket.close();
-  }, [activeTenantId, selectedChangeId, selectedRunId]);
+      const queuePayload = await fetchChanges(activeTenantId);
+      setChanges(queuePayload.changes);
+
+      if (!selectedChangeId) {
+        return;
+      }
+
+      const targetTenantId = activeTenantId;
+      const targetChangeId = selectedChangeId;
+      const detailPayload = await fetchChangeDetail(activeTenantId, selectedChangeId);
+      if (activeTenantRef.current !== targetTenantId || selectedChangeRef.current !== targetChangeId) {
+        return;
+      }
+
+      const preferredRunId = detailPayload.runs.some((run) => run.id === selectedRunId)
+        ? selectedRunId
+        : detailPayload.runs[0]?.id ?? null;
+      applyDetailPayload(detailPayload, preferredRunId);
+      if (preferredRunId) {
+        await refreshRunDetail(activeTenantId, preferredRunId);
+      }
+    },
+    onRealtimeError: (message) => setError(message),
+  });
 
   useEffect(() => {
     if (!activeTenantId || !selectedRunId) {

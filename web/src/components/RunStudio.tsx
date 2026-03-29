@@ -1,4 +1,5 @@
 import type { ApprovalRecord, RunRecord, RuntimeEvent } from "../types";
+import { useAsyncWorkflowCommandMachine } from "../platform/workflow";
 import { RunInspectionShell } from "../platform/shells/RunInspectionShell";
 
 type RunStudioProps = {
@@ -9,6 +10,8 @@ type RunStudioProps = {
 };
 
 export function RunStudio({ run, events, approvals, onApprovalDecision }: RunStudioProps) {
+  const approvalWorkflow = useAsyncWorkflowCommandMachine();
+
   if (!run) {
     return (
       <RunInspectionShell eyebrow="Run Studio" title="No Run Selected">
@@ -66,6 +69,12 @@ export function RunStudio({ run, events, approvals, onApprovalDecision }: RunStu
         </div>
         <div className="card">
           <p className="eyebrow">Approvals</p>
+          {approvalWorkflow.error ? (
+            <p className="empty-state">
+              <strong>Approval workflow failed.</strong> {approvalWorkflow.error}
+            </p>
+          ) : null}
+          {approvalWorkflow.isPending ? <p className="muted">{approvalWorkflow.activeLabel ?? "Resolving approval..."}</p> : null}
           {approvals.length === 0 ? (
             <p>No approvals captured for this run.</p>
           ) : (
@@ -78,14 +87,26 @@ export function RunStudio({ run, events, approvals, onApprovalDecision }: RunStu
                       <button
                         type="button"
                         className="ghost-button"
-                        onClick={() => void onApprovalDecision(approval.id, "accept")}
+                        onClick={() =>
+                          approvalWorkflow.runCommand({
+                            label: `Accept ${approval.id}`,
+                            execute: () => onApprovalDecision(approval.id, "accept"),
+                          })
+                        }
+                        disabled={approvalWorkflow.isPending}
                       >
                         Accept
                       </button>
                       <button
                         type="button"
                         className="ghost-button"
-                        onClick={() => void onApprovalDecision(approval.id, "decline")}
+                        onClick={() =>
+                          approvalWorkflow.runCommand({
+                            label: `Decline ${approval.id}`,
+                            execute: () => onApprovalDecision(approval.id, "decline"),
+                          })
+                        }
+                        disabled={approvalWorkflow.isPending}
                       >
                         Decline
                       </button>

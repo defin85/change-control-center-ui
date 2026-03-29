@@ -4,6 +4,7 @@ import { ClarificationPanel } from "./ClarificationPanel";
 import { formatStateLabel } from "../lib";
 import { DetailPanelShell } from "../platform/shells/DetailPanelShell";
 import { StatusBadge } from "../platform/shells/StatusBadge";
+import { useAsyncWorkflowCommandMachine } from "../platform/workflow";
 import type { ChangeDetailResponse, ChangeDetailTabId, ClarificationAnswer } from "../types";
 
 type ChangeDetailProps = {
@@ -11,8 +12,8 @@ type ChangeDetailProps = {
   detail: ChangeDetailResponse | null;
   onRunNext: () => Promise<void>;
   onOpenRunStudio: () => void;
-  onEscalate: () => void;
-  onBlockBySpec: () => void;
+  onEscalate: () => Promise<void>;
+  onBlockBySpec: () => Promise<void>;
   onCreateClarificationRound: () => Promise<void>;
   onAnswerClarificationRound: (roundId: string, answers: ClarificationAnswer[]) => Promise<void>;
   onSelectRun: (runId: string) => void;
@@ -46,6 +47,7 @@ export function ChangeDetail({
 }: ChangeDetailProps) {
   const [factTitle, setFactTitle] = useState("");
   const [factBody, setFactBody] = useState("");
+  const actionWorkflow = useAsyncWorkflowCommandMachine();
 
   if (!detail) {
     return (
@@ -64,7 +66,18 @@ export function ChangeDetail({
       subtitle={change.subtitle}
       actions={
         <>
-          <button type="button" className="primary-button" data-platform-action="run-next-step" onClick={() => void onRunNext()}>
+          <button
+            type="button"
+            className="primary-button"
+            data-platform-action="run-next-step"
+            onClick={() =>
+              actionWorkflow.runCommand({
+                label: "Run next step",
+                execute: onRunNext,
+              })
+            }
+            disabled={actionWorkflow.isPending}
+          >
             Run next step
           </button>
           <button
@@ -73,18 +86,47 @@ export function ChangeDetail({
             data-platform-action="open-run-studio"
             aria-controls="run-studio"
             onClick={onOpenRunStudio}
+            disabled={actionWorkflow.isPending}
           >
             Open run studio
           </button>
-          <button type="button" className="ghost-button" data-platform-action="escalate-change" onClick={onEscalate}>
+          <button
+            type="button"
+            className="ghost-button"
+            data-platform-action="escalate-change"
+            onClick={() =>
+              actionWorkflow.runCommand({
+                label: "Escalate change",
+                execute: onEscalate,
+              })
+            }
+            disabled={actionWorkflow.isPending}
+          >
             Escalate
           </button>
-          <button type="button" className="ghost-button" data-platform-action="block-by-spec" onClick={onBlockBySpec}>
+          <button
+            type="button"
+            className="ghost-button"
+            data-platform-action="block-by-spec"
+            onClick={() =>
+              actionWorkflow.runCommand({
+                label: "Mark blocked by spec",
+                execute: onBlockBySpec,
+              })
+            }
+            disabled={actionWorkflow.isPending}
+          >
             Mark blocked by spec
           </button>
         </>
       }
     >
+      {actionWorkflow.error ? (
+        <div className="empty-state">
+          <strong>Change command failed.</strong> {actionWorkflow.error}
+        </div>
+      ) : null}
+      {actionWorkflow.isPending ? <div className="empty-state">{actionWorkflow.activeLabel ?? "Operator command in progress."}</div> : null}
       <div className="status-bar">
         <StatusBadge status={change.state} label={formatStateLabel(change.state)} />
         <span>{change.nextAction}</span>
