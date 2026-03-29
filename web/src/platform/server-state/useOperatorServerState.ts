@@ -63,6 +63,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
   const [runApprovals, setRunApprovals] = useState<Record<string, ApprovalRecord[]>>({});
   const [runEvents, setRunEvents] = useState<Record<string, RuntimeEvent[]>>({});
   const [error, setError] = useState<string | null>(null);
+  const [realtimeNotice, setRealtimeNotice] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const activeTenantRef = useRef<string | null>(null);
   const selectedChangeRef = useRef<string | null>(null);
@@ -91,14 +92,15 @@ export function useOperatorServerState(): OperatorServerStateResult {
   }
 
   async function refreshRunDetail(tenantId: string, runId: string) {
+    const runCacheKey = buildRunCacheKey(tenantId, runId);
     const payload = await fetchRunDetail(tenantId, runId);
     setRunApprovals((current) => ({
       ...current,
-      [runId]: payload.approvals,
+      [runCacheKey]: payload.approvals,
     }));
     setRunEvents((current) => ({
       ...current,
-      [runId]: payload.events,
+      [runCacheKey]: payload.events,
     }));
   }
 
@@ -121,7 +123,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
     const nextTenantId = resolveTenantId(bootstrap, routeState.tenantId ?? activeTenantRef.current ?? bootstrap.activeTenantId);
     const nextViewId = resolveViewId(bootstrap, routeState.viewId ?? DEFAULT_OPERATOR_VIEW_ID, DEFAULT_OPERATOR_VIEW_ID);
-    const queueSnapshot = nextTenantId === activeTenantRef.current ? changes : (await fetchChanges(nextTenantId)).changes;
+    const queueSnapshot = (await fetchChanges(nextTenantId)).changes;
     const nextSelectedChangeId =
       routeState.changeId || shouldAutoSelectChange ? resolveChangeSelection(queueSnapshot, routeState.changeId) : null;
 
@@ -178,8 +180,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
   }, [activeSelectedChangeId, detail]);
 
   const activeSelectedRunId = activeDetail ? selectedRunId : null;
-  const selectedRunApprovals = activeSelectedRunId ? runApprovals[activeSelectedRunId] ?? [] : [];
-  const selectedRunEvents = activeSelectedRunId ? runEvents[activeSelectedRunId] ?? [] : [];
+  const selectedRunCacheKey = activeTenantId && activeSelectedRunId ? buildRunCacheKey(activeTenantId, activeSelectedRunId) : null;
+  const selectedRunApprovals = selectedRunCacheKey ? runApprovals[selectedRunCacheKey] ?? [] : [];
+  const selectedRunEvents = selectedRunCacheKey ? runEvents[selectedRunCacheKey] ?? [] : [];
 
   useEffect(() => {
     activeTenantRef.current = activeTenantId;
@@ -214,6 +217,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
         setActiveFilterId(initialRouteState.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
         setSearchQuery(initialRouteState.searchQuery ?? "");
         setActiveTabId(initialRouteState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
+        setRealtimeNotice(null);
       })
       .catch((reason: Error) => setError(reason.message));
   }, [initialRouteState, shouldAutoSelectChange]);
@@ -284,6 +288,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       }
 
       const queuePayload = await fetchChanges(activeTenantId);
+      setRealtimeNotice(null);
       setChanges(queuePayload.changes);
 
       if (!activeSelectedChangeId) {
@@ -305,7 +310,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
         await refreshRunDetail(activeTenantId, preferredRunId);
       }
     },
-    onRealtimeError: (message) => setError(message),
+    onRealtimeError: (message) => setRealtimeNotice(message),
   });
 
   useEffect(() => {
@@ -319,13 +324,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
         if (cancelled) {
           return;
         }
+        const runCacheKey = buildRunCacheKey(activeTenantId, activeSelectedRunId);
         setRunApprovals((current) => ({
           ...current,
-          [activeSelectedRunId]: payload.approvals,
+          [runCacheKey]: payload.approvals,
         }));
         setRunEvents((current) => ({
           ...current,
-          [activeSelectedRunId]: payload.events,
+          [runCacheKey]: payload.events,
         }));
       })
       .catch((reason: Error) => {
@@ -352,13 +358,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
       return;
     }
     const payload = await runNext(activeTenantId, activeSelectedChangeId);
+    const runCacheKey = buildRunCacheKey(activeTenantId, payload.run.id);
     setRunApprovals((current) => ({
       ...current,
-      [payload.run.id]: payload.approvals,
+      [runCacheKey]: payload.approvals,
     }));
     setRunEvents((current) => ({
       ...current,
-      [payload.run.id]: payload.events,
+      [runCacheKey]: payload.events,
     }));
     await refreshCurrentChange(activeSelectedChangeId);
     historyModeRef.current = "replace";
@@ -368,8 +375,12 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
   function handleOpenRunStudio() {
     if (activeDetail?.runs.length) {
+      const preferredRunId =
+        activeSelectedRunId && activeDetail.runs.some((run) => run.id === activeSelectedRunId)
+          ? activeSelectedRunId
+          : activeDetail.runs[0].id;
       historyModeRef.current = "replace";
-      setSelectedRunId(activeDetail.runs[0].id);
+      setSelectedRunId(preferredRunId);
       window.requestAnimationFrame(() => {
         document.getElementById("run-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -437,9 +448,10 @@ export function useOperatorServerState(): OperatorServerStateResult {
       return;
     }
     const payload = await decideApproval(activeTenantId, approvalId, decision);
+    const runCacheKey = buildRunCacheKey(activeTenantId, activeSelectedRunId);
     setRunApprovals((current) => ({
       ...current,
-      [activeSelectedRunId]: (current[activeSelectedRunId] ?? []).map((approval) =>
+      [runCacheKey]: (current[runCacheKey] ?? []).map((approval) =>
         approval.id === approvalId ? payload.approval : approval,
       ),
     }));
@@ -449,6 +461,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
   async function handleTenantChange(tenantId: string) {
     historyModeRef.current = "push";
+    setRealtimeNotice(null);
     setActiveTenantId(tenantId);
     activeTenantRef.current = tenantId;
     setDetail(null);
@@ -463,7 +476,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
   }
 
   function handleSearchQueryChange(value: string) {
-    historyModeRef.current = "replace";
+    historyModeRef.current = "push";
     setSearchQuery(value);
   }
 
@@ -524,6 +537,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       filteredChanges,
       selectedRunApprovals,
       selectedRunEvents,
+      realtimeNotice,
       toast,
       onSearchQueryChange: handleSearchQueryChange,
       onCreateChange: handleCreateChange,
@@ -544,4 +558,8 @@ export function useOperatorServerState(): OperatorServerStateResult {
       onApprovalDecision: handleApprovalDecision,
     },
   };
+}
+
+function buildRunCacheKey(tenantId: string, runId: string) {
+  return `${tenantId}:${runId}`;
 }

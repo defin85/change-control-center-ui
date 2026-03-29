@@ -682,6 +682,36 @@ textarea {
   background: #fff;
 }
 
+.option-card:has(.option-radio-selected) {
+  border-color: rgba(13, 54, 95, 0.32);
+  background: rgba(238, 243, 250, 0.92);
+}
+
+.option-radio {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 32, 51, 0.22);
+  background: #fff;
+}
+
+.option-radio-selected {
+  border-color: #0d365f;
+  background: rgba(13, 54, 95, 0.12);
+}
+
+.option-radio-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #0d365f;
+}
+
 .state-machine {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

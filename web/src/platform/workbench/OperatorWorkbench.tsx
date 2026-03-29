@@ -35,6 +35,7 @@ export type OperatorWorkbenchProps = {
   filteredChanges: ChangeSummary[];
   selectedRunApprovals: ApprovalRecord[];
   selectedRunEvents: RuntimeEvent[];
+  realtimeNotice?: string | null;
   toast?: string | null;
   onSearchQueryChange: (value: string) => void;
   onCreateChange: () => Promise<void>;
@@ -89,6 +90,7 @@ export function OperatorWorkbench({
   filteredChanges,
   selectedRunApprovals,
   selectedRunEvents,
+  realtimeNotice,
   toast,
   onSearchQueryChange,
   onCreateChange,
@@ -119,6 +121,7 @@ export function OperatorWorkbench({
         <WorkbenchHeader
           activeTenantId={activeTenantId}
           canRunNext={Boolean(selectedChangeId)}
+          realtimeNotice={realtimeNotice ?? null}
           searchQuery={searchQuery}
           tenants={bootstrap.tenants}
           onSearchQueryChange={onSearchQueryChange}

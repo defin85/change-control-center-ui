@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { PlatformPrimitives } from "../platform/foundation";
 import { useAsyncWorkflowCommandMachine } from "../platform/workflow";
 import { AuthoringShell } from "../platform/shells/AuthoringShell";
 import type { ClarificationAnswer, ClarificationRound } from "../types";
@@ -58,9 +59,10 @@ export function ClarificationPanel({
       eyebrow="Clarifications"
       title="Design Ambiguities"
       actions={
-        <button
+        <PlatformPrimitives.Button
           type="button"
           className="ghost-button"
+          data-platform-foundation="base-ui-clarification-actions"
           onClick={() =>
             clarificationWorkflow.runCommand({
               label: "Generate clarification round",
@@ -70,7 +72,7 @@ export function ClarificationPanel({
           disabled={clarificationWorkflow.isPending}
         >
           Generate round
-        </button>
+        </PlatformPrimitives.Button>
       }
     >
       {clarificationWorkflow.error ? (
@@ -100,29 +102,39 @@ export function ClarificationPanel({
             </div>
           )}
           {openRound.questions.map((question) => (
-            <div key={question.id} className="clarification-question">
-              <strong>{question.label}</strong>
-              <div className="option-list">
+            <PlatformPrimitives.Fieldset.Root key={question.id} className="clarification-question">
+              <PlatformPrimitives.Fieldset.Legend>
+                <strong>{question.label}</strong>
+              </PlatformPrimitives.Fieldset.Legend>
+              <PlatformPrimitives.RadioGroup
+                className="option-list"
+                data-platform-foundation="base-ui-radio-group"
+                name={question.id}
+                value={selected[question.id]}
+                onValueChange={(value) => {
+                  if (typeof value === "string") {
+                    setSelected((current) => ({
+                      ...current,
+                      [question.id]: value,
+                    }));
+                  }
+                }}
+              >
                 {question.options.map((option) => (
                   <label key={option.id} className="option-card">
-                    <input
-                      type="radio"
-                      name={question.id}
-                      checked={selected[question.id] === option.id}
-                      onChange={() =>
-                        setSelected((current) => ({
-                          ...current,
-                          [question.id]: option.id,
-                        }))
-                      }
-                    />
+                    <PlatformPrimitives.Radio.Root
+                      className={({ checked }) => (checked ? "option-radio option-radio-selected" : "option-radio")}
+                      value={option.id}
+                    >
+                      <PlatformPrimitives.Radio.Indicator className="option-radio-indicator" />
+                    </PlatformPrimitives.Radio.Root>
                     <span>
                       <strong>{option.label}</strong>
                       <small>{option.description}</small>
                     </span>
                   </label>
                 ))}
-              </div>
+              </PlatformPrimitives.RadioGroup>
               {question.allowOther && (
                 <textarea
                   value={notes[question.id] ?? ""}
@@ -135,11 +147,17 @@ export function ClarificationPanel({
                   }
                 />
               )}
-            </div>
+            </PlatformPrimitives.Fieldset.Root>
           ))}
-          <button type="button" className="primary-button" onClick={handleSubmit} disabled={clarificationWorkflow.isPending}>
+          <PlatformPrimitives.Button
+            type="button"
+            className="primary-button"
+            data-platform-foundation="base-ui-clarification-actions"
+            onClick={handleSubmit}
+            disabled={clarificationWorkflow.isPending}
+          >
             Submit answers
-          </button>
+          </PlatformPrimitives.Button>
         </div>
       )}
     </AuthoringShell>

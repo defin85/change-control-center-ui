@@ -160,7 +160,10 @@ export default tseslint.config(
       "src/**/*Page.{ts,tsx}",
       "src/**/*Route.{ts,tsx}",
       "src/**/*Entrypoint.{ts,tsx}",
+      "src/**/*Workspace.{ts,tsx}",
+      "src/**/*Workbench.{ts,tsx}",
     ],
+    ignores: ["src/platform/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",

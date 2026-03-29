@@ -29,8 +29,10 @@ def main() -> int:
 
     docs_snippets = [
         "uv run pytest backend/tests -q",
+        "npm run lint",
         "npm run build",
         "npm run test:e2e",
+        "npm run test:e2e:platform",
         "npm run test:e2e:full",
         str(DEFAULT_WEB_DIST / INDEX_HTML_NAME),
         f"{DEFAULT_WEB_DIST / ASSETS_DIR_NAME}/*",
@@ -42,8 +44,10 @@ def main() -> int:
         [
             "docs/agent/verification.md",
             "uv run pytest backend/tests -q",
+            "npm run lint",
             "npm run build",
             "npm run test:e2e",
+            "npm run test:e2e:platform",
         ],
         errors,
     )
@@ -59,8 +63,10 @@ def main() -> int:
     package_json = json.loads(PACKAGE_JSON_PATH.read_text(encoding="utf-8"))
     scripts = package_json.get("scripts", {})
     expected_scripts = {
+        "lint": "eslint src e2e vite.config.ts",
         "build": "tsc -b && vite build",
         "test:e2e": "playwright test --grep @smoke",
+        "test:e2e:platform": "playwright test --grep @platform",
         "test:e2e:full": "playwright test",
     }
     for name, expected in expected_scripts.items():

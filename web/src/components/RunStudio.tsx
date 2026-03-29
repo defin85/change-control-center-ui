@@ -1,4 +1,5 @@
 import type { ApprovalRecord, RunRecord, RuntimeEvent } from "../types";
+import { PlatformPrimitives } from "../platform/foundation";
 import { useAsyncWorkflowCommandMachine } from "../platform/workflow";
 import { RunInspectionShell } from "../platform/shells/RunInspectionShell";
 
@@ -83,10 +84,11 @@ export function RunStudio({ run, events, approvals, onApprovalDecision }: RunStu
                 <li key={approval.id}>
                   <strong>{approval.status}</strong> {approval.kind}: {approval.reason}
                   {approval.status === "pending" && (
-                    <span className="approval-actions">
-                      <button
+                    <span className="approval-actions" data-platform-foundation="base-ui-approval-actions">
+                      <PlatformPrimitives.Button
                         type="button"
                         className="ghost-button"
+                        data-platform-foundation="base-ui-approval-actions"
                         onClick={() =>
                           approvalWorkflow.runCommand({
                             label: `Accept ${approval.id}`,
@@ -96,10 +98,11 @@ export function RunStudio({ run, events, approvals, onApprovalDecision }: RunStu
                         disabled={approvalWorkflow.isPending}
                       >
                         Accept
-                      </button>
-                      <button
+                      </PlatformPrimitives.Button>
+                      <PlatformPrimitives.Button
                         type="button"
                         className="ghost-button"
+                        data-platform-foundation="base-ui-approval-actions"
                         onClick={() =>
                           approvalWorkflow.runCommand({
                             label: `Decline ${approval.id}`,
@@ -109,7 +112,7 @@ export function RunStudio({ run, events, approvals, onApprovalDecision }: RunStu
                         disabled={approvalWorkflow.isPending}
                       >
                         Decline
-                      </button>
+                      </PlatformPrimitives.Button>
                     </span>
                   )}
                 </li>

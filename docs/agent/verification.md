@@ -36,10 +36,29 @@ cd /home/egor/code/change-control-center-ui/web
 npm run test:e2e
 ```
 
+## Additional Required Gates For Operator UI Platform Contract
+
+Если изменение затрагивает `add-operator-ui-platform-contract` или другой evolution этого же operator UI platform contract, поверх default smoke path обязательны ещё две проверки:
+
+1. Platform governance lint:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run lint
+```
+
+2. Platform-conformance browser gate:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run test:e2e:platform
+```
+
 ## Что именно доказывает smoke path
 
 - `npm run build` создаёт текущий backend-served artifact в `web/dist/`.
 - `npm run test:e2e` запускает минимальный Playwright smoke suite через backend entrypoint `http://127.0.0.1:8000`, а не через frontend-only dev server.
+- `npm run lint` и `npm run test:e2e:platform` обязательны дополнительно, когда change трогает operator UI platform contract.
 - Browser smoke дополнительно rebuild-ит web artifact перед стартом backend stack, чтобы smoke path не зависел от старого `web/dist`.
 - Smoke path считается пройденным только после всех трёх шагов.
 - Уже существующий `web/dist` не считается достаточным доказательством: smoke всегда начинается с нового `npm run build`.
@@ -86,18 +105,11 @@ uv run uvicorn backend.app.main:create_app --factory --reload
 
 ### Extended Browser Coverage
 
-Если нужен более широкий browser pass поверх default smoke path, запускайте полный Playwright suite отдельно:
+Если нужен более широкий browser pass поверх default smoke path и platform gate, запускайте полный Playwright suite отдельно:
 
 ```bash
 cd /home/egor/code/change-control-center-ui/web
 npm run test:e2e:full
-```
-
-Если изменение затрагивает operator UI platform contract, дополнительно запускайте отдельный platform-conformance gate:
-
-```bash
-cd /home/egor/code/change-control-center-ui/web
-npm run test:e2e:platform
 ```
 
 ### Fast Development Loop

@@ -4,6 +4,7 @@ import { PlatformPrimitives } from "../foundation";
 type WorkbenchHeaderProps = {
   activeTenantId: string;
   canRunNext: boolean;
+  realtimeNotice: string | null;
   searchQuery: string;
   tenants: BootstrapResponse["tenants"];
   onSearchQueryChange: (value: string) => void;
@@ -15,6 +16,7 @@ type WorkbenchHeaderProps = {
 export function WorkbenchHeader({
   activeTenantId,
   canRunNext,
+  realtimeNotice,
   searchQuery,
   tenants,
   onSearchQueryChange,
@@ -103,6 +105,11 @@ export function WorkbenchHeader({
         {!canRunNext ? (
           <p className="governance-note" data-platform-governance="run-next-selection-required">
             Select a change before running the next backend-owned step.
+          </p>
+        ) : null}
+        {realtimeNotice ? (
+          <p className="governance-note" data-platform-governance="realtime-degraded">
+            {realtimeNotice}
           </p>
         ) : null}
       </div>

@@ -67,7 +67,7 @@ export function ChangeDetail({
       subtitle={change.subtitle}
       actions={
         <>
-          <button
+          <PlatformPrimitives.Button
             type="button"
             className="primary-button"
             data-platform-action="run-next-step"
@@ -80,8 +80,8 @@ export function ChangeDetail({
             disabled={actionWorkflow.isPending}
           >
             Run next step
-          </button>
-          <button
+          </PlatformPrimitives.Button>
+          <PlatformPrimitives.Button
             type="button"
             className="ghost-button"
             data-platform-action="open-run-studio"
@@ -90,8 +90,8 @@ export function ChangeDetail({
             disabled={actionWorkflow.isPending}
           >
             Open run studio
-          </button>
-          <button
+          </PlatformPrimitives.Button>
+          <PlatformPrimitives.Button
             type="button"
             className="ghost-button"
             data-platform-action="escalate-change"
@@ -104,8 +104,8 @@ export function ChangeDetail({
             disabled={actionWorkflow.isPending}
           >
             Escalate
-          </button>
-          <button
+          </PlatformPrimitives.Button>
+          <PlatformPrimitives.Button
             type="button"
             className="ghost-button"
             data-platform-action="block-by-spec"
@@ -118,7 +118,7 @@ export function ChangeDetail({
             disabled={actionWorkflow.isPending}
           >
             Mark blocked by spec
-          </button>
+          </PlatformPrimitives.Button>
         </>
       }
     >

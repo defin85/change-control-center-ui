@@ -119,6 +119,7 @@ For more details, see README.md and docs/agent/verification.md.
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
    - Для UI-affecting и backend-served UI изменений сначала сверяйся с `docs/agent/verification.md` и используй его default smoke path как минимальный gate
+   - Для изменений operator UI platform contract дополнительно запускай `cd web && npm run lint` и `cd web && npm run test:e2e:platform`
 3. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash

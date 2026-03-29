@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("shows a normalized contract failure when bootstrap payload is invalid", async ({ page }) => {
+test("shows a normalized contract failure when bootstrap payload is invalid @platform", async ({ page }) => {
   await page.route("**/api/bootstrap", async (route) => {
     await route.fulfill({
       status: 200,
@@ -14,7 +14,7 @@ test("shows a normalized contract failure when bootstrap payload is invalid", as
   await expect(page.getByText(/Control API contract failure/i)).toBeVisible();
 });
 
-test("shows a normalized HTTP failure when bootstrap request fails", async ({ page }) => {
+test("shows a normalized HTTP failure when bootstrap request fails @platform", async ({ page }) => {
   await page.route("**/api/bootstrap", async (route) => {
     await route.fulfill({
       status: 503,
@@ -84,15 +84,33 @@ test("renders the operator console surfaces and mandatory detail tabs @smoke @pl
 });
 
 test("wires the approved foundations on the default operator path @platform", async ({ page }) => {
+  const createResponse = await page.request.post("/api/tenants/tenant-demo/changes", {
+    data: { title: "Foundation proof change" },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const { change } = (await createResponse.json()) as { change: { id: string; title: string } };
+
+  const clarificationResponse = await page.request.post(
+    `/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`,
+  );
+  expect(clarificationResponse.ok()).toBeTruthy();
+
   await page.goto("/");
 
   await expect(page.locator('[data-platform-foundation="base-ui-toolbar"]')).toBeVisible();
   await expect(page.locator('[data-platform-foundation="base-ui-select"]')).toBeVisible();
   await expect(page.locator('[data-platform-foundation="tanstack-table"]')).toBeVisible();
   await expect(page.locator('[data-platform-foundation="base-ui-tabs"]')).toBeVisible();
+
+  await expect(page.getByRole("button", { name: /Foundation proof change/i })).toBeVisible();
+  await page.getByRole("button", { name: /Foundation proof change/i }).click();
+  await page.getByRole("tab", { name: "Clarifications" }).click();
+
+  await expect(page.locator('[data-platform-foundation="base-ui-clarification-actions"]')).toHaveCount(2);
+  await expect(page.locator('[data-platform-foundation="base-ui-radio-group"]')).toHaveCount(1);
 });
 
-test("creates a run and shows runtime lineage in run studio", async ({ page }) => {
+test("creates a run and shows runtime lineage in run studio @platform", async ({ page }) => {
   await page.goto("/");
 
   const detailActions = page.locator(".detail-stage .detail-panel").first();
@@ -132,7 +150,7 @@ test("persists clarification answers across reload @smoke", async ({ page }) => 
   await expect(page.getByText("Зафиксировать sidecar deployment.")).toBeVisible();
 });
 
-test("restores route-addressable operator context after reload", async ({ page }) => {
+test("restores route-addressable operator context after reload @platform", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: /ch-142/i }).click();
@@ -185,7 +203,58 @@ test("restores route-addressable operator context through browser navigation @pl
   await expect(page.getByText("Severity")).toBeVisible();
 });
 
-test("uses a drawer-style detail workspace on narrow viewports", async ({ page }) => {
+test("restores search query through browser navigation @platform", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await page.goto("/");
+
+  const search = page.getByLabel("Search");
+
+  await search.fill("ch-142");
+  await expect(page).toHaveURL(/q=ch-142/);
+
+  await search.fill("ch-146");
+  await expect(page).toHaveURL(/q=ch-146/);
+
+  await page.goBack();
+
+  await expect(search).toHaveValue("ch-142");
+  await expect(page).toHaveURL(/q=ch-142/);
+});
+
+test("rehydrates queue context from backend state during same-tenant browser navigation @platform", async ({ page }) => {
+  let refreshFromBackend = false;
+
+  await page.route("**/api/tenants/tenant-demo/changes", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    if (refreshFromBackend) {
+      payload.changes = payload.changes.map((change: { id: string; title: string }) =>
+        change.id === "ch-142"
+          ? {
+              ...change,
+              title: "Backend rehydrated queue title",
+            }
+          : change,
+      );
+    }
+    await route.fulfill({
+      response,
+      json: payload,
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  await page.getByRole("button", { name: /ch-146/i }).click();
+
+  refreshFromBackend = true;
+  await page.goBack();
+
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(page.locator(".queue-panel")).toContainText("Backend rehydrated queue title");
+});
+
+test("uses a drawer-style detail workspace on narrow viewports @platform", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1200 });
   await page.goto("/");
 
@@ -220,7 +289,79 @@ test("fails closed on the global run action when no change is selected @platform
   await expect(headerRunAction).toBeDisabled();
 });
 
-test("operator actions create a change, mutate its state, and resolve runtime approvals @smoke", async ({ page }) => {
+test("preserves the selected run when opening run studio from change detail @platform", async ({ page }) => {
+  await page.goto("/");
+
+  const detailActions = page.locator(".detail-stage .detail-panel").first();
+  const runStudio = page.locator("#run-studio");
+
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  await detailActions.getByRole("button", { name: "Run next step" }).click();
+  await detailActions.getByRole("tab", { name: "Runs" }).click();
+  await page.getByRole("button", { name: /run-30/i }).click();
+
+  await expect(runStudio.getByRole("heading", { name: "run-30" })).toBeVisible();
+
+  await detailActions.getByRole("button", { name: "Open run studio" }).click();
+
+  await expect(runStudio.getByRole("heading", { name: "run-30" })).toBeVisible();
+});
+
+test("keeps the operator shell available when realtime subscription fails @platform", async ({ page }) => {
+  await page.addInitScript(() => {
+    class FailingWebSocket {
+      static CONNECTING = 0;
+      static OPEN = 1;
+      static CLOSING = 2;
+      static CLOSED = 3;
+
+      readyState = FailingWebSocket.CONNECTING;
+      url: string;
+      onopen: ((event: Event) => void) | null = null;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      onclose: ((event: CloseEvent) => void) | null = null;
+
+      constructor(url: string) {
+        this.url = url;
+        window.setTimeout(() => {
+          this.readyState = FailingWebSocket.CLOSED;
+          this.onerror?.(new Event("error"));
+          this.onclose?.(new CloseEvent("close"));
+        }, 0);
+      }
+
+      send() {}
+
+      close() {
+        this.readyState = FailingWebSocket.CLOSED;
+      }
+    }
+
+    window.WebSocket = FailingWebSocket as unknown as typeof WebSocket;
+  });
+
+  await page.goto("/");
+
+  await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
+  await expect(page.locator('[data-platform-governance="realtime-degraded"]')).toBeVisible();
+  await expect(page.getByText(/realtime subscription failed/i)).toBeVisible();
+});
+
+test("reconciles tenant events without losing selected operator context @platform", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /ch-146/i }).click();
+  await expect(page.locator(".status-bar")).not.toContainText("Escalated");
+
+  const response = await page.request.post("/api/tenants/tenant-demo/changes/ch-146/actions/escalate");
+  expect(response.ok()).toBeTruthy();
+
+  await expect(page.locator(".status-bar")).toContainText("Escalated");
+  await expect(page).toHaveURL(/change=ch-146/);
+});
+
+test("operator actions create a change, mutate its state, and resolve runtime approvals @smoke @platform", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "New change" }).click();
@@ -237,9 +378,15 @@ test("operator actions create a change, mutate its state, and resolve runtime ap
   await expect(page.locator(".status-bar")).toContainText("Blocked by spec");
   await expect(page.locator(".status-bar")).toContainText("Clarify specification");
 
+  await page.getByRole("button", { name: /ch-146/i }).click();
+  await expect(page).toHaveURL(/change=ch-146/);
   await detailActions.getByRole("button", { name: "Run next step" }).click();
 
   const runStudio = page.locator("#run-studio");
+  await expect(runStudio.getByRole("button", { name: "Accept" })).toHaveAttribute(
+    "data-platform-foundation",
+    "base-ui-approval-actions",
+  );
   await expect(runStudio.getByRole("button", { name: "Accept" })).toBeVisible();
   await runStudio.getByRole("button", { name: "Accept" }).click();
 
