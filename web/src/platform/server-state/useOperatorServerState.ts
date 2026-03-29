@@ -65,6 +65,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
   const [toast, setToast] = useState<string | null>(null);
   const activeTenantRef = useRef<string | null>(null);
   const selectedChangeRef = useRef<string | null>(null);
+  const shouldAutoSelectChange = !window.matchMedia("(max-width: 1080px)").matches;
 
   function selectChange(changeId: string | null) {
     selectedChangeRef.current = changeId;
@@ -170,14 +171,18 @@ export function useOperatorServerState(): OperatorServerStateResult {
         setActiveTenantId(initialTenantId);
         activeTenantRef.current = initialTenantId;
         setChanges(initialChanges);
-        selectChange(resolveChangeSelection(initialChanges, initialRouteState.changeId));
+        selectChange(
+          initialRouteState.changeId || shouldAutoSelectChange
+            ? resolveChangeSelection(initialChanges, initialRouteState.changeId)
+            : null,
+        );
         setActiveViewId(initialViewId);
         setActiveFilterId(initialRouteState.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
         setSearchQuery(initialRouteState.searchQuery ?? "");
         setActiveTabId(initialRouteState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
       })
       .catch((reason: Error) => setError(reason.message));
-  }, [initialRouteState]);
+  }, [initialRouteState, shouldAutoSelectChange]);
 
   useEffect(() => {
     if (!activeTenantId || !activeSelectedChangeId) {
@@ -392,7 +397,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     setSelectedRunId(null);
     const payload = await fetchChanges(tenantId);
     setChanges(payload.changes);
-    selectChange(payload.changes[0]?.id ?? null);
+    selectChange(shouldAutoSelectChange ? payload.changes[0]?.id ?? null : null);
     setActiveViewId(DEFAULT_OPERATOR_VIEW_ID);
     setActiveFilterId(DEFAULT_OPERATOR_FILTER_ID);
     setSearchQuery("");

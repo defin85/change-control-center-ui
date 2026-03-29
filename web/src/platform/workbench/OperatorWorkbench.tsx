@@ -179,6 +179,8 @@ export function OperatorWorkbench({
       }
       detailWorkspace={
         <DetailWorkspaceShell
+          isOpen={Boolean(selectedChangeId)}
+          onClose={onClearSelection}
           detail={
             <ChangeDetail
               activeTab={activeTabId}

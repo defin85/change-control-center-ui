@@ -140,6 +140,23 @@ test("restores route-addressable operator context after reload", async ({ page }
   await expect(page.locator("#run-studio").getByRole("heading", { name: "run-30" })).toBeVisible();
 });
 
+test("uses a drawer-style detail workspace on narrow viewports", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await page.goto("/");
+
+  const detailWorkspace = page.locator('[data-platform-shell="detail-workspace"]');
+
+  await expect(detailWorkspace).toHaveAttribute("data-platform-open", "false");
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  await expect(detailWorkspace).toHaveAttribute("data-platform-open", "true");
+  await expect(detailWorkspace.getByRole("button", { name: "Close workspace" })).toBeVisible();
+
+  await detailWorkspace.getByRole("button", { name: "Close workspace" }).click();
+
+  await expect(detailWorkspace).toHaveAttribute("data-platform-open", "false");
+  await expect(page).not.toHaveURL(/change=ch-142/);
+});
+
 test("operator actions create a change, mutate its state, and resolve runtime approvals", async ({ page }) => {
   await page.goto("/");
 
