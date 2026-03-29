@@ -109,4 +109,4 @@ npm run test:e2e
 
 `npm run test:e2e` не должен заменяться frontend-only dev server path. Для manual backend-served проверки и fast dev loop используйте тот же runbook.
 
-Для расширенного browser pass поверх default smoke path используйте `npm run test:e2e:full` в `web/`. Machine-checkable readiness gate запускается через `uv run python scripts/check_ui_readiness.py`.
+Для operator UI platform governance используйте отдельный gate `npm run test:e2e:platform` в `web/`. Для расширенного browser pass поверх default smoke path используйте `npm run test:e2e:full`. Machine-checkable readiness gate запускается через `uv run python scripts/check_ui_readiness.py`.

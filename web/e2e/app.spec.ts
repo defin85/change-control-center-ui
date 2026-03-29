@@ -29,7 +29,7 @@ test("shows a normalized HTTP failure when bootstrap request fails", async ({ pa
   await expect(page.getByText(/bootstrap unavailable/i)).toBeVisible();
 });
 
-test("renders the operator console surfaces and mandatory detail tabs @smoke", async ({ page }) => {
+test("renders the operator console surfaces and mandatory detail tabs @smoke @platform", async ({ page }) => {
   await page.goto("/");
   const detailActions = page.locator(".detail-stage .detail-panel").first();
 
@@ -63,24 +63,33 @@ test("renders the operator console surfaces and mandatory detail tabs @smoke", a
   await expect(detailActions.getByRole("button", { name: "Open run studio" })).toHaveAttribute("aria-controls", "run-studio");
   await expect(detailActions.getByRole("button", { name: "Escalate" })).toBeVisible();
   await expect(detailActions.getByRole("button", { name: "Mark blocked by spec" })).toBeVisible();
-  await expect(page.locator(".tab-list").getByRole("button", { name: "Traceability" })).toBeVisible();
-  await expect(page.locator(".tab-list").getByRole("button", { name: "Gaps" })).toBeVisible();
-  await expect(page.locator(".tab-list").getByRole("button", { name: "Git" })).toBeVisible();
-  await expect(page.locator(".tab-list").getByRole("button", { name: "Chief" })).toBeVisible();
-  await expect(page.locator(".tab-list").getByRole("button", { name: "Clarifications" })).toBeVisible();
+  await expect(page.locator(".tab-list").getByRole("tab", { name: "Traceability" })).toBeVisible();
+  await expect(page.locator(".tab-list").getByRole("tab", { name: "Gaps" })).toBeVisible();
+  await expect(page.locator(".tab-list").getByRole("tab", { name: "Git" })).toBeVisible();
+  await expect(page.locator(".tab-list").getByRole("tab", { name: "Chief" })).toBeVisible();
+  await expect(page.locator(".tab-list").getByRole("tab", { name: "Clarifications" })).toBeVisible();
 
   const detailTabs = page.locator(".tab-list");
 
-  await detailTabs.getByRole("button", { name: "Traceability" }).click();
+  await detailTabs.getByRole("tab", { name: "Traceability" }).click();
   await expect(page.getByText("Requirement")).toBeVisible();
-  await detailTabs.getByRole("button", { name: "Gaps" }).click();
+  await detailTabs.getByRole("tab", { name: "Gaps" }).click();
   await expect(page.getByText("Severity")).toBeVisible();
-  await detailTabs.getByRole("button", { name: "Git" }).click();
+  await detailTabs.getByRole("tab", { name: "Git" }).click();
   await expect(page.getByText("Landing status")).toBeVisible();
-  await detailTabs.getByRole("button", { name: "Chief" }).click();
+  await detailTabs.getByRole("tab", { name: "Chief" }).click();
   await expect(page.getByText("Chief History")).toBeVisible();
-  await detailTabs.getByRole("button", { name: "Clarifications" }).click();
+  await detailTabs.getByRole("tab", { name: "Clarifications" }).click();
   await expect(page.getByRole("button", { name: /generate round/i })).toBeVisible();
+});
+
+test("wires the approved foundations on the default operator path @platform", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.locator('[data-platform-foundation="base-ui-toolbar"]')).toBeVisible();
+  await expect(page.locator('[data-platform-foundation="base-ui-select"]')).toBeVisible();
+  await expect(page.locator('[data-platform-foundation="tanstack-table"]')).toBeVisible();
+  await expect(page.locator('[data-platform-foundation="base-ui-tabs"]')).toBeVisible();
 });
 
 test("creates a run and shows runtime lineage in run studio", async ({ page }) => {
@@ -90,7 +99,7 @@ test("creates a run and shows runtime lineage in run studio", async ({ page }) =
   const runStudio = page.locator("#run-studio");
 
   await page.getByRole("button", { name: /ch-142/i }).click();
-  await detailActions.getByRole("button", { name: "Runs" }).click();
+  await detailActions.getByRole("tab", { name: "Runs" }).click();
   await page.getByRole("button", { name: /run-30/i }).click();
 
   await expect(runStudio.getByRole("heading", { name: "run-30" })).toBeVisible();
@@ -102,7 +111,7 @@ test("creates a run and shows runtime lineage in run studio", async ({ page }) =
   await expect(runStudio.getByText("Approvals", { exact: true })).toBeVisible();
   await expect(runStudio.getByText("No approvals captured for this run.", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Evidence" }).click();
+  await page.getByRole("tab", { name: "Evidence" }).click();
   await expect(page.getByText("Compact review output")).toBeVisible();
 });
 
@@ -110,7 +119,7 @@ test("persists clarification answers across reload @smoke", async ({ page }) => 
   await page.goto("/");
 
   await page.getByRole("button", { name: /ch-150/i }).click();
-  await page.getByRole("button", { name: "Clarifications" }).click();
+  await page.getByRole("tab", { name: "Clarifications" }).click();
   await page.getByRole("button", { name: /generate round/i }).click();
   await page.getByLabel("Separate sidecar").first().check();
   await page.getByPlaceholder("Дополнительный комментарий").first().fill("Зафиксировать sidecar deployment.");
@@ -118,7 +127,7 @@ test("persists clarification answers across reload @smoke", async ({ page }) => 
 
   await page.reload();
   await page.getByRole("button", { name: /ch-150/i }).click();
-  await page.getByRole("button", { name: "Clarifications" }).click();
+  await page.getByRole("tab", { name: "Clarifications" }).click();
 
   await expect(page.getByText("Зафиксировать sidecar deployment.")).toBeVisible();
 });
@@ -128,7 +137,7 @@ test("restores route-addressable operator context after reload", async ({ page }
 
   await page.getByRole("button", { name: /ch-142/i }).click();
   await page.getByLabel("Search").fill("ch-142");
-  await page.getByRole("button", { name: "Runs" }).click();
+  await page.getByRole("tab", { name: "Runs" }).click();
   await page.getByRole("button", { name: /run-30/i }).click();
 
   await expect(page).toHaveURL(/change=ch-142/);
@@ -139,8 +148,41 @@ test("restores route-addressable operator context after reload", async ({ page }
   await page.reload();
 
   await expect(page.getByLabel("Search")).toHaveValue("ch-142");
-  await expect(page.locator(".tab-list button.active")).toHaveText("Runs");
+  await expect(page.locator(".tab-list [role=\"tab\"][aria-selected=\"true\"]")).toHaveText("Runs");
   await expect(page.locator("#run-studio").getByRole("heading", { name: "run-30" })).toBeVisible();
+});
+
+test("restores route-addressable operator context through browser navigation @platform", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  await page.getByRole("tab", { name: "Runs" }).click();
+  await page.getByRole("button", { name: /run-30/i }).click();
+
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(page).toHaveURL(/run=run-30/);
+  await expect(page).toHaveURL(/tab=runs/);
+
+  await page.getByRole("button", { name: /ch-146/i }).click();
+  await page.locator(".tab-list").getByRole("tab", { name: "Gaps" }).click();
+
+  await expect(page).toHaveURL(/change=ch-146/);
+  await expect(page).toHaveURL(/tab=gaps/);
+
+  await page.goBack();
+
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(page).toHaveURL(/run=run-30/);
+  await expect(page).toHaveURL(/tab=runs/);
+  await expect(page.locator('[data-platform-foundation="base-ui-tabs"] [role="tab"][aria-selected="true"]')).toHaveText("Runs");
+  await expect(page.locator("#run-studio").getByRole("heading", { name: "run-30" })).toBeVisible();
+
+  await page.goForward();
+
+  await expect(page).toHaveURL(/change=ch-146/);
+  await expect(page).toHaveURL(/tab=gaps/);
+  await expect(page.locator('[data-platform-foundation="base-ui-tabs"] [role="tab"][aria-selected="true"]')).toHaveText("Gaps");
+  await expect(page.getByText("Severity")).toBeVisible();
 });
 
 test("uses a drawer-style detail workspace on narrow viewports", async ({ page }) => {
@@ -158,6 +200,24 @@ test("uses a drawer-style detail workspace on narrow viewports", async ({ page }
 
   await expect(detailWorkspace).toHaveAttribute("data-platform-open", "false");
   await expect(page).not.toHaveURL(/change=ch-142/);
+});
+
+test("fails closed on the global run action when no change is selected @platform", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await page.goto("/");
+
+  const headerRunAction = page.locator("header").getByRole("button", { name: "Run next step" });
+
+  await expect(headerRunAction).toBeDisabled();
+  await expect(page.locator('[data-platform-governance="run-next-selection-required"]')).toBeVisible();
+
+  await page.getByRole("button", { name: /ch-142/i }).click();
+
+  await expect(headerRunAction).toBeEnabled();
+
+  await page.getByRole("button", { name: "Close workspace" }).click();
+
+  await expect(headerRunAction).toBeDisabled();
 });
 
 test("operator actions create a change, mutate its state, and resolve runtime approvals @smoke", async ({ page }) => {

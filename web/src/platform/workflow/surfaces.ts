@@ -5,7 +5,8 @@ export type WorkflowSurfaceDescriptor = {
   backendEntities: string[];
   currentEntrypoints: string[];
   reason: string;
-  boundaryStatus: "planned";
+  boundaryStatus: "implemented";
+  boundaryOwner: string;
 };
 
 export const WORKFLOW_SURFACES: WorkflowSurfaceDescriptor[] = [
@@ -21,7 +22,8 @@ export const WORKFLOW_SURFACES: WorkflowSurfaceDescriptor[] = [
     ],
     reason:
       "Selected run context mutates across run creation, run selection, runtime-event refresh, and detail reconciliation. This is a multi-step operator flow rather than a presentational toggle.",
-    boundaryStatus: "planned",
+    boundaryStatus: "implemented",
+    boundaryOwner: "web/src/platform/workflow/useAsyncWorkflowCommandMachine.ts",
   },
   {
     id: "approval-resolution",
@@ -34,7 +36,8 @@ export const WORKFLOW_SURFACES: WorkflowSurfaceDescriptor[] = [
     ],
     reason:
       "Approval decisions transition through pending, accepted, and declined states while coordinating optimistic UI, backend mutation, and refreshed run detail. The transitions need explicit state ownership.",
-    boundaryStatus: "planned",
+    boundaryStatus: "implemented",
+    boundaryOwner: "web/src/platform/workflow/useAsyncWorkflowCommandMachine.ts",
   },
   {
     id: "clarification-rounds",
@@ -48,7 +51,8 @@ export const WORKFLOW_SURFACES: WorkflowSurfaceDescriptor[] = [
     ],
     reason:
       "Clarification authoring already spans round creation, option selection, optional freeform notes, answer submission, and persisted reload recovery. That is workflow state, not simple local form state.",
-    boundaryStatus: "planned",
+    boundaryStatus: "implemented",
+    boundaryOwner: "web/src/platform/workflow/useAsyncWorkflowCommandMachine.ts",
   },
 ];
 

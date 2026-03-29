@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import {
   answerClarificationRound,
@@ -28,6 +28,7 @@ import {
   DEFAULT_OPERATOR_TAB_ID,
   DEFAULT_OPERATOR_VIEW_ID,
   readOperatorRouteState,
+  type OperatorRouteState,
 } from "../navigation";
 import { useTenantRealtimeBoundary } from "../realtime";
 import type { OperatorWorkbenchProps } from "../workbench/OperatorWorkbench";
@@ -65,6 +66,8 @@ export function useOperatorServerState(): OperatorServerStateResult {
   const [toast, setToast] = useState<string | null>(null);
   const activeTenantRef = useRef<string | null>(null);
   const selectedChangeRef = useRef<string | null>(null);
+  const historyModeRef = useRef<"push" | "replace">("replace");
+  const historyInitializedRef = useRef(false);
   const shouldAutoSelectChange = !window.matchMedia("(max-width: 1080px)").matches;
 
   function selectChange(changeId: string | null) {
@@ -111,6 +114,37 @@ export function useOperatorServerState(): OperatorServerStateResult {
     applyDetailPayload(detailPayload);
   }
 
+  const applyNavigationState = useEffectEvent(async (routeState: OperatorRouteState) => {
+    if (!bootstrap) {
+      return;
+    }
+
+    const nextTenantId = resolveTenantId(bootstrap, routeState.tenantId ?? activeTenantRef.current ?? bootstrap.activeTenantId);
+    const nextViewId = resolveViewId(bootstrap, routeState.viewId ?? DEFAULT_OPERATOR_VIEW_ID, DEFAULT_OPERATOR_VIEW_ID);
+    const queueSnapshot = nextTenantId === activeTenantRef.current ? changes : (await fetchChanges(nextTenantId)).changes;
+    const nextSelectedChangeId =
+      routeState.changeId || shouldAutoSelectChange ? resolveChangeSelection(queueSnapshot, routeState.changeId) : null;
+
+    setActiveTenantId(nextTenantId);
+    activeTenantRef.current = nextTenantId;
+    setChanges(queueSnapshot);
+    setActiveViewId(nextViewId);
+    setActiveFilterId(routeState.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
+    setSearchQuery(routeState.searchQuery ?? "");
+    setActiveTabId(routeState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
+    selectChange(nextSelectedChangeId);
+
+    if (!nextSelectedChangeId) {
+      return;
+    }
+
+    const detailPayload = await fetchChangeDetail(nextTenantId, nextSelectedChangeId);
+    if (activeTenantRef.current !== nextTenantId || selectedChangeRef.current !== nextSelectedChangeId) {
+      return;
+    }
+    applyDetailPayload(detailPayload, routeState.runId ?? null);
+  });
+
   const activeTenant = useMemo(
     () => bootstrap?.tenants.find((tenant) => tenant.id === activeTenantId) ?? null,
     [bootstrap, activeTenantId],
@@ -127,14 +161,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
   );
 
   const activeSelectedChangeId = useMemo(() => {
-    if (!selectedChangeId) {
-      return null;
-    }
-    if (filteredChanges.some((change) => change.id === selectedChangeId)) {
+    if (selectedChangeId && changes.some((change) => change.id === selectedChangeId)) {
       return selectedChangeId;
     }
+    if (!shouldAutoSelectChange) {
+      return null;
+    }
     return filteredChanges[0]?.id ?? null;
-  }, [filteredChanges, selectedChangeId]);
+  }, [changes, filteredChanges, selectedChangeId, shouldAutoSelectChange]);
 
   const activeDetail = useMemo(() => {
     if (!activeSelectedChangeId) {
@@ -185,6 +219,20 @@ export function useOperatorServerState(): OperatorServerStateResult {
   }, [initialRouteState, shouldAutoSelectChange]);
 
   useEffect(() => {
+    if (!bootstrap) {
+      return;
+    }
+
+    function handlePopState() {
+      historyModeRef.current = "replace";
+      void applyNavigationState(readOperatorRouteState(window.location.search)).catch((reason: Error) => setError(reason.message));
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [bootstrap]);
+
+  useEffect(() => {
     if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
@@ -218,8 +266,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
     const currentHref = `${window.location.pathname}${window.location.search}`;
     if (currentHref !== nextHref) {
-      window.history.replaceState(window.history.state, "", nextHref);
+      if (!historyInitializedRef.current || historyModeRef.current === "replace") {
+        window.history.replaceState(window.history.state, "", nextHref);
+      } else {
+        window.history.pushState(window.history.state, "", nextHref);
+      }
     }
+    historyInitializedRef.current = true;
+    historyModeRef.current = "replace";
   }, [activeFilterId, activeSelectedChangeId, activeSelectedRunId, activeTabId, activeTenantId, activeViewId, bootstrap, searchQuery]);
 
   useTenantRealtimeBoundary({
@@ -307,12 +361,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
       [payload.run.id]: payload.events,
     }));
     await refreshCurrentChange(activeSelectedChangeId);
+    historyModeRef.current = "replace";
     setSelectedRunId(payload.run.id);
     setToast(`Run ${payload.run.id} started.`);
   }
 
   function handleOpenRunStudio() {
     if (activeDetail?.runs.length) {
+      historyModeRef.current = "replace";
       setSelectedRunId(activeDetail.runs[0].id);
       window.requestAnimationFrame(() => {
         document.getElementById("run-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -327,6 +383,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const payload = await createChange(activeTenantId);
     const changesPayload = await fetchChanges(activeTenantId);
     setChanges(changesPayload.changes);
+    historyModeRef.current = "push";
     selectChange(payload.change.id);
     const detailPayload = await fetchChangeDetail(activeTenantId, payload.change.id);
     applyDetailPayload(detailPayload);
@@ -391,6 +448,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
   }
 
   async function handleTenantChange(tenantId: string) {
+    historyModeRef.current = "push";
     setActiveTenantId(tenantId);
     activeTenantRef.current = tenantId;
     setDetail(null);
@@ -402,6 +460,42 @@ export function useOperatorServerState(): OperatorServerStateResult {
     setActiveFilterId(DEFAULT_OPERATOR_FILTER_ID);
     setSearchQuery("");
     setActiveTabId(DEFAULT_OPERATOR_TAB_ID);
+  }
+
+  function handleSearchQueryChange(value: string) {
+    historyModeRef.current = "replace";
+    setSearchQuery(value);
+  }
+
+  function handleSelectView(viewId: string) {
+    historyModeRef.current = "push";
+    setActiveViewId(viewId);
+  }
+
+  function handleSelectFilter(filterId: string) {
+    historyModeRef.current = "push";
+    setActiveFilterId(filterId);
+  }
+
+  function handleSelectChange(changeId: string | null) {
+    historyModeRef.current = "push";
+    selectChange(changeId);
+  }
+
+  function handleClearSelection() {
+    historyModeRef.current = "push";
+    selectChange(null);
+    setDetail(null);
+  }
+
+  function handleSelectRun(runId: string) {
+    historyModeRef.current = "replace";
+    setSelectedRunId(runId);
+  }
+
+  function handleSelectTab(tabId: ChangeDetailTabId) {
+    historyModeRef.current = "replace";
+    setActiveTabId(tabId);
   }
 
   if (error) {
@@ -431,24 +525,21 @@ export function useOperatorServerState(): OperatorServerStateResult {
       selectedRunApprovals,
       selectedRunEvents,
       toast,
-      onSearchQueryChange: setSearchQuery,
+      onSearchQueryChange: handleSearchQueryChange,
       onCreateChange: handleCreateChange,
       onRunNext: handleRunNext,
       onTenantChange: handleTenantChange,
-      onSelectView: setActiveViewId,
-      onSelectFilter: setActiveFilterId,
-      onSelectChange: selectChange,
-      onClearSelection: () => {
-        selectChange(null);
-        setDetail(null);
-      },
+      onSelectView: handleSelectView,
+      onSelectFilter: handleSelectFilter,
+      onSelectChange: handleSelectChange,
+      onClearSelection: handleClearSelection,
       onOpenRunStudio: handleOpenRunStudio,
       onEscalate: handleEscalate,
       onBlockBySpec: handleBlockBySpec,
       onCreateClarificationRound: handleCreateClarificationRound,
       onAnswerClarificationRound: handleAnswerClarificationRound,
-      onSelectRun: setSelectedRunId,
-      onSelectTab: setActiveTabId,
+      onSelectRun: handleSelectRun,
+      onSelectTab: handleSelectTab,
       onPromoteFact: handlePromoteFact,
       onApprovalDecision: handleApprovalDecision,
     },

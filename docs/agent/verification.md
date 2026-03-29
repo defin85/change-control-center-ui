@@ -93,6 +93,13 @@ cd /home/egor/code/change-control-center-ui/web
 npm run test:e2e:full
 ```
 
+Если изменение затрагивает operator UI platform contract, дополнительно запускайте отдельный platform-conformance gate:
+
+```bash
+cd /home/egor/code/change-control-center-ui/web
+npm run test:e2e:platform
+```
+
 ### Fast Development Loop
 
 Этот путь годится для локальной разработки, но не считается smoke evidence для backend-served UI health.

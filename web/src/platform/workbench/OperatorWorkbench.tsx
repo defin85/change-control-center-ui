@@ -118,6 +118,7 @@ export function OperatorWorkbench({
       header={
         <WorkbenchHeader
           activeTenantId={activeTenantId}
+          canRunNext={Boolean(selectedChangeId)}
           searchQuery={searchQuery}
           tenants={bootstrap.tenants}
           onSearchQueryChange={onSearchQueryChange}

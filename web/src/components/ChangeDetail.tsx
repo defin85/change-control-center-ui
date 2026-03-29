@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { ClarificationPanel } from "./ClarificationPanel";
 import { formatStateLabel } from "../lib";
+import { PlatformPrimitives } from "../platform/foundation";
 import { DetailPanelShell } from "../platform/shells/DetailPanelShell";
 import { StatusBadge } from "../platform/shells/StatusBadge";
 import { useAsyncWorkflowCommandMachine } from "../platform/workflow";
@@ -133,18 +134,24 @@ export function ChangeDetail({
         <span>{change.blocker}</span>
       </div>
 
-      <nav className="tab-list">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={activeTab === tab.id ? "active" : ""}
-            onClick={() => onSelectTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      <PlatformPrimitives.Tabs.Root
+        className="detail-tabs"
+        data-platform-foundation="base-ui-tabs"
+        value={activeTab}
+        onValueChange={(value) => {
+          if (typeof value === "string" && TABS.some((tab) => tab.id === value)) {
+            onSelectTab(value as ChangeDetailTabId);
+          }
+        }}
+      >
+        <PlatformPrimitives.Tabs.List className="tab-list">
+          {TABS.map((tab) => (
+            <PlatformPrimitives.Tabs.Tab key={tab.id} value={tab.id}>
+              {tab.label}
+            </PlatformPrimitives.Tabs.Tab>
+          ))}
+        </PlatformPrimitives.Tabs.List>
+      </PlatformPrimitives.Tabs.Root>
 
       {activeTab === "overview" && (
         <div className="stack">

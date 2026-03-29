@@ -154,7 +154,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/App.tsx"],
+    files: [
+      "src/App.tsx",
+      "src/main.tsx",
+      "src/**/*Page.{ts,tsx}",
+      "src/**/*Route.{ts,tsx}",
+      "src/**/*Entrypoint.{ts,tsx}",
+    ],
     rules: {
       "no-restricted-imports": [
         "error",

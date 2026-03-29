@@ -51,7 +51,7 @@
 ## Workflow boundary catalog
 
 - `platform/workflow/surfaces.ts`
-  - Workflow-heavy surfaces currently identified for explicit state models:
+  - Workflow-heavy surfaces currently shipped behind explicit state boundaries:
     - `run-execution`
     - `approval-resolution`
     - `clarification-rounds`
