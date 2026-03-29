@@ -9,6 +9,15 @@
 
 Legacy prototype на [index.html](/home/egor/code/change-control-center-ui/index.html), [styles.css](/home/egor/code/change-control-center-ui/styles.css) и [app.js](/home/egor/code/change-control-center-ui/app.js) оставлен как reference artifact, но больше не является основным entrypoint.
 
+## UI platform baseline
+
+- Approved operator UI foundation stack:
+  - `@base-ui/react` for primitive interactions
+  - `xstate` + `@xstate/react` for explicit workflow state boundaries
+  - `@tanstack/react-table` for queue and other data-heavy table surfaces
+  - `web/src/platform/*` for route-level and workspace-level composition
+- Роли этих слоев и границы импорта зафиксированы в [web/src/platform/README.md](/home/egor/code/change-control-center-ui/web/src/platform/README.md).
+
 ## Что внутри
 
 - `backend/app/main.py` — FastAPI Control API и backend-served startup path
