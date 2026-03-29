@@ -196,6 +196,7 @@ textarea {
 .panel-head-actions,
 .action-row,
 .chip-grid,
+.queue-context-grid,
 .view-stack,
 .stack,
 .inspector-stack,
@@ -275,6 +276,7 @@ textarea {
 .policy-card,
 .metric-card,
 .mini-card,
+.context-chip,
 .card,
 .table-shell {
   border-radius: 18px;
@@ -285,6 +287,7 @@ textarea {
 .policy-card,
 .metric-card,
 .mini-card,
+.context-chip,
 .card {
   padding: 14px;
 }
@@ -311,6 +314,31 @@ textarea {
 .detail-panel,
 .inspector-panel {
   min-height: 0;
+}
+
+.queue-context-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.context-chip {
+  display: grid;
+  gap: 4px;
+}
+
+.context-chip span,
+.context-chip small {
+  color: #5d6978;
+}
+
+.context-chip span {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.context-chip strong {
+  font-weight: 800;
 }
 
 .queue-table {
@@ -638,6 +666,7 @@ button:disabled {
   .overview-grid,
   .grid-two,
   .key-value-grid,
+  .queue-context-grid,
   .status-bar,
   .tab-list,
   .queue-table-head,

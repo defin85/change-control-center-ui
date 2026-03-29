@@ -10,7 +10,7 @@ export function InspectorPanel({ detail, selectedChangeId, onClearSelection }: I
   const change = detail?.change ?? null;
 
   return (
-    <aside className="panel inspector-panel">
+    <aside className="panel inspector-panel" data-platform-surface="inspector-surface">
       <div className="panel-head compact">
         <div>
           <p className="block-label">Inspector</p>

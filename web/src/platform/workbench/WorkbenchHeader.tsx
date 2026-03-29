@@ -26,7 +26,7 @@ export function WorkbenchHeader({
         <h1>Change Control Center</h1>
         <p className="subtitle">Backend-owned operator shell with tenant memory, run lineage and clarification rounds.</p>
       </div>
-      <div className="topbar-actions">
+      <div className="topbar-actions" data-platform-surface="global-actions">
         <label className="search-field">
           <span>Search</span>
           <input
@@ -36,10 +36,10 @@ export function WorkbenchHeader({
             type="search"
           />
         </label>
-        <button type="button" className="ghost-button" onClick={() => void onCreateChange()}>
+        <button type="button" className="ghost-button" data-platform-action="new-change" onClick={() => void onCreateChange()}>
           New change
         </button>
-        <button type="button" className="primary-button" onClick={() => void onRunNext()}>
+        <button type="button" className="primary-button" data-platform-action="run-next-step" onClick={() => void onRunNext()}>
           Run next step
         </button>
         <label className="tenant-picker">

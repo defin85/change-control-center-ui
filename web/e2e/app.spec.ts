@@ -37,6 +37,12 @@ test("renders the operator console surfaces and mandatory detail tabs", async ({
   await expect(page.locator('[data-platform-shell="master-detail"]')).toBeVisible();
   await expect(page.locator('[data-platform-shell="detail-workspace"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="global-actions"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-context"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="control-queue"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-filter-context"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="inspector-surface"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="signal-summary-card"]')).toHaveCount(4);
 
   await page.getByRole("button", { name: /ch-146/i }).click();
   await expect(page.getByRole("button", { name: "New change" })).toBeVisible();
@@ -48,8 +54,10 @@ test("renders the operator console surfaces and mandatory detail tabs", async ({
   await expect(page.locator(".inspector-panel").getByText("Inspector", { exact: true })).toBeVisible();
   await expect(page.locator(".operator-rail").getByText("Saved slices", { exact: true })).toBeVisible();
   await expect(page.locator(".queue-panel").getByText("Control Queue", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Active slice")).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Queue filter")).toBeVisible();
   await expect(page.locator("header").getByRole("button", { name: "Run next step" })).toBeVisible();
-  await expect(detailActions.getByRole("button", { name: "Open run studio" })).toBeVisible();
+  await expect(detailActions.getByRole("button", { name: "Open run studio" })).toHaveAttribute("aria-controls", "run-studio");
   await expect(detailActions.getByRole("button", { name: "Escalate" })).toBeVisible();
   await expect(detailActions.getByRole("button", { name: "Mark blocked by spec" })).toBeVisible();
   await expect(page.locator(".tab-list").getByRole("button", { name: "Traceability" })).toBeVisible();

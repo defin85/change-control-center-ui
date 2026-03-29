@@ -16,19 +16,19 @@ export function WorkbenchStatusStrip({
 
   return (
     <>
-      <div className="hero-card">
+      <div className="hero-card" data-platform-surface="signal-summary-card">
         <span>Repository</span>
         <strong>{activeTenantRepoPath}</strong>
       </div>
-      <div className="hero-card">
+      <div className="hero-card" data-platform-surface="signal-summary-card">
         <span>Changes</span>
         <strong>{filteredChangeCount}</strong>
       </div>
-      <div className="hero-card">
+      <div className="hero-card" data-platform-surface="signal-summary-card">
         <span>Mandatory gaps</span>
         <strong>{mandatoryGapCount}</strong>
       </div>
-      <div className="hero-card">
+      <div className="hero-card" data-platform-surface="signal-summary-card">
         <span>Selected State</span>
         <strong>{detail ? formatStateLabel(detail.change.state) : "none"}</strong>
       </div>

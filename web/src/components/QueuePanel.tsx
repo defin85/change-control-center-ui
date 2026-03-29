@@ -6,7 +6,11 @@ type QueuePanelProps = {
   changes: ChangeSummary[];
   selectedChangeId: string | null;
   activeViewLabel: string;
+  activeViewHint: string;
   activeViewCount: number;
+  activeFilterLabel: string;
+  activeFilterHint: string;
+  searchQuery: string;
   onSelectChange: (changeId: string) => void;
   onSavedFilters: () => void;
   onExportReport: () => void;
@@ -16,13 +20,19 @@ export function QueuePanel({
   changes,
   selectedChangeId,
   activeViewLabel,
+  activeViewHint,
   activeViewCount,
+  activeFilterLabel,
+  activeFilterHint,
+  searchQuery,
   onSelectChange,
   onSavedFilters,
   onExportReport,
 }: QueuePanelProps) {
+  const normalizedQuery = searchQuery.trim();
+
   return (
-    <section className="panel queue-panel">
+    <section className="panel queue-panel" data-platform-surface="control-queue">
       <div className="panel-header">
         <div>
           <p className="eyebrow">Control Queue</p>
@@ -30,13 +40,31 @@ export function QueuePanel({
           <p className="subtitle">{activeViewCount} active changes in the current slice</p>
         </div>
         <div className="panel-head-actions">
-          <button type="button" className="ghost-button" onClick={onSavedFilters}>
+          <button type="button" className="ghost-button" data-platform-action="saved-filters" onClick={onSavedFilters}>
             Saved filters
           </button>
-          <button type="button" className="ghost-button" onClick={onExportReport}>
+          <button type="button" className="ghost-button" data-platform-action="export-report" onClick={onExportReport}>
             Export report
           </button>
         </div>
+      </div>
+
+      <div className="queue-context-grid" data-platform-surface="queue-filter-context">
+        <article className="context-chip">
+          <span>Active slice</span>
+          <strong>{activeViewLabel}</strong>
+          <small>{activeViewHint}</small>
+        </article>
+        <article className="context-chip">
+          <span>Queue filter</span>
+          <strong>{activeFilterLabel}</strong>
+          <small>{activeFilterHint}</small>
+        </article>
+        <article className="context-chip">
+          <span>Search</span>
+          <strong>{normalizedQuery || "No active search"}</strong>
+          <small>{normalizedQuery ? "Queue results are narrowed by the current query." : "Showing the full current slice."}</small>
+        </article>
       </div>
 
       <div className="queue-table">

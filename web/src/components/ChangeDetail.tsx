@@ -64,22 +64,27 @@ export function ChangeDetail({
       subtitle={change.subtitle}
       actions={
         <>
-          <button type="button" className="primary-button" onClick={() => void onRunNext()}>
+          <button type="button" className="primary-button" data-platform-action="run-next-step" onClick={() => void onRunNext()}>
             Run next step
           </button>
-          <button type="button" className="ghost-button" onClick={onOpenRunStudio}>
+          <button
+            type="button"
+            className="ghost-button"
+            data-platform-action="open-run-studio"
+            aria-controls="run-studio"
+            onClick={onOpenRunStudio}
+          >
             Open run studio
           </button>
-          <button type="button" className="ghost-button" onClick={onEscalate}>
+          <button type="button" className="ghost-button" data-platform-action="escalate-change" onClick={onEscalate}>
             Escalate
           </button>
-          <button type="button" className="ghost-button" onClick={onBlockBySpec}>
+          <button type="button" className="ghost-button" data-platform-action="block-by-spec" onClick={onBlockBySpec}>
             Mark blocked by spec
           </button>
         </>
       }
     >
-
       <div className="status-bar">
         <StatusBadge status={change.state} label={formatStateLabel(change.state)} />
         <span>{change.nextAction}</span>

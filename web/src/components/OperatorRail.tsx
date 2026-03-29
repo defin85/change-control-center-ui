@@ -1,4 +1,5 @@
 import type { BootstrapResponse, ChangeDetailResponse, ChangeSummary } from "../types";
+import { describeView, matchesView, OPERATOR_FILTERS } from "../platform/server-state";
 
 type OperatorRailProps = {
   views: BootstrapResponse["views"];
@@ -9,20 +10,6 @@ type OperatorRailProps = {
   activeFilterId: string;
   onSelectView: (viewId: string) => void;
   onSelectFilter: (filterId: string) => void;
-};
-
-const FILTERS = [
-  { id: "all", label: "All severities", hint: "Everything in the active view" },
-  { id: "needs-review", label: "Needs review", hint: "Open mandatory gaps only" },
-  { id: "blocked", label: "Blocked", hint: "Escalated or spec-blocked" },
-] as const;
-
-const VIEW_HINTS: Record<string, string> = {
-  inbox: "Open work awaiting chief attention",
-  ready: "Ready to move",
-  review: "Needs review or gap closure",
-  blocked: "Blocked or escalated",
-  done: "Completed and landed",
 };
 
 export function OperatorRail({
@@ -38,8 +25,8 @@ export function OperatorRail({
   const selectedChange = detail?.change ?? null;
 
   return (
-    <aside className="operator-rail">
-      <section className="panel rail-block">
+    <aside className="operator-rail" data-platform-surface="queue-context">
+      <section className="panel rail-block" data-platform-surface="saved-slices">
         <div className="panel-head compact">
           <div>
             <p className="block-label">Views</p>
@@ -48,7 +35,7 @@ export function OperatorRail({
         </div>
         <div className="view-stack">
           {views.map((view) => {
-            const count = viewCounts[view.id] ?? changes.filter((change) => viewMatches(change, view.id)).length;
+            const count = viewCounts[view.id] ?? changes.filter((change) => matchesView(change, view.id)).length;
             return (
               <button
                 key={view.id}
@@ -58,7 +45,7 @@ export function OperatorRail({
               >
                 <span>
                   <strong>{view.label}</strong>
-                  <small>{VIEW_HINTS[view.id] ?? "Operator view"}</small>
+                  <small>{describeView(view.id)}</small>
                 </span>
                 <span>{count}</span>
               </button>
@@ -67,7 +54,7 @@ export function OperatorRail({
         </div>
       </section>
 
-      <section className="panel rail-block">
+      <section className="panel rail-block" data-platform-surface="queue-filters">
         <div className="panel-head compact">
           <div>
             <p className="block-label">Filters</p>
@@ -75,7 +62,7 @@ export function OperatorRail({
           </div>
         </div>
         <div className="chip-grid">
-          {FILTERS.map((filter) => (
+          {OPERATOR_FILTERS.map((filter) => (
             <button
               key={filter.id}
               type="button"
@@ -89,7 +76,7 @@ export function OperatorRail({
         </div>
       </section>
 
-      <section className="panel rail-block">
+      <section className="panel rail-block" data-platform-surface="chief-policy">
         <div className="panel-head compact">
           <div>
             <p className="block-label">Chief policy</p>
@@ -119,19 +106,4 @@ export function OperatorRail({
       </section>
     </aside>
   );
-}
-
-function viewMatches(change: ChangeSummary, viewId: string) {
-  switch (viewId) {
-    case "ready":
-      return ["approved", "ready_for_acceptance"].includes(change.state) || change.mandatoryGapCount <= 1;
-    case "review":
-      return ["review_pending", "gap_fixing"].includes(change.state);
-    case "blocked":
-      return ["blocked_by_spec", "escalated"].includes(change.state);
-    case "done":
-      return change.state === "done";
-    default:
-      return true;
-  }
 }

@@ -39,5 +39,6 @@
 - `platform/foundation/stack.ts`
 - `platform/contracts/controlApi.ts`
 - `platform/navigation/operatorRouteState.ts`
+- `platform/server-state/useOperatorServerState.ts`
 - `platform/workbench/OperatorWorkbench.tsx`
 - `platform/index.ts`

@@ -12,13 +12,14 @@ import type {
   ClarificationAnswer,
   RuntimeEvent,
 } from "../../types";
+import { describeFilter, describeView } from "../server-state";
 import { DetailWorkspaceShell } from "../shells/DetailWorkspaceShell";
 import { MasterDetailShell } from "../shells/MasterDetailShell";
 import { WorkspacePageShell } from "../shells/WorkspacePageShell";
 import { WorkbenchHeader } from "./WorkbenchHeader";
 import { WorkbenchStatusStrip } from "./WorkbenchStatusStrip";
 
-type OperatorWorkbenchProps = {
+export type OperatorWorkbenchProps = {
   bootstrap: BootstrapResponse;
   activeTenantId: string;
   activeViewId: string;
@@ -112,6 +113,8 @@ export function OperatorWorkbench({
   onApprovalDecision,
 }: OperatorWorkbenchProps) {
   const activeViewLabel = bootstrap.views.find((view) => view.id === activeViewId)?.label ?? "Inbox";
+  const activeViewHint = describeView(activeViewId);
+  const activeFilter = describeFilter(activeFilterId);
   const selectedRun = detail?.runs.find((run) => run.id === selectedRunId) ?? null;
 
   return (
@@ -154,7 +157,11 @@ export function OperatorWorkbench({
                 changes={filteredChanges}
                 selectedChangeId={selectedChangeId}
                 activeViewLabel={activeViewLabel}
+                activeViewHint={activeViewHint}
                 activeViewCount={activeViewCount}
+                activeFilterLabel={activeFilter.label}
+                activeFilterHint={activeFilter.hint}
+                searchQuery={searchQuery}
                 onSelectChange={onSelectChange}
                 onSavedFilters={onSavedFilters}
                 onExportReport={onExportReport}
