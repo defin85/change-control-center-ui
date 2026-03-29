@@ -1,5 +1,6 @@
 import type { ChangeSummary } from "../types";
 import { formatStateLabel } from "../lib";
+import { StatusBadge } from "../platform/shells/StatusBadge";
 
 type QueuePanelProps = {
   changes: ChangeSummary[];
@@ -66,7 +67,7 @@ export function QueuePanel({
                   <strong>{change.title}</strong>
                   <span>{change.subtitle}</span>
                 </span>
-                <span className={`state-pill ${change.state}`}>{formatStateLabel(change.state)}</span>
+                <StatusBadge status={change.state} label={formatStateLabel(change.state)} />
                 <span>
                   <strong>{change.mandatoryGapCount}</strong>
                 </span>

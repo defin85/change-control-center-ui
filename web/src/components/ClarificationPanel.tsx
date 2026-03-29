@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { AuthoringShell } from "../platform/shells/AuthoringShell";
 import type { ClarificationAnswer, ClarificationRound } from "../types";
 
 type ClarificationPanelProps = {
@@ -46,16 +47,15 @@ export function ClarificationPanel({
   };
 
   return (
-    <section className="clarification-panel">
-      <div className="clarification-header">
-        <div>
-          <p className="eyebrow">Clarifications</p>
-          <h3>Design Ambiguities</h3>
-        </div>
+    <AuthoringShell
+      eyebrow="Clarifications"
+      title="Design Ambiguities"
+      actions={
         <button type="button" className="ghost-button" onClick={() => void onCreateRound()}>
           Generate round
         </button>
-      </div>
+      }
+    >
 
       {!openRound && <p className="empty-state">No clarification rounds yet.</p>}
 
@@ -118,6 +118,6 @@ export function ClarificationPanel({
           </button>
         </div>
       )}
-    </section>
+    </AuthoringShell>
   );
 }

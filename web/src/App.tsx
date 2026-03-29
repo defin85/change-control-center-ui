@@ -20,6 +20,9 @@ import { OperatorRail } from "./components/OperatorRail";
 import { QueuePanel } from "./components/QueuePanel";
 import { RunStudio } from "./components/RunStudio";
 import { formatStateLabel } from "./lib";
+import { DetailWorkspaceShell } from "./platform/shells/DetailWorkspaceShell";
+import { MasterDetailShell } from "./platform/shells/MasterDetailShell";
+import { WorkspacePageShell } from "./platform/shells/WorkspacePageShell";
 import type { ApprovalRecord, BootstrapResponse, ChangeDetailResponse, ChangeSummary, RuntimeEvent } from "./types";
 
 import "./styles.css";
@@ -335,16 +338,27 @@ export default function App() {
   }
 
   if (error) {
-    return <main className="app-shell"><div className="error-card">Error: {error}</div></main>;
+    return (
+      <WorkspacePageShell
+        header={<header className="topbar" />}
+        workspace={<div className="error-card">Error: {error}</div>}
+      />
+    );
   }
 
   if (!bootstrap || !activeTenant) {
-    return <main className="app-shell"><div className="loading-card">Loading backend state...</div></main>;
+    return (
+      <WorkspacePageShell
+        header={<header className="topbar" />}
+        workspace={<div className="loading-card">Loading backend state...</div>}
+      />
+    );
   }
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
+    <WorkspacePageShell
+      header={
+        <header className="topbar">
         <div className="topbar-title">
           <p className="eyebrow">Application Foundation</p>
           <h1>Change Control Center</h1>
@@ -377,9 +391,10 @@ export default function App() {
             </select>
           </label>
         </div>
-      </header>
-
-      <section className="hero-ribbon">
+        </header>
+      }
+      hero={
+        <>
         <div className="hero-card">
           <span>Repository</span>
           <strong>{activeTenant.repoPath}</strong>
@@ -396,60 +411,72 @@ export default function App() {
           <span>Selected State</span>
           <strong>{detail ? formatStateLabel(detail.change.state) : "none"}</strong>
         </div>
-      </section>
-
-      <section className="operator-grid">
-        <OperatorRail
-          views={bootstrap.views}
-          changes={changes}
-          detail={detail}
-          viewCounts={viewCounts}
-          activeViewId={activeViewId}
-          activeFilterId={activeFilterId}
-          onSelectView={setActiveViewId}
-          onSelectFilter={setActiveFilterId}
+        </>
+      }
+      workspace={
+        <MasterDetailShell
+          navigation={
+            <OperatorRail
+              views={bootstrap.views}
+              changes={changes}
+              detail={detail}
+              viewCounts={viewCounts}
+              activeViewId={activeViewId}
+              activeFilterId={activeFilterId}
+              onSelectView={setActiveViewId}
+              onSelectFilter={setActiveFilterId}
+            />
+          }
+          list={
+            <QueuePanel
+              changes={filteredChanges}
+              selectedChangeId={selectedChangeId}
+              activeViewLabel={bootstrap.views.find((view) => view.id === activeViewId)?.label ?? "Inbox"}
+              activeViewCount={filteredChanges.length}
+              onSelectChange={selectChange}
+              onSavedFilters={() => setToast("Saved filters will be wired in a later delivery.")}
+              onExportReport={() => setToast("Export report is intentionally left as a shell action in this pass.")}
+            />
+          }
+          inspector={
+            <InspectorPanel
+              detail={detail}
+              selectedChangeId={selectedChangeId}
+              onClearSelection={() => {
+                selectChange(null);
+                setDetail(null);
+              }}
+            />
+          }
         />
-        <QueuePanel
-          changes={filteredChanges}
-          selectedChangeId={selectedChangeId}
-          activeViewLabel={bootstrap.views.find((view) => view.id === activeViewId)?.label ?? "Inbox"}
-          activeViewCount={filteredChanges.length}
-          onSelectChange={selectChange}
-          onSavedFilters={() => setToast("Saved filters will be wired in a later delivery.")}
-          onExportReport={() => setToast("Export report is intentionally left as a shell action in this pass.")}
+      }
+      detailWorkspace={
+        <DetailWorkspaceShell
+          detail={
+            <ChangeDetail
+              detail={detail}
+              onRunNext={handleRunNext}
+              onOpenRunStudio={handleOpenRunStudio}
+              onEscalate={handleEscalate}
+              onBlockBySpec={handleBlockBySpec}
+              onCreateClarificationRound={handleCreateClarificationRound}
+              onAnswerClarificationRound={handleAnswerClarificationRound}
+              onSelectRun={setSelectedRunId}
+              onPromoteFact={handlePromoteFact}
+            />
+          }
+          runInspection={
+            <RunStudio
+              run={selectedRun}
+              events={selectedRunEvents}
+              approvals={selectedRunApprovals}
+              onApprovalDecision={handleApprovalDecision}
+            />
+          }
         />
-        <InspectorPanel
-          detail={detail}
-          selectedChangeId={selectedChangeId}
-          onClearSelection={() => {
-            selectChange(null);
-            setDetail(null);
-          }}
-        />
-      </section>
-
-      <section className="detail-stage">
-        <ChangeDetail
-          detail={detail}
-          onRunNext={handleRunNext}
-          onOpenRunStudio={handleOpenRunStudio}
-          onEscalate={handleEscalate}
-          onBlockBySpec={handleBlockBySpec}
-          onCreateClarificationRound={handleCreateClarificationRound}
-          onAnswerClarificationRound={handleAnswerClarificationRound}
-          onSelectRun={setSelectedRunId}
-          onPromoteFact={handlePromoteFact}
-        />
-        <RunStudio
-          run={selectedRun}
-          events={selectedRunEvents}
-          approvals={selectedRunApprovals}
-          onApprovalDecision={handleApprovalDecision}
-        />
-      </section>
-
-      {toast && <div className="toast">{toast}</div>}
-    </main>
+      }
+      toast={toast ? <div className="toast">{toast}</div> : null}
+    />
   );
 }
 

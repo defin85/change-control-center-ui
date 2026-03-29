@@ -4,6 +4,10 @@ test("renders the operator console surfaces and mandatory detail tabs", async ({
   await page.goto("/");
   const detailActions = page.locator(".detail-stage .detail-panel").first();
 
+  await expect(page.locator('[data-platform-shell="workspace-page"]')).toBeVisible();
+  await expect(page.locator('[data-platform-shell="master-detail"]')).toBeVisible();
+  await expect(page.locator('[data-platform-shell="detail-workspace"]')).toBeVisible();
+
   await page.getByRole("button", { name: /ch-146/i }).click();
   await expect(page.getByRole("button", { name: "New change" })).toBeVisible();
   await expect(page.locator("header").getByRole("button", { name: "Run next step" })).toBeVisible();

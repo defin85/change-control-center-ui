@@ -1,4 +1,5 @@
 import type { ApprovalRecord, RunRecord, RuntimeEvent } from "../types";
+import { RunInspectionShell } from "../platform/shells/RunInspectionShell";
 
 type RunStudioProps = {
   run: RunRecord | null;
@@ -10,26 +11,14 @@ type RunStudioProps = {
 export function RunStudio({ run, events, approvals, onApprovalDecision }: RunStudioProps) {
   if (!run) {
     return (
-      <section className="panel detail-panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Run Studio</p>
-            <h2>No Run Selected</h2>
-          </div>
-        </div>
+      <RunInspectionShell eyebrow="Run Studio" title="No Run Selected">
         <p className="empty-state">Choose a run from the detail view to inspect its lineage and curated memory packet.</p>
-      </section>
+      </RunInspectionShell>
     );
   }
 
   return (
-    <section id="run-studio" className="panel detail-panel">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Run Studio</p>
-          <h2>{run.id}</h2>
-        </div>
-      </div>
+    <RunInspectionShell id="run-studio" eyebrow="Run Studio" title={run.id}>
       <div className="stack">
         <div className="key-value-grid">
           <div>
@@ -108,7 +97,7 @@ export function RunStudio({ run, events, approvals, onApprovalDecision }: RunStu
           )}
         </div>
       </div>
-    </section>
+    </RunInspectionShell>
   );
 }
 

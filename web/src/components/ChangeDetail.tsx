@@ -2,6 +2,8 @@ import { useState } from "react";
 
 import { ClarificationPanel } from "./ClarificationPanel";
 import { formatStateLabel } from "../lib";
+import { DetailPanelShell } from "../platform/shells/DetailPanelShell";
+import { StatusBadge } from "../platform/shells/StatusBadge";
 import type { ChangeDetailResponse, ClarificationAnswer } from "../types";
 
 type ChangeDetailProps = {
@@ -44,29 +46,21 @@ export function ChangeDetail({
 
   if (!detail) {
     return (
-      <section className="panel detail-panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Change Detail</p>
-            <h2>No Change Selected</h2>
-          </div>
-        </div>
+      <DetailPanelShell eyebrow="Change Detail" title="No Change Selected">
         <p className="empty-state">Select a change from the control queue to inspect backend-owned state.</p>
-      </section>
+      </DetailPanelShell>
     );
   }
 
   const { change, runs, evidence, clarificationRounds, focusGraph, tenantMemory } = detail;
 
   return (
-    <section className="panel detail-panel">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Change Detail</p>
-          <h2>{change.title}</h2>
-          <p className="subtitle">{change.subtitle}</p>
-        </div>
-        <div className="action-row">
+    <DetailPanelShell
+      eyebrow="Change Detail"
+      title={change.title}
+      subtitle={change.subtitle}
+      actions={
+        <>
           <button type="button" className="primary-button" onClick={() => void onRunNext()}>
             Run next step
           </button>
@@ -79,11 +73,12 @@ export function ChangeDetail({
           <button type="button" className="ghost-button" onClick={onBlockBySpec}>
             Mark blocked by spec
           </button>
-        </div>
-      </div>
+        </>
+      }
+    >
 
       <div className="status-bar">
-        <span>{formatStateLabel(change.state)}</span>
+        <StatusBadge status={change.state} label={formatStateLabel(change.state)} />
         <span>{change.nextAction}</span>
         <span>{change.blocker}</span>
       </div>
@@ -177,7 +172,7 @@ export function ChangeDetail({
                 <span>{item.code}</span>
                 <span>{item.tests}</span>
                 <span>{item.evidence}</span>
-                <span className="state-pill">{item.status}</span>
+                <StatusBadge status={item.status} />
               </div>
             ))
           )}
@@ -357,6 +352,6 @@ export function ChangeDetail({
           onAnswerRound={onAnswerClarificationRound}
         />
       )}
-    </section>
+    </DetailPanelShell>
   );
 }
