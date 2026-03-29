@@ -48,16 +48,16 @@ type OperatorServerStateResult =
     };
 
 export function useOperatorServerState(): OperatorServerStateResult {
-  const initialRouteStateRef = useRef(readOperatorRouteState(window.location.search));
+  const [initialRouteState] = useState(() => readOperatorRouteState(window.location.search));
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
   const [changes, setChanges] = useState<BootstrapResponse["changes"]>([]);
-  const [activeTenantId, setActiveTenantId] = useState<string | null>(initialRouteStateRef.current.tenantId ?? null);
-  const [activeViewId, setActiveViewId] = useState(initialRouteStateRef.current.viewId ?? DEFAULT_OPERATOR_VIEW_ID);
-  const [activeFilterId, setActiveFilterId] = useState(initialRouteStateRef.current.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
-  const [searchQuery, setSearchQuery] = useState(initialRouteStateRef.current.searchQuery ?? "");
-  const [selectedChangeId, setSelectedChangeId] = useState<string | null>(initialRouteStateRef.current.changeId ?? null);
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(initialRouteStateRef.current.runId ?? null);
-  const [activeTabId, setActiveTabId] = useState<ChangeDetailTabId>(initialRouteStateRef.current.tabId ?? DEFAULT_OPERATOR_TAB_ID);
+  const [activeTenantId, setActiveTenantId] = useState<string | null>(initialRouteState.tenantId ?? null);
+  const [activeViewId, setActiveViewId] = useState(initialRouteState.viewId ?? DEFAULT_OPERATOR_VIEW_ID);
+  const [activeFilterId, setActiveFilterId] = useState(initialRouteState.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
+  const [searchQuery, setSearchQuery] = useState(initialRouteState.searchQuery ?? "");
+  const [selectedChangeId, setSelectedChangeId] = useState<string | null>(initialRouteState.changeId ?? null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(initialRouteState.runId ?? null);
+  const [activeTabId, setActiveTabId] = useState<ChangeDetailTabId>(initialRouteState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
   const [detail, setDetail] = useState<ChangeDetailResponse | null>(null);
   const [runApprovals, setRunApprovals] = useState<Record<string, ApprovalRecord[]>>({});
   const [runEvents, setRunEvents] = useState<Record<string, RuntimeEvent[]>>({});
@@ -69,6 +69,10 @@ export function useOperatorServerState(): OperatorServerStateResult {
   function selectChange(changeId: string | null) {
     selectedChangeRef.current = changeId;
     setSelectedChangeId(changeId);
+    if (!changeId) {
+      setDetail(null);
+      setSelectedRunId(null);
+    }
   }
 
   function applyDetailPayload(payload: ChangeDetailResponse, preferredRunId?: string | null) {
@@ -106,129 +110,6 @@ export function useOperatorServerState(): OperatorServerStateResult {
     applyDetailPayload(detailPayload);
   }
 
-  useEffect(() => {
-    activeTenantRef.current = activeTenantId;
-  }, [activeTenantId]);
-
-  useEffect(() => {
-    selectedChangeRef.current = selectedChangeId;
-  }, [selectedChangeId]);
-
-  useEffect(() => {
-    void fetchBootstrap()
-      .then(async (payload) => {
-        const initialRoute = initialRouteStateRef.current;
-        const initialTenantId = resolveTenantId(payload, initialRoute.tenantId);
-        const initialViewId = resolveViewId(payload, initialRoute.viewId ?? DEFAULT_OPERATOR_VIEW_ID, DEFAULT_OPERATOR_VIEW_ID);
-        const initialChanges =
-          initialTenantId === payload.activeTenantId ? payload.changes : (await fetchChanges(initialTenantId)).changes;
-
-        setBootstrap(payload);
-        setActiveTenantId(initialTenantId);
-        activeTenantRef.current = initialTenantId;
-        setChanges(initialChanges);
-        selectChange(resolveChangeSelection(initialChanges, initialRoute.changeId));
-        setActiveViewId(initialViewId);
-        setActiveFilterId(initialRoute.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
-        setSearchQuery(initialRoute.searchQuery ?? "");
-        setActiveTabId(initialRoute.tabId ?? DEFAULT_OPERATOR_TAB_ID);
-      })
-      .catch((reason: Error) => setError(reason.message));
-  }, []);
-
-  useEffect(() => {
-    if (!activeTenantId || !selectedChangeId) {
-      return;
-    }
-
-    const targetTenantId = activeTenantId;
-    const targetChangeId = selectedChangeId;
-    void fetchChangeDetail(activeTenantId, selectedChangeId)
-      .then((payload) => {
-        if (activeTenantRef.current !== targetTenantId || selectedChangeRef.current !== targetChangeId) {
-          return;
-        }
-        applyDetailPayload(payload);
-      })
-      .catch((reason: Error) => setError(reason.message));
-  }, [activeTenantId, selectedChangeId]);
-
-  useEffect(() => {
-    if (!selectedChangeId) {
-      setDetail(null);
-      setSelectedRunId(null);
-    }
-  }, [selectedChangeId]);
-
-  useEffect(() => {
-    if (!bootstrap || !activeTenantId) {
-      return;
-    }
-
-    const nextHref = buildOperatorRouteHref(window.location.pathname, {
-      tenantId: activeTenantId,
-      viewId: activeViewId,
-      filterId: activeFilterId,
-      searchQuery,
-      changeId: selectedChangeId ?? undefined,
-      runId: selectedRunId ?? undefined,
-      tabId: activeTabId,
-    });
-
-    const currentHref = `${window.location.pathname}${window.location.search}`;
-    if (currentHref !== nextHref) {
-      window.history.replaceState(window.history.state, "", nextHref);
-    }
-  }, [bootstrap, activeFilterId, activeTabId, activeTenantId, activeViewId, searchQuery, selectedChangeId, selectedRunId]);
-
-  useTenantRealtimeBoundary({
-    tenantId: activeTenantId,
-    onTenantEvent: async () => {
-      if (!activeTenantId) {
-        return;
-      }
-
-      const queuePayload = await fetchChanges(activeTenantId);
-      setChanges(queuePayload.changes);
-
-      if (!selectedChangeId) {
-        return;
-      }
-
-      const targetTenantId = activeTenantId;
-      const targetChangeId = selectedChangeId;
-      const detailPayload = await fetchChangeDetail(activeTenantId, selectedChangeId);
-      if (activeTenantRef.current !== targetTenantId || selectedChangeRef.current !== targetChangeId) {
-        return;
-      }
-
-      const preferredRunId = detailPayload.runs.some((run) => run.id === selectedRunId)
-        ? selectedRunId
-        : detailPayload.runs[0]?.id ?? null;
-      applyDetailPayload(detailPayload, preferredRunId);
-      if (preferredRunId) {
-        await refreshRunDetail(activeTenantId, preferredRunId);
-      }
-    },
-    onRealtimeError: (message) => setError(message),
-  });
-
-  useEffect(() => {
-    if (!activeTenantId || !selectedRunId) {
-      return;
-    }
-
-    void refreshRunDetail(activeTenantId, selectedRunId).catch((reason: Error) => setError(reason.message));
-  }, [activeTenantId, selectedRunId]);
-
-  useEffect(() => {
-    if (!toast) {
-      return;
-    }
-    const timeout = window.setTimeout(() => setToast(null), 2400);
-    return () => window.clearTimeout(timeout);
-  }, [toast]);
-
   const activeTenant = useMemo(
     () => bootstrap?.tenants.find((tenant) => tenant.id === activeTenantId) ?? null,
     [bootstrap, activeTenantId],
@@ -244,23 +125,174 @@ export function useOperatorServerState(): OperatorServerStateResult {
     [activeFilterId, activeViewId, changes, searchQuery],
   );
 
-  useEffect(() => {
+  const activeSelectedChangeId = useMemo(() => {
     if (!selectedChangeId) {
-      return;
+      return null;
     }
-    if (!filteredChanges.some((change) => change.id === selectedChangeId)) {
-      selectChange(filteredChanges[0]?.id ?? null);
+    if (filteredChanges.some((change) => change.id === selectedChangeId)) {
+      return selectedChangeId;
     }
+    return filteredChanges[0]?.id ?? null;
   }, [filteredChanges, selectedChangeId]);
 
-  const selectedRunApprovals = selectedRunId ? runApprovals[selectedRunId] ?? [] : [];
-  const selectedRunEvents = selectedRunId ? runEvents[selectedRunId] ?? [] : [];
+  const activeDetail = useMemo(() => {
+    if (!activeSelectedChangeId) {
+      return null;
+    }
+    return detail?.change.id === activeSelectedChangeId ? detail : null;
+  }, [activeSelectedChangeId, detail]);
 
-  async function handleRunNext() {
-    if (!activeTenantId || !selectedChangeId) {
+  const activeSelectedRunId = activeDetail ? selectedRunId : null;
+  const selectedRunApprovals = activeSelectedRunId ? runApprovals[activeSelectedRunId] ?? [] : [];
+  const selectedRunEvents = activeSelectedRunId ? runEvents[activeSelectedRunId] ?? [] : [];
+
+  useEffect(() => {
+    activeTenantRef.current = activeTenantId;
+  }, [activeTenantId]);
+
+  useEffect(() => {
+    selectedChangeRef.current = activeSelectedChangeId;
+  }, [activeSelectedChangeId]);
+
+  useEffect(() => {
+    void fetchBootstrap()
+      .then(async (payload) => {
+        const initialTenantId = resolveTenantId(payload, initialRouteState.tenantId);
+        const initialViewId = resolveViewId(
+          payload,
+          initialRouteState.viewId ?? DEFAULT_OPERATOR_VIEW_ID,
+          DEFAULT_OPERATOR_VIEW_ID,
+        );
+        const initialChanges =
+          initialTenantId === payload.activeTenantId ? payload.changes : (await fetchChanges(initialTenantId)).changes;
+
+        setBootstrap(payload);
+        setActiveTenantId(initialTenantId);
+        activeTenantRef.current = initialTenantId;
+        setChanges(initialChanges);
+        selectChange(resolveChangeSelection(initialChanges, initialRouteState.changeId));
+        setActiveViewId(initialViewId);
+        setActiveFilterId(initialRouteState.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
+        setSearchQuery(initialRouteState.searchQuery ?? "");
+        setActiveTabId(initialRouteState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
+      })
+      .catch((reason: Error) => setError(reason.message));
+  }, [initialRouteState]);
+
+  useEffect(() => {
+    if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
-    const payload = await runNext(activeTenantId, selectedChangeId);
+
+    const targetTenantId = activeTenantId;
+    const targetChangeId = activeSelectedChangeId;
+    void fetchChangeDetail(activeTenantId, activeSelectedChangeId)
+      .then((payload) => {
+        if (activeTenantRef.current !== targetTenantId || selectedChangeRef.current !== targetChangeId) {
+          return;
+        }
+        applyDetailPayload(payload);
+      })
+      .catch((reason: Error) => setError(reason.message));
+  }, [activeSelectedChangeId, activeTenantId]);
+
+  useEffect(() => {
+    if (!bootstrap || !activeTenantId) {
+      return;
+    }
+
+    const nextHref = buildOperatorRouteHref(window.location.pathname, {
+      tenantId: activeTenantId,
+      viewId: activeViewId,
+      filterId: activeFilterId,
+      searchQuery,
+      changeId: activeSelectedChangeId ?? undefined,
+      runId: activeSelectedRunId ?? undefined,
+      tabId: activeTabId,
+    });
+
+    const currentHref = `${window.location.pathname}${window.location.search}`;
+    if (currentHref !== nextHref) {
+      window.history.replaceState(window.history.state, "", nextHref);
+    }
+  }, [activeFilterId, activeSelectedChangeId, activeSelectedRunId, activeTabId, activeTenantId, activeViewId, bootstrap, searchQuery]);
+
+  useTenantRealtimeBoundary({
+    tenantId: activeTenantId,
+    onTenantEvent: async () => {
+      if (!activeTenantId) {
+        return;
+      }
+
+      const queuePayload = await fetchChanges(activeTenantId);
+      setChanges(queuePayload.changes);
+
+      if (!activeSelectedChangeId) {
+        return;
+      }
+
+      const targetTenantId = activeTenantId;
+      const targetChangeId = activeSelectedChangeId;
+      const detailPayload = await fetchChangeDetail(activeTenantId, activeSelectedChangeId);
+      if (activeTenantRef.current !== targetTenantId || selectedChangeRef.current !== targetChangeId) {
+        return;
+      }
+
+      const preferredRunId = detailPayload.runs.some((run) => run.id === activeSelectedRunId)
+        ? activeSelectedRunId
+        : detailPayload.runs[0]?.id ?? null;
+      applyDetailPayload(detailPayload, preferredRunId);
+      if (preferredRunId) {
+        await refreshRunDetail(activeTenantId, preferredRunId);
+      }
+    },
+    onRealtimeError: (message) => setError(message),
+  });
+
+  useEffect(() => {
+    if (!activeTenantId || !activeSelectedRunId) {
+      return;
+    }
+
+    let cancelled = false;
+    void fetchRunDetail(activeTenantId, activeSelectedRunId)
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+        setRunApprovals((current) => ({
+          ...current,
+          [activeSelectedRunId]: payload.approvals,
+        }));
+        setRunEvents((current) => ({
+          ...current,
+          [activeSelectedRunId]: payload.events,
+        }));
+      })
+      .catch((reason: Error) => {
+        if (!cancelled) {
+          setError(reason.message);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSelectedRunId, activeTenantId]);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+    const timeout = window.setTimeout(() => setToast(null), 2400);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
+
+  async function handleRunNext() {
+    if (!activeTenantId || !activeSelectedChangeId) {
+      return;
+    }
+    const payload = await runNext(activeTenantId, activeSelectedChangeId);
     setRunApprovals((current) => ({
       ...current,
       [payload.run.id]: payload.approvals,
@@ -269,14 +301,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
       ...current,
       [payload.run.id]: payload.events,
     }));
-    await refreshCurrentChange(selectedChangeId);
+    await refreshCurrentChange(activeSelectedChangeId);
     setSelectedRunId(payload.run.id);
     setToast(`Run ${payload.run.id} started.`);
   }
 
   function handleOpenRunStudio() {
-    if (detail?.runs.length) {
-      setSelectedRunId(detail.runs[0].id);
+    if (activeDetail?.runs.length) {
+      setSelectedRunId(activeDetail.runs[0].id);
       window.requestAnimationFrame(() => {
         document.getElementById("run-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -297,59 +329,59 @@ export function useOperatorServerState(): OperatorServerStateResult {
   }
 
   async function handleEscalate() {
-    if (!activeTenantId || !selectedChangeId) {
+    if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
-    await escalateChange(activeTenantId, selectedChangeId);
-    await refreshCurrentChange(selectedChangeId);
-    setToast(`Escalated ${selectedChangeId}.`);
+    await escalateChange(activeTenantId, activeSelectedChangeId);
+    await refreshCurrentChange(activeSelectedChangeId);
+    setToast(`Escalated ${activeSelectedChangeId}.`);
   }
 
   async function handleBlockBySpec() {
-    if (!activeTenantId || !selectedChangeId) {
+    if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
-    await blockChangeBySpec(activeTenantId, selectedChangeId);
-    await refreshCurrentChange(selectedChangeId);
-    setToast(`Blocked ${selectedChangeId} by spec.`);
+    await blockChangeBySpec(activeTenantId, activeSelectedChangeId);
+    await refreshCurrentChange(activeSelectedChangeId);
+    setToast(`Blocked ${activeSelectedChangeId} by spec.`);
   }
 
   async function handleCreateClarificationRound() {
-    if (!activeTenantId || !selectedChangeId) {
+    if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
-    await createClarificationRound(activeTenantId, selectedChangeId);
-    await refreshCurrentChange(selectedChangeId);
+    await createClarificationRound(activeTenantId, activeSelectedChangeId);
+    await refreshCurrentChange(activeSelectedChangeId);
   }
 
   async function handleAnswerClarificationRound(roundId: string, answers: ClarificationAnswer[]) {
-    if (!activeTenantId || !selectedChangeId) {
+    if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
     await answerClarificationRound(activeTenantId, roundId, answers);
-    await refreshCurrentChange(selectedChangeId);
+    await refreshCurrentChange(activeSelectedChangeId);
   }
 
   async function handlePromoteFact(title: string, body: string) {
-    if (!activeTenantId || !selectedChangeId) {
+    if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
-    await promoteFact(activeTenantId, selectedChangeId, title, body);
-    await refreshCurrentChange(selectedChangeId);
+    await promoteFact(activeTenantId, activeSelectedChangeId, title, body);
+    await refreshCurrentChange(activeSelectedChangeId);
   }
 
   async function handleApprovalDecision(approvalId: string, decision: "accept" | "decline") {
-    if (!activeTenantId || !selectedRunId) {
+    if (!activeTenantId || !activeSelectedRunId) {
       return;
     }
     const payload = await decideApproval(activeTenantId, approvalId, decision);
     setRunApprovals((current) => ({
       ...current,
-      [selectedRunId]: (current[selectedRunId] ?? []).map((approval) =>
+      [activeSelectedRunId]: (current[activeSelectedRunId] ?? []).map((approval) =>
         approval.id === approvalId ? payload.approval : approval,
       ),
     }));
-    await refreshRunDetail(activeTenantId, selectedRunId);
+    await refreshRunDetail(activeTenantId, activeSelectedRunId);
     setToast(`${decision === "accept" ? "Accepted" : "Declined"} ${approvalId}.`);
   }
 
@@ -386,9 +418,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
       activeTenantRepoPath: activeTenant.repoPath,
       searchQuery,
       activeTabId,
-      selectedChangeId,
-      selectedRunId,
-      detail,
+      selectedChangeId: activeSelectedChangeId,
+      selectedRunId: activeSelectedRunId,
+      detail: activeDetail,
       changes,
       filteredChanges,
       selectedRunApprovals,
