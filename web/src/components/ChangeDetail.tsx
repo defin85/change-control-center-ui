@@ -4,9 +4,10 @@ import { ClarificationPanel } from "./ClarificationPanel";
 import { formatStateLabel } from "../lib";
 import { DetailPanelShell } from "../platform/shells/DetailPanelShell";
 import { StatusBadge } from "../platform/shells/StatusBadge";
-import type { ChangeDetailResponse, ClarificationAnswer } from "../types";
+import type { ChangeDetailResponse, ChangeDetailTabId, ClarificationAnswer } from "../types";
 
 type ChangeDetailProps = {
+  activeTab: ChangeDetailTabId;
   detail: ChangeDetailResponse | null;
   onRunNext: () => Promise<void>;
   onOpenRunStudio: () => void;
@@ -15,10 +16,11 @@ type ChangeDetailProps = {
   onCreateClarificationRound: () => Promise<void>;
   onAnswerClarificationRound: (roundId: string, answers: ClarificationAnswer[]) => Promise<void>;
   onSelectRun: (runId: string) => void;
+  onSelectTab: (tabId: ChangeDetailTabId) => void;
   onPromoteFact: (title: string, body: string) => Promise<void>;
 };
 
-const TABS = [
+const TABS: Array<{ id: ChangeDetailTabId; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "traceability", label: "Traceability" },
   { id: "runs", label: "Runs" },
@@ -30,6 +32,7 @@ const TABS = [
 ] as const;
 
 export function ChangeDetail({
+  activeTab,
   detail,
   onRunNext,
   onOpenRunStudio,
@@ -38,9 +41,9 @@ export function ChangeDetail({
   onCreateClarificationRound,
   onAnswerClarificationRound,
   onSelectRun,
+  onSelectTab,
   onPromoteFact,
 }: ChangeDetailProps) {
-  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["id"]>("overview");
   const [factTitle, setFactTitle] = useState("");
   const [factBody, setFactBody] = useState("");
 
@@ -89,7 +92,7 @@ export function ChangeDetail({
             key={tab.id}
             type="button"
             className={activeTab === tab.id ? "active" : ""}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => onSelectTab(tab.id)}
           >
             {tab.label}
           </button>

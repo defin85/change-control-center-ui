@@ -5,6 +5,19 @@ export type Tenant = {
   description: string;
 };
 
+export const CHANGE_DETAIL_TAB_IDS = [
+  "overview",
+  "traceability",
+  "runs",
+  "gaps",
+  "evidence",
+  "git",
+  "chief",
+  "clarifications",
+] as const;
+
+export type ChangeDetailTabId = (typeof CHANGE_DETAIL_TAB_IDS)[number];
+
 export type ChangeSummary = {
   id: string;
   tenantId: string;

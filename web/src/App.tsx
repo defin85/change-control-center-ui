@@ -14,20 +14,37 @@ import {
   promoteFact,
   runNext,
 } from "./api";
-import { OperatorWorkbench, OperatorWorkbenchState } from "./platform";
-import type { ApprovalRecord, BootstrapResponse, ChangeDetailResponse, ChangeSummary, RuntimeEvent } from "./types";
+import {
+  buildOperatorRouteHref,
+  DEFAULT_OPERATOR_FILTER_ID,
+  DEFAULT_OPERATOR_TAB_ID,
+  DEFAULT_OPERATOR_VIEW_ID,
+  OperatorWorkbench,
+  OperatorWorkbenchState,
+  readOperatorRouteState,
+} from "./platform";
+import type {
+  ApprovalRecord,
+  BootstrapResponse,
+  ChangeDetailResponse,
+  ChangeDetailTabId,
+  ChangeSummary,
+  RuntimeEvent,
+} from "./types";
 
 import "./styles.css";
 
 export default function App() {
+  const initialRouteStateRef = useRef(readOperatorRouteState(window.location.search));
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
   const [changes, setChanges] = useState<ChangeSummary[]>([]);
-  const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
-  const [activeViewId, setActiveViewId] = useState("inbox");
-  const [activeFilterId, setActiveFilterId] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [activeTenantId, setActiveTenantId] = useState<string | null>(initialRouteStateRef.current.tenantId ?? null);
+  const [activeViewId, setActiveViewId] = useState(initialRouteStateRef.current.viewId ?? DEFAULT_OPERATOR_VIEW_ID);
+  const [activeFilterId, setActiveFilterId] = useState(initialRouteStateRef.current.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
+  const [searchQuery, setSearchQuery] = useState(initialRouteStateRef.current.searchQuery ?? "");
+  const [selectedChangeId, setSelectedChangeId] = useState<string | null>(initialRouteStateRef.current.changeId ?? null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(initialRouteStateRef.current.runId ?? null);
+  const [activeTabId, setActiveTabId] = useState<ChangeDetailTabId>(initialRouteStateRef.current.tabId ?? DEFAULT_OPERATOR_TAB_ID);
   const [detail, setDetail] = useState<ChangeDetailResponse | null>(null);
   const [runApprovals, setRunApprovals] = useState<Record<string, ApprovalRecord[]>>({});
   const [runEvents, setRunEvents] = useState<Record<string, RuntimeEvent[]>>({});
@@ -74,13 +91,22 @@ export default function App() {
 
   useEffect(() => {
     void fetchBootstrap()
-      .then((payload) => {
+      .then(async (payload) => {
+        const initialRoute = initialRouteStateRef.current;
+        const initialTenantId = resolveTenantId(payload, initialRoute.tenantId);
+        const initialViewId = resolveViewId(payload, initialRoute.viewId);
+        const initialChanges =
+          initialTenantId === payload.activeTenantId ? payload.changes : (await fetchChanges(initialTenantId)).changes;
+
         setBootstrap(payload);
-        setActiveTenantId(payload.activeTenantId);
-        activeTenantRef.current = payload.activeTenantId;
-        setChanges(payload.changes);
-        selectChange(payload.changes[0]?.id ?? null);
-        setActiveViewId(payload.views[0]?.id ?? "inbox");
+        setActiveTenantId(initialTenantId);
+        activeTenantRef.current = initialTenantId;
+        setChanges(initialChanges);
+        selectChange(resolveChangeSelection(initialChanges, initialRoute.changeId));
+        setActiveViewId(initialViewId);
+        setActiveFilterId(initialRoute.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
+        setSearchQuery(initialRoute.searchQuery ?? "");
+        setActiveTabId(initialRoute.tabId ?? DEFAULT_OPERATOR_TAB_ID);
       })
       .catch((reason: Error) => setError(reason.message));
   }, []);
@@ -108,6 +134,27 @@ export default function App() {
       setSelectedRunId(null);
     }
   }, [selectedChangeId]);
+
+  useEffect(() => {
+    if (!bootstrap || !activeTenantId) {
+      return;
+    }
+
+    const nextHref = buildOperatorRouteHref(window.location.pathname, {
+      tenantId: activeTenantId,
+      viewId: activeViewId,
+      filterId: activeFilterId,
+      searchQuery,
+      changeId: selectedChangeId ?? undefined,
+      runId: selectedRunId ?? undefined,
+      tabId: activeTabId,
+    });
+
+    const currentHref = `${window.location.pathname}${window.location.search}`;
+    if (currentHref !== nextHref) {
+      window.history.replaceState(window.history.state, "", nextHref);
+    }
+  }, [bootstrap, activeFilterId, activeTabId, activeTenantId, activeViewId, searchQuery, selectedChangeId, selectedRunId]);
 
   useEffect(() => {
     if (!activeTenantId) {
@@ -315,9 +362,10 @@ export default function App() {
     const payload = await fetchChanges(tenantId);
     setChanges(payload.changes);
     selectChange(payload.changes[0]?.id ?? null);
-    setActiveViewId("inbox");
-    setActiveFilterId("all");
+    setActiveViewId(DEFAULT_OPERATOR_VIEW_ID);
+    setActiveFilterId(DEFAULT_OPERATOR_FILTER_ID);
     setSearchQuery("");
+    setActiveTabId(DEFAULT_OPERATOR_TAB_ID);
   }
 
   if (error) {
@@ -337,6 +385,7 @@ export default function App() {
       activeViewCount={filteredChanges.length}
       activeTenantRepoPath={activeTenant.repoPath}
       searchQuery={searchQuery}
+      activeTabId={activeTabId}
       selectedChangeId={selectedChangeId}
       selectedRunId={selectedRunId}
       detail={detail}
@@ -364,6 +413,7 @@ export default function App() {
       onCreateClarificationRound={handleCreateClarificationRound}
       onAnswerClarificationRound={handleAnswerClarificationRound}
       onSelectRun={setSelectedRunId}
+      onSelectTab={setActiveTabId}
       onPromoteFact={handlePromoteFact}
       onApprovalDecision={handleApprovalDecision}
     />
@@ -383,4 +433,28 @@ function matchesView(change: ChangeSummary, viewId: string) {
     default:
       return true;
   }
+}
+
+function resolveTenantId(payload: BootstrapResponse, preferredTenantId?: string) {
+  if (preferredTenantId && payload.tenants.some((tenant) => tenant.id === preferredTenantId)) {
+    return preferredTenantId;
+  }
+
+  return payload.activeTenantId;
+}
+
+function resolveViewId(payload: BootstrapResponse, preferredViewId?: string) {
+  if (preferredViewId && payload.views.some((view) => view.id === preferredViewId)) {
+    return preferredViewId;
+  }
+
+  return payload.views[0]?.id ?? DEFAULT_OPERATOR_VIEW_ID;
+}
+
+function resolveChangeSelection(changes: ChangeSummary[], preferredChangeId?: string) {
+  if (preferredChangeId && changes.some((change) => change.id === preferredChangeId)) {
+    return preferredChangeId;
+  }
+
+  return changes[0]?.id ?? null;
 }

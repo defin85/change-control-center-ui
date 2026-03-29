@@ -83,6 +83,26 @@ test("persists clarification answers across reload", async ({ page }) => {
   await expect(page.getByText("Зафиксировать sidecar deployment.")).toBeVisible();
 });
 
+test("restores route-addressable operator context after reload", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  await page.getByLabel("Search").fill("ch-142");
+  await page.getByRole("button", { name: "Runs" }).click();
+  await page.getByRole("button", { name: /run-30/i }).click();
+
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(page).toHaveURL(/run=run-30/);
+  await expect(page).toHaveURL(/q=ch-142/);
+  await expect(page).toHaveURL(/tab=runs/);
+
+  await page.reload();
+
+  await expect(page.getByLabel("Search")).toHaveValue("ch-142");
+  await expect(page.locator(".tab-list button.active")).toHaveText("Runs");
+  await expect(page.locator("#run-studio").getByRole("heading", { name: "run-30" })).toBeVisible();
+});
+
 test("operator actions create a change, mutate its state, and resolve runtime approvals", async ({ page }) => {
   await page.goto("/");
 

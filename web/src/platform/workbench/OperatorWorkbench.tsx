@@ -8,6 +8,7 @@ import type {
   BootstrapResponse,
   ChangeDetailResponse,
   ChangeSummary,
+  ChangeDetailTabId,
   ClarificationAnswer,
   RuntimeEvent,
 } from "../../types";
@@ -25,6 +26,7 @@ type OperatorWorkbenchProps = {
   activeViewCount: number;
   activeTenantRepoPath: string;
   searchQuery: string;
+  activeTabId: ChangeDetailTabId;
   selectedChangeId: string | null;
   selectedRunId: string | null;
   detail: ChangeDetailResponse | null;
@@ -49,6 +51,7 @@ type OperatorWorkbenchProps = {
   onCreateClarificationRound: () => Promise<void>;
   onAnswerClarificationRound: (roundId: string, answers: ClarificationAnswer[]) => Promise<void>;
   onSelectRun: (runId: string) => void;
+  onSelectTab: (tabId: ChangeDetailTabId) => void;
   onPromoteFact: (title: string, body: string) => Promise<void>;
   onApprovalDecision: (approvalId: string, decision: "accept" | "decline") => Promise<void>;
 };
@@ -79,6 +82,7 @@ export function OperatorWorkbench({
   activeViewCount,
   activeTenantRepoPath,
   searchQuery,
+  activeTabId,
   selectedChangeId,
   selectedRunId,
   detail,
@@ -103,6 +107,7 @@ export function OperatorWorkbench({
   onCreateClarificationRound,
   onAnswerClarificationRound,
   onSelectRun,
+  onSelectTab,
   onPromoteFact,
   onApprovalDecision,
 }: OperatorWorkbenchProps) {
@@ -169,6 +174,7 @@ export function OperatorWorkbench({
         <DetailWorkspaceShell
           detail={
             <ChangeDetail
+              activeTab={activeTabId}
               detail={detail}
               onRunNext={onRunNext}
               onOpenRunStudio={onOpenRunStudio}
@@ -177,6 +183,7 @@ export function OperatorWorkbench({
               onCreateClarificationRound={onCreateClarificationRound}
               onAnswerClarificationRound={onAnswerClarificationRound}
               onSelectRun={onSelectRun}
+              onSelectTab={onSelectTab}
               onPromoteFact={onPromoteFact}
             />
           }
