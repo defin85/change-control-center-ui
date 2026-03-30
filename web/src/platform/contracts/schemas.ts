@@ -2,15 +2,16 @@ import { z } from "zod";
 
 const recordValueSchema = z.record(z.string(), z.unknown());
 const optionalStringSchema = z.string().optional();
+const strictObject = <T extends z.ZodRawShape>(shape: T) => z.object(shape).strict();
 
-const tenantSchema = z.object({
+const tenantSchema = strictObject({
   id: z.string(),
   name: z.string(),
   repoPath: z.string(),
   description: z.string(),
 });
 
-const changeSummarySchema = z.object({
+const changeSummarySchema = strictObject({
   id: z.string(),
   tenantId: z.string(),
   title: z.string(),
@@ -24,19 +25,43 @@ const changeSummarySchema = z.object({
   mandatoryGapCount: z.number(),
 });
 
-const focusItemSchema = z.object({
+const focusItemSchema = strictObject({
   id: z.string(),
   kind: z.string(),
   title: z.string(),
   status: optionalStringSchema,
 });
 
-const runtimeEventSchema = z.object({
+const runtimeEventSchema = strictObject({
   type: z.string(),
   payload: recordValueSchema,
 });
 
-const runRecordSchema = z.object({
+const clarificationMemoryEntrySchema = strictObject({
+  questionId: z.string(),
+  question: z.string(),
+  selectedOptionId: z.string(),
+  freeformNote: optionalStringSchema,
+});
+
+const factSchema = strictObject({
+  id: optionalStringSchema,
+  tenantId: optionalStringSchema,
+  title: z.string(),
+  body: z.string(),
+  status: optionalStringSchema,
+});
+
+const changeMemorySchema = strictObject({
+  summary: z.string(),
+  openQuestions: z.array(z.string()).default([]),
+  decisions: z.array(z.string()).default([]),
+  facts: z.array(factSchema).default([]),
+  activeFocus: z.array(z.string()).default([]),
+  clarifications: z.array(clarificationMemoryEntrySchema).default([]),
+});
+
+const runRecordSchema = strictObject({
   id: z.string(),
   changeId: z.string(),
   tenantId: z.string(),
@@ -52,35 +77,30 @@ const runRecordSchema = z.object({
   prompt: z.string(),
   checks: z.array(z.string()),
   decision: z.string(),
-  memoryPacket: z.object({
-    tenantMemory: z.object({
-      facts: z.array(
-        z.object({
-          id: optionalStringSchema,
-          title: z.string(),
-          body: z.string(),
-        }),
-      ),
+  memoryPacket: strictObject({
+    tenantMemory: strictObject({
+      facts: z.array(factSchema),
     }),
     changeContract: recordValueSchema,
-    changeMemory: recordValueSchema,
-    focusGraph: z.object({
+    changeMemory: changeMemorySchema,
+    focusGraph: strictObject({
       items: z.array(focusItemSchema),
     }),
   }),
 });
 
-const approvalRecordSchema = z.object({
+const approvalRecordSchema = strictObject({
   id: z.string(),
   runId: z.string(),
   tenantId: z.string(),
   status: z.string(),
   kind: z.string(),
   reason: z.string(),
+  decision: optionalStringSchema,
   payload: recordValueSchema,
 });
 
-const evidenceArtifactSchema = z.object({
+const evidenceArtifactSchema = strictObject({
   id: z.string(),
   changeId: z.string(),
   runId: optionalStringSchema,
@@ -89,11 +109,11 @@ const evidenceArtifactSchema = z.object({
   body: z.string(),
 });
 
-const clarificationQuestionSchema = z.object({
+const clarificationQuestionSchema = strictObject({
   id: z.string(),
   label: z.string(),
   options: z.array(
-    z.object({
+    strictObject({
       id: z.string(),
       label: z.string(),
       description: z.string(),
@@ -102,13 +122,13 @@ const clarificationQuestionSchema = z.object({
   allowOther: z.boolean(),
 });
 
-const clarificationAnswerSchema = z.object({
+const clarificationAnswerSchema = strictObject({
   questionId: z.string(),
   selectedOptionId: z.string(),
   freeformNote: optionalStringSchema,
 });
 
-const clarificationRoundSchema = z.object({
+const clarificationRoundSchema = strictObject({
   id: z.string(),
   tenantId: z.string(),
   changeId: z.string(),
@@ -120,53 +140,46 @@ const clarificationRoundSchema = z.object({
   updatedAt: z.string(),
 });
 
-const changeDetailSchema = z.object({
+const changeDetailSchema = strictObject({
   id: z.string(),
   tenantId: z.string(),
   title: z.string(),
   subtitle: z.string(),
   state: z.string(),
   summary: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
   blocker: z.string(),
   nextAction: z.string(),
   verificationStatus: z.string(),
   loopCount: z.number(),
+  lastRunAgo: z.string(),
+  requirementsLinked: z.number(),
+  requirementsTotal: z.number(),
+  specStatus: z.string(),
   owner: optionalStringSchema,
-  policy: z
-    .object({
-      maxAutoCycles: z.number(),
-      escalationRule: z.string(),
-      acceptanceGate: z.string(),
-    })
+  policy: strictObject({
+    maxAutoCycles: z.number(),
+    escalationRule: z.string(),
+    acceptanceGate: z.string(),
+  })
     .optional(),
-  contract: z.object({
+  contract: strictObject({
     goal: z.string(),
     scope: z.array(z.string()),
     acceptanceCriteria: z.array(z.string()),
     constraints: z.array(z.string()),
   }),
-  memory: z.object({
-    summary: z.string(),
-    openQuestions: z.array(z.string()),
-    decisions: z.array(z.string()),
-    facts: z.array(
-      z.object({
-        id: optionalStringSchema,
-        title: z.string(),
-        body: z.string(),
-      }),
-    ),
-    activeFocus: z.array(z.string()),
-  }),
+  memory: changeMemorySchema,
   chiefHistory: z.array(
-    z.object({
+    strictObject({
       at: z.string(),
       title: z.string(),
       note: z.string(),
     }),
   ),
   traceability: z.array(
-    z.object({
+    strictObject({
       req: z.string(),
       code: z.string(),
       tests: z.string(),
@@ -175,7 +188,7 @@ const changeDetailSchema = z.object({
     }),
   ),
   gaps: z.array(
-    z.object({
+    strictObject({
       id: z.string(),
       severity: z.string(),
       mandatory: z.boolean(),
@@ -183,15 +196,20 @@ const changeDetailSchema = z.object({
       summary: z.string(),
       recurrence: z.number(),
       reqRef: optionalStringSchema,
+      evidence: optionalStringSchema,
+      fingerprint: optionalStringSchema,
+      firstSeen: optionalStringSchema,
+      introducedByRun: optionalStringSchema,
+      lastSeen: optionalStringSchema,
     }),
   ),
   timeline: z.array(
-    z.object({
+    strictObject({
       title: z.string(),
       note: z.string(),
     }),
   ),
-  git: z.object({
+  git: strictObject({
     worktree: z.string(),
     branch: z.string(),
     changedFiles: z.number(),
@@ -201,11 +219,11 @@ const changeDetailSchema = z.object({
   }),
 });
 
-export const bootstrapResponseSchema = z.object({
+export const bootstrapResponseSchema = strictObject({
   tenants: z.array(tenantSchema),
   activeTenantId: z.string(),
   views: z.array(
-    z.object({
+    strictObject({
       id: z.string(),
       label: z.string(),
     }),
@@ -213,56 +231,52 @@ export const bootstrapResponseSchema = z.object({
   changes: z.array(changeSummarySchema),
 });
 
-export const changesResponseSchema = z.object({
+export const changesResponseSchema = strictObject({
   changes: z.array(changeSummarySchema),
 });
 
-export const changeDetailResponseSchema = z.object({
+export const changeDetailResponseSchema = strictObject({
   change: changeDetailSchema,
   runs: z.array(runRecordSchema),
   evidence: z.array(evidenceArtifactSchema),
   clarificationRounds: z.array(clarificationRoundSchema),
-  focusGraph: z.object({
+  focusGraph: strictObject({
     items: z.array(focusItemSchema),
   }),
   tenantMemory: z.array(
-    z.object({
-      id: optionalStringSchema,
-      title: z.string(),
-      body: z.string(),
-    }),
+    factSchema,
   ),
 });
 
-export const runMutationResponseSchema = z.object({
+export const runMutationResponseSchema = strictObject({
   run: runRecordSchema,
   events: z.array(runtimeEventSchema),
   approvals: z.array(approvalRecordSchema),
   change: changeDetailSchema,
 });
 
-export const runDetailResponseSchema = z.object({
+export const runDetailResponseSchema = strictObject({
   run: runRecordSchema,
   events: z.array(runtimeEventSchema),
   approvals: z.array(approvalRecordSchema),
 });
 
-export const clarificationRoundResponseSchema = z.object({
+export const clarificationRoundResponseSchema = strictObject({
   round: clarificationRoundSchema,
 });
 
-export const promotedFactResponseSchema = z.object({
-  fact: z.object({
+export const promotedFactResponseSchema = strictObject({
+  fact: strictObject({
     id: z.string(),
     title: z.string(),
     body: z.string(),
   }),
 });
 
-export const createChangeResponseSchema = z.object({
+export const createChangeResponseSchema = strictObject({
   change: changeDetailSchema,
 });
 
-export const approvalDecisionResponseSchema = z.object({
+export const approvalDecisionResponseSchema = strictObject({
   approval: approvalRecordSchema,
 });

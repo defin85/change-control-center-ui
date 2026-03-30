@@ -57,7 +57,7 @@ const foundationRestrictedPaths = [
 
 const appBoundaryPatterns = [
   {
-    group: ["./api", "./components/*", "./platform/*", "./platform/*/*"],
+    group: ["**/api", "**/components/*", "**/platform/*", "**/platform/*/*"],
     message: "Route-level composition must go through the `./platform` barrel instead of deep feature or platform imports.",
   },
 ];
@@ -276,21 +276,7 @@ export default tseslint.config(
     },
   },
   {
-    files: [
-      "src/*.{ts,tsx}",
-      "src/App.tsx",
-      "src/main.tsx",
-      "src/**/*Page.{ts,tsx}",
-      "src/**/*Route.{ts,tsx}",
-      "src/**/*Entrypoint.{ts,tsx}",
-      "src/**/*Workspace.{ts,tsx}",
-      "src/**/*Workbench.{ts,tsx}",
-      "src/pages/**/*.{ts,tsx}",
-      "src/routes/**/*.{ts,tsx}",
-      "src/screens/**/*.{ts,tsx}",
-      "src/surfaces/**/*.{ts,tsx}",
-      "src/views/**/*.{ts,tsx}",
-    ],
+    files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/components/**/*.{ts,tsx}", "src/platform/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [

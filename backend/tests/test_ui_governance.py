@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB_ROOT = ROOT / "web"
-FIXTURE_FILENAME = "src/__lint_tmp__/GovernanceFixture.tsx"
+FIXTURE_FILENAME = "src/components/__lint_tmp__/GovernanceFixture.tsx"
 
 
 def _run_eslint(source: str, filename: str = FIXTURE_FILENAME) -> subprocess.CompletedProcess[str]:
@@ -156,6 +156,22 @@ def test_lint_blocks_root_surface_platform_bypass_even_without_reserved_filename
         }
         """,
         filename="src/RootSurface.tsx",
+    )
+
+    assert result.returncode != 0
+    assert any("route-level composition" in message.lower() for message in _eslint_messages(result))
+
+
+def test_lint_blocks_nested_surface_platform_bypass_outside_approved_zones() -> None:
+    result = _run_eslint(
+        """
+        import { QueuePanel } from "../../components/QueuePanel";
+
+        export function NestedSurface() {
+          return <QueuePanel />;
+        }
+        """,
+        filename="src/features/review/NestedSurface.tsx",
     )
 
     assert result.returncode != 0

@@ -1,12 +1,14 @@
 import { useState } from "react";
 
 import { ClarificationPanel } from "./ClarificationPanel";
+import { DetailTabularSection } from "./DetailTabularSection";
 import { formatStateLabel } from "../lib";
-import { PlatformPrimitives, PlatformTextArea } from "../platform/foundation";
+import { PlatformPrimitives, PlatformTable, PlatformTextArea } from "../platform/foundation";
 import { DetailPanelShell } from "../platform/shells/DetailPanelShell";
 import { StatusBadge } from "../platform/shells/StatusBadge";
 import { useAsyncWorkflowCommandMachine } from "../platform/workflow";
 import type { ChangeDetailResponse, ChangeDetailTabId, ClarificationAnswer } from "../types";
+import type { ColumnDef } from "../platform/foundation/table";
 
 type ChangeDetailProps = {
   activeTab: ChangeDetailTabId;
@@ -33,6 +35,102 @@ const TABS: Array<{ id: ChangeDetailTabId; label: string }> = [
   { id: "clarifications", label: "Clarifications" },
 ] as const;
 
+type TraceabilityRow = ChangeDetailResponse["change"]["traceability"][number];
+type RunRow = ChangeDetailResponse["runs"][number];
+type GapRow = ChangeDetailResponse["change"]["gaps"][number];
+type EvidenceRow = ChangeDetailResponse["evidence"][number];
+
+const traceabilityColumnHelper = PlatformTable.createColumnHelper<TraceabilityRow>();
+const runColumnHelper = PlatformTable.createColumnHelper<RunRow>();
+const gapColumnHelper = PlatformTable.createColumnHelper<GapRow>();
+const evidenceColumnHelper = PlatformTable.createColumnHelper<EvidenceRow>();
+
+const TRACEABILITY_COLUMNS: ColumnDef<TraceabilityRow>[] = [
+  traceabilityColumnHelper.accessor("req", {
+    header: "Requirement",
+    cell: (context) => <strong>{context.getValue()}</strong>,
+  }),
+  traceabilityColumnHelper.accessor("code", {
+    header: "Code",
+  }),
+  traceabilityColumnHelper.accessor("tests", {
+    header: "Tests",
+  }),
+  traceabilityColumnHelper.accessor("evidence", {
+    header: "Evidence",
+  }),
+  traceabilityColumnHelper.accessor("status", {
+    header: "Status",
+    cell: (context) => <StatusBadge status={context.getValue()} />,
+  }),
+];
+
+const RUN_COLUMNS: ColumnDef<RunRow>[] = [
+  runColumnHelper.accessor("id", {
+    header: "Run",
+    cell: (context) => <strong>{context.getValue()}</strong>,
+  }),
+  runColumnHelper.accessor("kind", {
+    header: "Type",
+  }),
+  runColumnHelper.accessor("transport", {
+    header: "Transport",
+  }),
+  runColumnHelper.display({
+    id: "thread-turn",
+    header: "Thread / Turn",
+    cell: (context) => (
+      <span>
+        {context.row.original.threadId ?? "no thread"} / {context.row.original.turnId ?? "no turn"}
+      </span>
+    ),
+  }),
+  runColumnHelper.accessor("outcome", {
+    header: "Outcome",
+  }),
+];
+
+const GAP_COLUMNS: ColumnDef<GapRow>[] = [
+  gapColumnHelper.accessor("id", {
+    header: "Gap",
+    cell: (context) => <strong>{context.getValue()}</strong>,
+  }),
+  gapColumnHelper.accessor("severity", {
+    header: "Severity",
+  }),
+  gapColumnHelper.accessor("mandatory", {
+    header: "Mandatory",
+    cell: (context) => <span>{context.getValue() ? "yes" : "no"}</span>,
+  }),
+  gapColumnHelper.accessor("reqRef", {
+    header: "Req ref",
+    cell: (context) => <span>{context.getValue() ?? "—"}</span>,
+  }),
+  gapColumnHelper.accessor("status", {
+    header: "Status",
+  }),
+  gapColumnHelper.accessor("recurrence", {
+    header: "Repeat",
+  }),
+  gapColumnHelper.accessor("summary", {
+    header: "Summary",
+  }),
+];
+
+const EVIDENCE_COLUMNS: ColumnDef<EvidenceRow>[] = [
+  evidenceColumnHelper.accessor("kind", {
+    header: "Kind",
+  }),
+  evidenceColumnHelper.accessor("title", {
+    header: "Title",
+    cell: (context) => <strong>{context.getValue()}</strong>,
+  }),
+  evidenceColumnHelper.accessor("body", {
+    header: "Body",
+    cell: (context) => <pre>{context.getValue()}</pre>,
+  }),
+];
+
 export function ChangeDetail({
   activeTab,
   detail,
@@ -49,6 +147,30 @@ export function ChangeDetail({
   const [factTitle, setFactTitle] = useState("");
   const [factBody, setFactBody] = useState("");
   const actionWorkflow = useAsyncWorkflowCommandMachine();
+  const traceabilityTable = PlatformTable.useReactTable({
+    data: detail?.change.traceability ?? [],
+    columns: TRACEABILITY_COLUMNS,
+    getCoreRowModel: PlatformTable.getCoreRowModel(),
+    getRowId: (item) => `${item.req}-${item.code}`,
+  });
+  const runTable = PlatformTable.useReactTable({
+    data: detail?.runs ?? [],
+    columns: RUN_COLUMNS,
+    getCoreRowModel: PlatformTable.getCoreRowModel(),
+    getRowId: (run) => run.id,
+  });
+  const gapTable = PlatformTable.useReactTable({
+    data: detail?.change.gaps ?? [],
+    columns: GAP_COLUMNS,
+    getCoreRowModel: PlatformTable.getCoreRowModel(),
+    getRowId: (gap) => gap.id,
+  });
+  const evidenceTable = PlatformTable.useReactTable({
+    data: detail?.evidence ?? [],
+    columns: EVIDENCE_COLUMNS,
+    getCoreRowModel: PlatformTable.getCoreRowModel(),
+    getRowId: (artifact) => artifact.id,
+  });
 
   if (!detail) {
     return (
@@ -58,7 +180,7 @@ export function ChangeDetail({
     );
   }
 
-  const { change, runs, evidence, clarificationRounds, focusGraph, tenantMemory } = detail;
+  const { change, runs, clarificationRounds, focusGraph, tenantMemory } = detail;
   const normalizedFactTitle = factTitle.trim();
   const normalizedFactBody = factBody.trim();
   const canPromoteFact = normalizedFactTitle.length > 0 && normalizedFactBody.length > 0;
@@ -220,110 +342,83 @@ export function ChangeDetail({
       )}
 
       {activeTab === "traceability" && (
-        <div className="table-shell">
-          <div className="table-head traceability-head">
-            <span>Requirement</span>
-            <span>Code</span>
-            <span>Tests</span>
-            <span>Evidence</span>
-            <span>Status</span>
-          </div>
-          {change.traceability.length === 0 ? (
-            <div className="empty-state">No traceability data yet.</div>
-          ) : (
-            change.traceability.map((item) => (
-              <div key={`${item.req}-${item.code}`} className="table-row traceability-row">
-                <span>
-                  <strong>{item.req}</strong>
+        <DetailTabularSection
+          table={traceabilityTable}
+          emptyMessage="No traceability data yet."
+          headerClassName="traceability-head"
+          renderRow={(row) => (
+            <div key={row.id} className="table-row traceability-row">
+              {row.getVisibleCells().map((cell) => (
+                <span key={cell.id}>
+                  {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </span>
-                <span>{item.code}</span>
-                <span>{item.tests}</span>
-                <span>{item.evidence}</span>
-                <StatusBadge status={item.status} />
-              </div>
-            ))
+              ))}
+            </div>
           )}
-        </div>
+        />
       )}
 
       {activeTab === "runs" && (
-        <div className="table-shell">
-          <div className="table-head runs-head">
-            <span>Run</span>
-            <span>Type</span>
-            <span>Transport</span>
-            <span>Thread / Turn</span>
-            <span>Outcome</span>
-          </div>
-          {runs.map((run) => (
+        <DetailTabularSection
+          table={runTable}
+          emptyMessage="No runs yet."
+          headerClassName="runs-head"
+          renderRow={(row) => (
             <PlatformPrimitives.Button
-              key={run.id}
+              key={row.id}
               type="button"
               className="table-row run-row"
               data-platform-foundation="base-ui-run-row"
-              onClick={() => onSelectRun(run.id)}
+              onClick={() => onSelectRun(row.original.id)}
             >
-              <span>
-                <strong>{run.id}</strong>
-              </span>
-              <span>{run.kind}</span>
-              <span>{run.transport}</span>
-              <span>
-                {run.threadId ?? "no thread"} / {run.turnId ?? "no turn"}
-              </span>
-              <span>{run.outcome}</span>
+              {row.getVisibleCells().map((cell) => (
+                <span key={cell.id}>
+                  {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </span>
+              ))}
             </PlatformPrimitives.Button>
-          ))}
-        </div>
+          )}
+        />
       )}
 
       {activeTab === "gaps" && (
-        <div className="table-shell">
-          <div className="table-head gaps-head">
-            <span>Gap</span>
-            <span>Severity</span>
-            <span>Mandatory</span>
-            <span>Req ref</span>
-            <span>Status</span>
-            <span>Repeat</span>
-            <span>Summary</span>
-          </div>
-          {change.gaps.length === 0 ? (
-            <div className="empty-state">No open findings yet.</div>
-          ) : (
-            change.gaps.map((gap) => (
-              <PlatformPrimitives.Button
-                key={gap.id}
-                type="button"
-                className="table-row gap-row"
-                data-platform-foundation="base-ui-gap-row"
-                onClick={() => onBlockBySpec()}
-              >
-                <span>
-                  <strong>{gap.id}</strong>
+        <DetailTabularSection
+          table={gapTable}
+          emptyMessage="No open findings yet."
+          headerClassName="gaps-head"
+          renderRow={(row) => (
+            <PlatformPrimitives.Button
+              key={row.id}
+              type="button"
+              className="table-row gap-row"
+              data-platform-foundation="base-ui-gap-row"
+              onClick={() => onBlockBySpec()}
+            >
+              {row.getVisibleCells().map((cell) => (
+                <span key={cell.id}>
+                  {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </span>
-                <span>{gap.severity}</span>
-                <span>{gap.mandatory ? "yes" : "no"}</span>
-                <span>{gap.reqRef ?? "—"}</span>
-                <span>{gap.status}</span>
-                <span>{gap.recurrence}</span>
-                <span>{gap.summary}</span>
-              </PlatformPrimitives.Button>
-            ))
+              ))}
+            </PlatformPrimitives.Button>
           )}
-        </div>
+        />
       )}
 
       {activeTab === "evidence" && (
-        <div className="stack">
-          {evidence.map((artifact) => (
-            <article key={artifact.id} className="card">
-              <p className="eyebrow">{artifact.kind}</p>
-              <strong>{artifact.title}</strong>
-              <pre>{artifact.body}</pre>
-            </article>
-          ))}
-        </div>
+        <DetailTabularSection
+          table={evidenceTable}
+          emptyMessage="No evidence artifacts yet."
+          headerClassName="evidence-head"
+          renderRow={(row) => (
+            <div key={row.id} className="table-row evidence-row">
+              {row.getVisibleCells().map((cell) => (
+                <span key={cell.id}>
+                  {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </span>
+              ))}
+            </div>
+          )}
+        />
       )}
 
       {activeTab === "git" && (

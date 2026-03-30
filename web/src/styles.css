@@ -498,6 +498,11 @@ textarea {
   padding: 12px;
 }
 
+.detail-table-body {
+  display: grid;
+  gap: 8px;
+}
+
 .table-head {
   padding: 0 4px 10px;
 }
@@ -505,6 +510,10 @@ textarea {
 .traceability-head,
 .traceability-row {
   grid-template-columns: 0.85fr 1fr 0.9fr 1fr 0.7fr;
+}
+
+.traceability-row {
+  cursor: default;
 }
 
 .runs-head,
@@ -515,6 +524,15 @@ textarea {
 .gaps-head,
 .gap-row {
   grid-template-columns: 0.75fr 0.7fr 0.7fr 0.8fr 0.7fr 0.55fr 1.4fr;
+}
+
+.evidence-head,
+.evidence-row {
+  grid-template-columns: 0.65fr 1fr 2fr;
+}
+
+.evidence-row {
+  cursor: default;
 }
 
 .run-row,

@@ -374,6 +374,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
   async function handleRunNext() {
     if (!activeTenantId || !activeSelectedChangeId) {
+      setToast("Select a change before running the next backend-owned step.");
       return;
     }
     const payload = await runNext(activeTenantId, activeSelectedChangeId);

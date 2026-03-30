@@ -8,6 +8,7 @@ export type {
   CellContext,
   ColumnDef,
   HeaderContext,
+  Row as TanStackRow,
   RowData,
   Table as TanStackTable,
 } from "@tanstack/react-table";

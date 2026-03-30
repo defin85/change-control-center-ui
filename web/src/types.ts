@@ -44,6 +44,14 @@ export type RuntimeEvent = {
   payload: Record<string, unknown>;
 };
 
+export type FactRecord = {
+  id?: string;
+  tenantId?: string;
+  title: string;
+  body: string;
+  status?: string;
+};
+
 export type RunRecord = {
   id: string;
   changeId: string;
@@ -61,9 +69,9 @@ export type RunRecord = {
   checks: string[];
   decision: string;
   memoryPacket: {
-    tenantMemory: { facts: Array<{ id?: string; title: string; body: string }> };
+    tenantMemory: { facts: FactRecord[] };
     changeContract: Record<string, unknown>;
-    changeMemory: Record<string, unknown>;
+    changeMemory: ChangeMemory;
     focusGraph: { items: FocusItem[] };
   };
 };
@@ -75,6 +83,7 @@ export type ApprovalRecord = {
   status: string;
   kind: string;
   reason: string;
+  decision?: string;
   payload: Record<string, unknown>;
 };
 
@@ -100,6 +109,22 @@ export type ClarificationAnswer = {
   freeformNote?: string;
 };
 
+export type ClarificationMemoryEntry = {
+  questionId: string;
+  question: string;
+  selectedOptionId: string;
+  freeformNote?: string;
+};
+
+export type ChangeMemory = {
+  summary: string;
+  openQuestions: string[];
+  decisions: string[];
+  facts: FactRecord[];
+  activeFocus: string[];
+  clarifications: ClarificationMemoryEntry[];
+};
+
 export type ClarificationRound = {
   id: string;
   tenantId: string;
@@ -120,10 +145,16 @@ export type ChangeDetailResponse = {
     subtitle: string;
     state: string;
     summary: string;
+    createdAt: string;
+    updatedAt: string;
     blocker: string;
     nextAction: string;
     verificationStatus: string;
     loopCount: number;
+    lastRunAgo: string;
+    requirementsLinked: number;
+    requirementsTotal: number;
+    specStatus: string;
     owner?: string;
     policy?: {
       maxAutoCycles: number;
@@ -136,13 +167,7 @@ export type ChangeDetailResponse = {
       acceptanceCriteria: string[];
       constraints: string[];
     };
-    memory: {
-      summary: string;
-      openQuestions: string[];
-      decisions: string[];
-      facts: Array<{ id?: string; title: string; body: string }>;
-      activeFocus: string[];
-    };
+    memory: ChangeMemory;
     chiefHistory: Array<{ at: string; title: string; note: string }>;
     traceability: Array<{ req: string; code: string; tests: string; evidence: string; status: string }>;
     gaps: Array<{
@@ -153,6 +178,11 @@ export type ChangeDetailResponse = {
       summary: string;
       recurrence: number;
       reqRef?: string;
+      evidence?: string;
+      fingerprint?: string;
+      firstSeen?: string;
+      introducedByRun?: string;
+      lastSeen?: string;
     }>;
     timeline: Array<{ title: string; note: string }>;
     git: {
@@ -168,7 +198,7 @@ export type ChangeDetailResponse = {
   evidence: EvidenceArtifact[];
   clarificationRounds: ClarificationRound[];
   focusGraph: { items: FocusItem[] };
-  tenantMemory: Array<{ id?: string; title: string; body: string }>;
+  tenantMemory: FactRecord[];
 };
 
 export type RunDetailResponse = {
