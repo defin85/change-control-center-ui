@@ -147,6 +147,7 @@ export function ChangeDetail({
   const [factTitle, setFactTitle] = useState("");
   const [factBody, setFactBody] = useState("");
   const actionWorkflow = useAsyncWorkflowCommandMachine();
+  const factPromotionWorkflow = useAsyncWorkflowCommandMachine();
   const traceabilityTable = PlatformTable.useReactTable({
     data: detail?.change.traceability ?? [],
     columns: TRACEABILITY_COLUMNS,
@@ -392,7 +393,12 @@ export function ChangeDetail({
               type="button"
               className="table-row gap-row"
               data-platform-foundation="base-ui-gap-row"
-              onClick={() => onBlockBySpec()}
+              onClick={() =>
+                actionWorkflow.runCommand({
+                  label: "Mark blocked by spec",
+                  execute: onBlockBySpec,
+                })
+              }
             >
               {row.getVisibleCells().map((cell) => (
                 <span key={cell.id}>
@@ -480,6 +486,14 @@ export function ChangeDetail({
           </div>
           <div className="card">
             <p className="eyebrow">Promote Durable Fact</p>
+            {factPromotionWorkflow.error ? (
+              <div className="empty-state">
+                <strong>Fact promotion failed.</strong> {factPromotionWorkflow.error}
+              </div>
+            ) : null}
+            {factPromotionWorkflow.isPending ? (
+              <div className="empty-state">{factPromotionWorkflow.activeLabel ?? "Promoting fact..."}</div>
+            ) : null}
             <PlatformPrimitives.Input
               value={factTitle}
               data-platform-foundation="base-ui-chief-input"
@@ -501,12 +515,16 @@ export function ChangeDetail({
               type="button"
               className="ghost-button"
               data-platform-foundation="base-ui-chief-actions"
-              disabled={!canPromoteFact}
+              disabled={!canPromoteFact || factPromotionWorkflow.isPending}
               onClick={() => {
                 if (canPromoteFact) {
-                  void onPromoteFact(normalizedFactTitle, normalizedFactBody).then(() => {
-                    setFactTitle("");
-                    setFactBody("");
+                  factPromotionWorkflow.runCommand({
+                    label: "Promote fact",
+                    execute: async () => {
+                      await onPromoteFact(normalizedFactTitle, normalizedFactBody);
+                      setFactTitle("");
+                      setFactBody("");
+                    },
                   });
                 }
               }}

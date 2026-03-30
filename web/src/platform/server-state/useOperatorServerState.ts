@@ -30,7 +30,7 @@ import {
   readOperatorRouteState,
   type OperatorRouteState,
 } from "../navigation";
-import { useTenantRealtimeBoundary } from "../realtime";
+import { useTenantRealtimeBoundary, type TenantRealtimeEvent } from "../realtime";
 import type { OperatorWorkbenchProps } from "../workbench/OperatorWorkbench";
 import { filterChanges, resolveTenantId, resolveViewId, resolveVisibleChangeSelection } from "./filtering";
 
@@ -47,6 +47,36 @@ type OperatorServerStateResult =
       state: "ready";
       workbenchProps: OperatorWorkbenchProps;
     };
+
+const QUEUE_REFRESH_EVENT_TYPES = new Set([
+  "change-created",
+  "change-escalated",
+  "change-blocked-by-spec",
+  "clarification-created",
+  "clarification-answered",
+  "fact-promoted",
+  "run-created",
+  "run-updated",
+  "run-completed",
+]);
+
+const CHANGE_REFRESH_EVENT_TYPES = new Set([
+  "change-escalated",
+  "change-blocked-by-spec",
+  "clarification-created",
+  "clarification-answered",
+  "fact-promoted",
+  "run-created",
+  "run-updated",
+  "run-completed",
+]);
+
+const RUN_REFRESH_EVENT_TYPES = new Set([
+  "approval-decided",
+  "run-created",
+  "run-updated",
+  "run-completed",
+]);
 
 export function useOperatorServerState(): OperatorServerStateResult {
   const [initialRouteState] = useState(() => readOperatorRouteState(window.location.search));
@@ -301,22 +331,41 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
   useTenantRealtimeBoundary({
     tenantId: activeTenantId,
-    onTenantEvent: async () => {
+    onTenantEvent: async (event) => {
       if (!activeTenantId) {
         return;
       }
 
-      const queuePayload = await fetchChanges(activeTenantId);
-      setRealtimeNotice(null);
-      setChanges(queuePayload.changes);
+      const shouldRefreshQueue = shouldRefreshQueueForTenantEvent(event);
+      const shouldRefreshSelectedChange = shouldRefreshSelectedChangeForTenantEvent(event, activeSelectedChangeId);
+      const shouldRefreshSelectedRun = shouldRefreshSelectedRunForTenantEvent(event, activeSelectedRunId);
 
-      if (!activeSelectedChangeId) {
+      if (!shouldRefreshQueue && !shouldRefreshSelectedChange && !shouldRefreshSelectedRun) {
+        setRealtimeNotice(null);
+        return;
+      }
+
+      const [queuePayload, detailPayload] = await Promise.all([
+        shouldRefreshQueue ? fetchChanges(activeTenantId) : Promise.resolve(null),
+        shouldRefreshSelectedChange && activeSelectedChangeId
+          ? fetchChangeDetail(activeTenantId, activeSelectedChangeId)
+          : Promise.resolve(null),
+      ]);
+
+      setRealtimeNotice(null);
+      if (queuePayload) {
+        setChanges(queuePayload.changes);
+      }
+
+      if (!detailPayload || !activeSelectedChangeId) {
+        if (shouldRefreshSelectedRun && activeSelectedRunId) {
+          await refreshRunDetail(activeTenantId, activeSelectedRunId);
+        }
         return;
       }
 
       const targetTenantId = activeTenantId;
       const targetChangeId = activeSelectedChangeId;
-      const detailPayload = await fetchChangeDetail(activeTenantId, activeSelectedChangeId);
       if (activeTenantRef.current !== targetTenantId || selectedChangeRef.current !== targetChangeId) {
         return;
       }
@@ -325,7 +374,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
         ? activeSelectedRunId
         : detailPayload.runs[0]?.id ?? null;
       applyDetailPayload(detailPayload, preferredRunId);
-      if (preferredRunId) {
+      if (preferredRunId && shouldRefreshSelectedRun) {
         await refreshRunDetail(activeTenantId, preferredRunId);
       }
     },
@@ -584,4 +633,16 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
 function buildRunCacheKey(tenantId: string, runId: string) {
   return `${tenantId}:${runId}`;
+}
+
+function shouldRefreshQueueForTenantEvent(event: TenantRealtimeEvent) {
+  return QUEUE_REFRESH_EVENT_TYPES.has(event.type);
+}
+
+function shouldRefreshSelectedChangeForTenantEvent(event: TenantRealtimeEvent, selectedChangeId: string | null) {
+  return Boolean(selectedChangeId && CHANGE_REFRESH_EVENT_TYPES.has(event.type) && event.changeId === selectedChangeId);
+}
+
+function shouldRefreshSelectedRunForTenantEvent(event: TenantRealtimeEvent, selectedRunId: string | null) {
+  return Boolean(selectedRunId && RUN_REFRESH_EVENT_TYPES.has(event.type) && event.runId === selectedRunId);
 }

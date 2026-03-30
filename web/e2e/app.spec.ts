@@ -425,6 +425,106 @@ test("keeps the operator shell available when realtime subscription fails @platf
   await expect(page.getByText(/realtime subscription failed/i)).toBeVisible();
 });
 
+test("reconciles only the affected selected surfaces for tenant events @platform", async ({ page }) => {
+  let queueRequests = 0;
+  let selectedDetailRequests = 0;
+  let selectedRunRequests = 0;
+
+  await page.addInitScript(() => {
+    const controlledWindow = window as Window & {
+      __emitTenantEvent?: (payload: unknown) => void;
+    };
+
+    class ControlledWebSocket {
+      static CONNECTING = 0;
+      static OPEN = 1;
+      static CLOSING = 2;
+      static CLOSED = 3;
+      static instances: ControlledWebSocket[] = [];
+
+      readyState = ControlledWebSocket.CONNECTING;
+      url: string;
+      onopen: ((event: Event) => void) | null = null;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      onclose: ((event: CloseEvent) => void) | null = null;
+
+      constructor(url: string) {
+        this.url = url;
+        ControlledWebSocket.instances.push(this);
+        window.setTimeout(() => {
+          this.readyState = ControlledWebSocket.OPEN;
+          this.onopen?.(new Event("open"));
+        }, 0);
+      }
+
+      send() {}
+
+      close() {
+        this.readyState = ControlledWebSocket.CLOSED;
+        this.onclose?.(new CloseEvent("close"));
+      }
+    }
+
+    window.WebSocket = ControlledWebSocket as unknown as typeof WebSocket;
+    controlledWindow.__emitTenantEvent = (payload: unknown) => {
+      for (const socket of ControlledWebSocket.instances) {
+        socket.onmessage?.(
+          new MessageEvent("message", {
+            data: JSON.stringify(payload),
+          }),
+        );
+      }
+    };
+  });
+
+  await page.route("**/api/tenants/tenant-demo/changes", async (route) => {
+    queueRequests += 1;
+    await route.continue();
+  });
+  await page.route("**/api/tenants/tenant-demo/changes/ch-142", async (route) => {
+    selectedDetailRequests += 1;
+    await route.continue();
+  });
+  await page.route("**/api/tenants/tenant-demo/runs/run-30", async (route) => {
+    selectedRunRequests += 1;
+    await route.continue();
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  await page.getByRole("tab", { name: "Runs" }).click();
+  await page.getByRole("button", { name: /run-30/i }).click();
+  await expect(page.locator("#run-studio").getByRole("heading", { name: "run-30" })).toBeVisible();
+
+  const queueRequestsBeforeEvent = queueRequests;
+  const detailRequestsBeforeEvent = selectedDetailRequests;
+  const runRequestsBeforeEvent = selectedRunRequests;
+
+  await page.evaluate(() => {
+    const controlledWindow = window as Window & {
+      __emitTenantEvent?: (payload: unknown) => void;
+    };
+
+    controlledWindow.__emitTenantEvent?.({
+      type: "change-escalated",
+      changeId: "ch-146",
+    });
+  });
+
+  await expect.poll(() => queueRequests).toBe(queueRequestsBeforeEvent + 1);
+  await expect
+    .poll(() => selectedDetailRequests, {
+      message: "unrelated tenant events must not refetch the selected change detail surface",
+    })
+    .toBe(detailRequestsBeforeEvent);
+  await expect
+    .poll(() => selectedRunRequests, {
+      message: "unrelated tenant events must not refetch the selected run surface",
+    })
+    .toBe(runRequestsBeforeEvent);
+});
+
 test("reconciles tenant events without losing selected operator context @platform", async ({ page }) => {
   await page.goto("/");
 
@@ -469,6 +569,50 @@ test("operator actions create a change, mutate its state, and resolve runtime ap
 
   await expect(runStudio.getByText(/accepted/i)).toBeVisible();
   await expect(runStudio.getByText("serverRequest/resolved")).toBeVisible();
+});
+
+test("surfaces normalized contract failures for change command mutations @platform", async ({ page }) => {
+  await page.route("**/api/tenants/tenant-demo/changes/ch-142/actions/escalate", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "escalation unavailable" }),
+    });
+  });
+
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  await detailPanel.getByRole("button", { name: "Escalate" }).click();
+
+  await expect(detailPanel.getByText(/Change command failed\./i)).toBeVisible();
+  await expect(detailPanel.getByText(/Control API request failed \(HTTP 503\)/i)).toBeVisible();
+  await expect(detailPanel.getByText(/escalation unavailable/i)).toBeVisible();
+});
+
+test("surfaces normalized contract failures for fact promotion mutations @platform", async ({ page }) => {
+  await page.route("**/api/tenants/tenant-demo/changes/ch-142/promotions", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "promotion unavailable" }),
+    });
+  });
+
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  await detailPanel.getByRole("tab", { name: "Chief" }).click();
+
+  await page.getByPlaceholder("Fact title").fill("Operator policy");
+  await page.getByPlaceholder("Why this fact should enter tenant memory").fill("Escalate after two repeated fingerprints.");
+  await detailPanel.getByRole("button", { name: "Promote fact" }).click();
+
+  await expect(detailPanel.getByText(/Fact promotion failed\./i)).toBeVisible();
+  await expect(detailPanel.getByText(/Control API request failed \(HTTP 503\)/i)).toBeVisible();
+  await expect(detailPanel.getByText(/promotion unavailable/i)).toBeVisible();
 });
 
 test("uses approved platform foundations across required operator surfaces @platform", async ({ page }) => {
