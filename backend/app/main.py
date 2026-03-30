@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.config import load_settings
 from backend.app.runtime_sidecar_client import RuntimeSidecarClient, RuntimeSidecarClientConfig
@@ -43,12 +43,31 @@ class ChangeCreateRequest(BaseModel):
     title: str | None = None
 
 
+class ClarificationAnswerItem(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    questionId: str = Field(min_length=1)
+    selectedOptionId: str = Field(min_length=1)
+    freeformNote: str | None = None
+
+
 class ClarificationAnswerRequest(BaseModel):
-    answers: list[dict[str, Any]]
+    model_config = ConfigDict(extra="forbid")
+
+    answers: list[ClarificationAnswerItem] = Field(min_length=1)
+
+
+class PromotionFact(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    title: str = Field(min_length=1)
+    body: str = Field(min_length=1)
 
 
 class PromotionRequest(BaseModel):
-    fact: dict[str, str]
+    model_config = ConfigDict(extra="forbid")
+
+    fact: PromotionFact
 
 
 class ApprovalDecisionRequest(BaseModel):
@@ -399,7 +418,8 @@ def create_app(
         clarification_round = store.get_clarification_round(tenant_id, round_id)
         if not clarification_round:
             raise HTTPException(status_code=404, detail="Clarification round not found")
-        answered_round = answer_clarification_round(clarification_round, request.answers)
+        answers = [answer.model_dump(exclude_none=True) for answer in request.answers]
+        answered_round = answer_clarification_round(clarification_round, answers)
         store.save_clarification_round(answered_round)
         change = store.get_change(tenant_id, answered_round["changeId"])
         if change:
@@ -437,7 +457,7 @@ def create_app(
         change = store.get_change(tenant_id, change_id)
         if not change:
             raise HTTPException(status_code=404, detail="Change not found")
-        fact = create_tenant_fact(tenant_id, request.fact)
+        fact = create_tenant_fact(tenant_id, request.fact.model_dump())
         store.add_tenant_memory(fact)
         change["memory"]["facts"].append(fact)
         store.save_change(change)

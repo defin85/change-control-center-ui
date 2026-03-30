@@ -20,39 +20,34 @@ export function ClarificationPanel({
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Record<string, string>>({});
   const clarificationWorkflow = useAsyncWorkflowCommandMachine();
-  const hasSelectedAnswers = openRound ? openRound.questions.some((question) => Boolean(selected[question.id])) : false;
+  const pendingAnswers = openRound
+    ? openRound.questions
+        .map((question) => {
+          const selectedOptionId = selected[question.id];
+          if (!selectedOptionId) {
+            return null;
+          }
+          return {
+            questionId: question.id,
+            selectedOptionId,
+            freeformNote: notes[question.id] || undefined,
+          };
+        })
+        .filter(Boolean) as ClarificationAnswer[]
+    : [];
+  const hasSelectedAnswers = pendingAnswers.length > 0;
 
   const handleSubmit = () => {
-    if (!openRound) {
-      return;
+    if (openRound && pendingAnswers.length > 0) {
+      clarificationWorkflow.runCommand({
+        label: "Submit clarification answers",
+        execute: async () => {
+          await onAnswerRound(openRound.id, pendingAnswers);
+          setNotes({});
+          setSelected({});
+        },
+      });
     }
-
-    const answers = openRound.questions
-      .map((question) => {
-        const selectedOptionId = selected[question.id];
-        if (!selectedOptionId) {
-          return null;
-        }
-        return {
-          questionId: question.id,
-          selectedOptionId,
-          freeformNote: notes[question.id] || undefined,
-        };
-      })
-      .filter(Boolean) as ClarificationAnswer[];
-
-    if (!answers.length) {
-      return;
-    }
-
-    clarificationWorkflow.runCommand({
-      label: "Submit clarification answers",
-      execute: async () => {
-        await onAnswerRound(openRound.id, answers);
-        setNotes({});
-        setSelected({});
-      },
-    });
   };
 
   return (

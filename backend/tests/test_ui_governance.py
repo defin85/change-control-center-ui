@@ -9,7 +9,7 @@ WEB_ROOT = ROOT / "web"
 FIXTURE_FILENAME = "src/__lint_tmp__/GovernanceFixture.tsx"
 
 
-def _run_eslint(source: str) -> subprocess.CompletedProcess[str]:
+def _run_eslint(source: str, filename: str = FIXTURE_FILENAME) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
             "npm",
@@ -20,7 +20,7 @@ def _run_eslint(source: str) -> subprocess.CompletedProcess[str]:
             "json",
             "--stdin",
             "--stdin-filename",
-            FIXTURE_FILENAME,
+            filename,
         ],
         cwd=WEB_ROOT,
         input=source,
@@ -64,6 +64,35 @@ def test_lint_blocks_silent_platform_action_handlers() -> None:
     assert any("silent platform actions" in message.lower() for message in _eslint_messages(result))
 
 
+def test_lint_blocks_disabled_platform_actions_with_silent_return_guards() -> None:
+    result = _run_eslint(
+        """
+        import { PlatformPrimitives } from "./platform/foundation";
+
+        export function GovernanceFixture({ ready }: { ready: boolean }) {
+          return (
+            <PlatformPrimitives.Button
+              type="button"
+              data-platform-action="open-run-studio"
+              disabled={!ready}
+              onClick={() => {
+                if (!ready) {
+                  return;
+                }
+                console.log("opened");
+              }}
+            >
+              Open run studio
+            </PlatformPrimitives.Button>
+          );
+        }
+        """
+    )
+
+    assert result.returncode != 0
+    assert any("silent platform actions" in message.lower() for message in _eslint_messages(result))
+
+
 def test_lint_allows_explicitly_disabled_platform_actions() -> None:
     result = _run_eslint(
         """
@@ -76,9 +105,6 @@ def test_lint_allows_explicitly_disabled_platform_actions() -> None:
               data-platform-action="promote-fact"
               disabled={!ready}
               onClick={() => {
-                if (!ready) {
-                  return;
-                }
                 console.log("promoted");
               }}
             >
@@ -90,3 +116,47 @@ def test_lint_allows_explicitly_disabled_platform_actions() -> None:
     )
 
     assert result.returncode == 0, _eslint_messages(result)
+
+
+def test_lint_blocks_placeholder_fallback_copy() -> None:
+    result = _run_eslint(
+        """
+        export function GovernanceFixture() {
+          return <p>Temporary fallback copy for a future delivery pass.</p>;
+        }
+        """
+    )
+
+    assert result.returncode != 0
+    assert any("placeholder fallback copy" in message.lower() for message in _eslint_messages(result))
+
+
+def test_lint_blocks_second_primary_design_system_import() -> None:
+    result = _run_eslint(
+        """
+        import Button from "@mui/material/Button";
+
+        export function GovernanceFixture() {
+          return <Button>Blocked</Button>;
+        }
+        """
+    )
+
+    assert result.returncode != 0
+    assert any("second primary design system" in message.lower() for message in _eslint_messages(result))
+
+
+def test_lint_blocks_root_surface_platform_bypass_even_without_reserved_filename() -> None:
+    result = _run_eslint(
+        """
+        import { QueuePanel } from "./components/QueuePanel";
+
+        export function RootSurface() {
+          return <QueuePanel />;
+        }
+        """,
+        filename="src/RootSurface.tsx",
+    )
+
+    assert result.returncode != 0
+    assert any("route-level composition" in message.lower() for message in _eslint_messages(result))

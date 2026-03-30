@@ -68,26 +68,6 @@ function getJsxAttribute(openingElement, attributeName) {
   );
 }
 
-function isExplicitlyDisabled(attribute) {
-  if (!attribute) {
-    return false;
-  }
-  if (attribute.value == null) {
-    return true;
-  }
-  if (attribute.value.type === "Literal") {
-    return Boolean(attribute.value.value);
-  }
-  if (attribute.value.type === "JSXExpressionContainer") {
-    const expression = attribute.value.expression;
-    if (expression.type === "Literal") {
-      return Boolean(expression.value);
-    }
-    return true;
-  }
-  return true;
-}
-
 function isBareReturn(node) {
   if (!node) {
     return false;
@@ -194,6 +174,9 @@ const governancePlugin = {
         }
 
         return {
+          JSXText(node) {
+            reportIfGovernancePlaceholder(node, node.value);
+          },
           Literal(node) {
             if (typeof node.value === "string") {
               reportIfGovernancePlaceholder(node, node.value);
@@ -219,10 +202,6 @@ const governancePlugin = {
             const platformAction = getJsxAttribute(node, "data-platform-action");
             const platformFoundation = getJsxAttribute(node, "data-platform-foundation");
             if (!platformAction && !platformFoundation) {
-              return;
-            }
-
-            if (isExplicitlyDisabled(getJsxAttribute(node, "disabled"))) {
               return;
             }
 
@@ -298,6 +277,7 @@ export default tseslint.config(
   },
   {
     files: [
+      "src/*.{ts,tsx}",
       "src/App.tsx",
       "src/main.tsx",
       "src/**/*Page.{ts,tsx}",
@@ -305,8 +285,13 @@ export default tseslint.config(
       "src/**/*Entrypoint.{ts,tsx}",
       "src/**/*Workspace.{ts,tsx}",
       "src/**/*Workbench.{ts,tsx}",
+      "src/pages/**/*.{ts,tsx}",
+      "src/routes/**/*.{ts,tsx}",
+      "src/screens/**/*.{ts,tsx}",
+      "src/surfaces/**/*.{ts,tsx}",
+      "src/views/**/*.{ts,tsx}",
     ],
-    ignores: ["src/platform/**/*.{ts,tsx}"],
+    ignores: ["src/components/**/*.{ts,tsx}", "src/platform/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",

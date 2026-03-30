@@ -403,6 +403,8 @@ export function useOperatorServerState(): OperatorServerStateResult {
       window.requestAnimationFrame(() => {
         document.getElementById("run-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
+    } else {
+      setToast("No backend-owned run is available yet. Start the next step before opening Run Studio.");
     }
   }
 

@@ -157,6 +157,19 @@ def test_clarification_round_persists_answers_in_change_memory_and_reaches_ready
     assert detail["change"]["nextAction"] == "Create proposal"
 
 
+def test_clarification_answers_reject_empty_payload(client: TestClient) -> None:
+    round_response = client.post("/api/tenants/tenant-demo/changes/ch-150/clarifications/auto")
+    assert round_response.status_code == 201
+    clarification_round = round_response.json()["round"]
+
+    answer_response = client.post(
+        f"/api/tenants/tenant-demo/clarifications/{clarification_round['id']}/answers",
+        json={"answers": []},
+    )
+
+    assert answer_response.status_code == 422
+
+
 def test_memory_promotion_updates_tenant_memory_and_future_run_packets(
     make_client,
     app_env: dict[str, str],
@@ -187,6 +200,15 @@ def test_memory_promotion_updates_tenant_memory_and_future_run_packets(
     memory_packet = run_response.json()["run"]["memoryPacket"]
     facts = memory_packet["tenantMemory"]["facts"]
     assert any(fact["title"] == "Runtime adapter default deployment" for fact in facts)
+
+
+def test_fact_promotion_rejects_empty_title_or_body(client: TestClient) -> None:
+    response = client.post(
+        "/api/tenants/tenant-demo/changes/ch-150/promotions",
+        json={"fact": {"title": "", "body": ""}},
+    )
+
+    assert response.status_code == 422
 
 
 def test_tenant_scoping_prevents_cross_tenant_leakage(client: TestClient) -> None:

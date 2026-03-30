@@ -49,7 +49,6 @@ export function ChangeDetail({
   const [factTitle, setFactTitle] = useState("");
   const [factBody, setFactBody] = useState("");
   const actionWorkflow = useAsyncWorkflowCommandMachine();
-  const canPromoteFact = factTitle.trim().length > 0 && factBody.trim().length > 0;
 
   if (!detail) {
     return (
@@ -60,6 +59,10 @@ export function ChangeDetail({
   }
 
   const { change, runs, evidence, clarificationRounds, focusGraph, tenantMemory } = detail;
+  const normalizedFactTitle = factTitle.trim();
+  const normalizedFactBody = factBody.trim();
+  const canPromoteFact = normalizedFactTitle.length > 0 && normalizedFactBody.length > 0;
+  const canOpenRunStudio = runs.length > 0;
 
   return (
     <DetailPanelShell
@@ -88,7 +91,8 @@ export function ChangeDetail({
             data-platform-action="open-run-studio"
             aria-controls="run-studio"
             onClick={onOpenRunStudio}
-            disabled={actionWorkflow.isPending}
+            disabled={actionWorkflow.isPending || !canOpenRunStudio}
+            title={canOpenRunStudio ? undefined : "Generate or select a backend-owned run before opening Run Studio."}
           >
             Open run studio
           </PlatformPrimitives.Button>
@@ -129,6 +133,11 @@ export function ChangeDetail({
         </div>
       ) : null}
       {actionWorkflow.isPending ? <div className="empty-state">{actionWorkflow.activeLabel ?? "Operator command in progress."}</div> : null}
+      {!canOpenRunStudio ? (
+        <p className="governance-note" data-platform-governance="run-studio-run-required">
+          Generate or select a backend-owned run before opening the run-inspection shell.
+        </p>
+      ) : null}
       <div className="status-bar">
         <StatusBadge status={change.state} label={formatStateLabel(change.state)} />
         <span>{change.nextAction}</span>
@@ -399,13 +408,12 @@ export function ChangeDetail({
               data-platform-foundation="base-ui-chief-actions"
               disabled={!canPromoteFact}
               onClick={() => {
-                if (!factTitle.trim() || !factBody.trim()) {
-                  return;
+                if (canPromoteFact) {
+                  void onPromoteFact(normalizedFactTitle, normalizedFactBody).then(() => {
+                    setFactTitle("");
+                    setFactBody("");
+                  });
                 }
-                void onPromoteFact(factTitle, factBody).then(() => {
-                  setFactTitle("");
-                  setFactBody("");
-                });
               }}
             >
               Promote fact

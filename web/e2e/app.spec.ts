@@ -45,7 +45,7 @@ test("renders the operator console surfaces and mandatory detail tabs @smoke @pl
   await expect(page.locator('[data-platform-surface="signal-summary-card"]')).toHaveCount(4);
 
   await page.getByRole("button", { name: /ch-146/i }).click();
-  await expect(page.getByRole("button", { name: "New change" })).toBeVisible();
+  await expect(page.locator("header").getByRole("button", { name: "New change" })).toBeVisible();
   await expect(page.locator("header").getByRole("button", { name: "Run next step" })).toBeVisible();
   await expect(page.getByLabel("Search")).toBeVisible();
   await expect(page.locator(".operator-rail").getByText("Views", { exact: true })).toBeVisible();
@@ -313,6 +313,23 @@ test("fails closed on the global run action when no change is selected @platform
   await expect(headerRunAction).toBeDisabled();
 });
 
+test("fails closed on run studio entry until a backend-owned run exists @platform", async ({ page }) => {
+  await page.goto("/");
+
+  await page.locator("header").getByRole("button", { name: "New change" }).click();
+  await page.getByRole("button", { name: /^ch-.* New change/ }).click();
+
+  const detailActions = page.locator(".detail-stage .detail-panel").first();
+  const openRunStudio = detailActions.getByRole("button", { name: "Open run studio" });
+
+  await expect(openRunStudio).toBeDisabled();
+  await expect(page.locator('[data-platform-governance="run-studio-run-required"]')).toBeVisible();
+
+  await page.getByRole("button", { name: /ch-142/i }).click();
+
+  await expect(openRunStudio).toBeEnabled();
+});
+
 test("fails closed on clarification submission until an answer is selected @platform", async ({ page }) => {
   await page.goto("/");
 
@@ -424,7 +441,7 @@ test("reconciles tenant events without losing selected operator context @platfor
 test("operator actions create a change, mutate its state, and resolve runtime approvals @smoke @platform", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "New change" }).click();
+  await page.locator("header").getByRole("button", { name: "New change" }).click();
   await page.getByRole("button", { name: /^ch-.* New change/ }).click();
   await expect(page.getByRole("heading", { name: "New change" })).toBeVisible();
   await expect(page.locator(".status-bar")).toContainText("draft");
