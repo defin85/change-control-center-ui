@@ -38,16 +38,19 @@ test("keeps workflow-heavy operator commands behind an explicit pending boundary
   await expect(runStudio.getByRole("button", { name: "Accept" })).toBeEnabled();
 
   await page.route("**/api/tenants/tenant-demo/approvals/*/decision", async (route) => {
-    await fulfillAfterDelay(route, 300);
+    await fulfillAfterDelay(route, 1000);
   });
 
+  const approvalActions = runStudio.locator(".approval-actions");
   await runStudio.getByRole("button", { name: "Accept" }).click();
 
-  await expect(runStudio.getByRole("button", { name: "Accept" })).toBeDisabled();
-  await expect(runStudio.getByRole("button", { name: "Decline" })).toBeDisabled();
   await expect(runStudio.getByText(/^Accept /)).toBeVisible();
+  await expect(approvalActions).toHaveCount(1);
+  await expect(approvalActions.getByRole("button", { name: "Accept" })).toBeDisabled();
+  await expect(approvalActions.getByRole("button", { name: "Decline" })).toBeDisabled();
 
   await expect(runStudio.getByText(/accepted/i)).toBeVisible();
+  await expect(approvalActions).toHaveCount(0);
   await expect(runStudio.getByText("serverRequest/resolved")).toBeVisible();
 
   await page.getByRole("tab", { name: "Clarifications" }).click();
