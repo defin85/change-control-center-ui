@@ -62,6 +62,108 @@ const appBoundaryPatterns = [
   },
 ];
 
+function getJsxAttribute(openingElement, attributeName) {
+  return openingElement.attributes.find(
+    (attribute) => attribute.type === "JSXAttribute" && attribute.name?.name === attributeName,
+  );
+}
+
+function isExplicitlyDisabled(attribute) {
+  if (!attribute) {
+    return false;
+  }
+  if (attribute.value == null) {
+    return true;
+  }
+  if (attribute.value.type === "Literal") {
+    return Boolean(attribute.value.value);
+  }
+  if (attribute.value.type === "JSXExpressionContainer") {
+    const expression = attribute.value.expression;
+    if (expression.type === "Literal") {
+      return Boolean(expression.value);
+    }
+    return true;
+  }
+  return true;
+}
+
+function isBareReturn(node) {
+  if (!node) {
+    return false;
+  }
+  if (node.type === "ReturnStatement") {
+    return node.argument == null;
+  }
+  if (node.type === "BlockStatement" && node.body.length === 1) {
+    return isBareReturn(node.body[0]);
+  }
+  return false;
+}
+
+function hasSilentReturnGuard(body) {
+  if (!body || body.type !== "BlockStatement") {
+    return false;
+  }
+
+  return body.body.some((statement) => statement.type === "IfStatement" && !statement.alternate && isBareReturn(statement.consequent));
+}
+
+function findEnclosingFunctionBody(node) {
+  let current = node.parent;
+  while (current) {
+    if (
+      (current.type === "FunctionDeclaration" ||
+        current.type === "FunctionExpression" ||
+        current.type === "ArrowFunctionExpression") &&
+      current.body?.type === "BlockStatement"
+    ) {
+      return current.body;
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+function resolveHandlerBody(expression, node) {
+  if (expression.type === "ArrowFunctionExpression" || expression.type === "FunctionExpression") {
+    return expression.body;
+  }
+
+  if (expression.type !== "Identifier") {
+    return null;
+  }
+
+  const enclosingBody = findEnclosingFunctionBody(node);
+  if (!enclosingBody) {
+    return null;
+  }
+
+  for (const statement of enclosingBody.body) {
+    if (statement.type === "FunctionDeclaration" && statement.id?.name === expression.name) {
+      return statement.body;
+    }
+
+    if (statement.type !== "VariableDeclaration") {
+      continue;
+    }
+
+    for (const declaration of statement.declarations) {
+      if (declaration.id.type !== "Identifier" || declaration.id.name !== expression.name) {
+        continue;
+      }
+      if (
+        declaration.init?.type === "ArrowFunctionExpression" ||
+        declaration.init?.type === "FunctionExpression"
+      ) {
+        return declaration.init.body;
+      }
+    }
+  }
+
+  return null;
+}
+
 const governancePlugin = {
   rules: {
     "no-placeholder-fallback-copy": {
@@ -103,6 +205,46 @@ const governancePlugin = {
         };
       },
     },
+    "no-silent-platform-actions": {
+      meta: {
+        type: "problem",
+        docs: {
+          description: "Block platform actions that silently return from click handlers instead of failing closed explicitly.",
+        },
+        schema: [],
+      },
+      create(context) {
+        return {
+          JSXOpeningElement(node) {
+            const platformAction = getJsxAttribute(node, "data-platform-action");
+            const platformFoundation = getJsxAttribute(node, "data-platform-foundation");
+            if (!platformAction && !platformFoundation) {
+              return;
+            }
+
+            if (isExplicitlyDisabled(getJsxAttribute(node, "disabled"))) {
+              return;
+            }
+
+            const onClick = getJsxAttribute(node, "onClick");
+            if (!onClick?.value || onClick.value.type !== "JSXExpressionContainer") {
+              return;
+            }
+
+            const handlerBody = resolveHandlerBody(onClick.value.expression, node);
+            if (!hasSilentReturnGuard(handlerBody)) {
+              return;
+            }
+
+            context.report({
+              node: onClick,
+              message:
+                "Silent platform actions are blocked by UI governance. Disable the control explicitly or surface a governance/error state instead of returning early from the click handler.",
+            });
+          },
+        };
+      },
+    },
   },
 };
 
@@ -138,6 +280,7 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "governance/no-placeholder-fallback-copy": "error",
+      "governance/no-silent-platform-actions": "error",
     },
   },
   {

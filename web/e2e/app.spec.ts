@@ -313,6 +313,42 @@ test("fails closed on the global run action when no change is selected @platform
   await expect(headerRunAction).toBeDisabled();
 });
 
+test("fails closed on clarification submission until an answer is selected @platform", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /ch-150/i }).click();
+  await page.getByRole("tab", { name: "Clarifications" }).click();
+  await page.getByRole("button", { name: /generate round/i }).click();
+
+  const submitAnswers = page.getByRole("button", { name: /submit answers/i });
+
+  await expect(submitAnswers).toBeDisabled();
+  await expect(page.locator('[data-platform-governance="clarification-selection-required"]')).toBeVisible();
+
+  await page.getByLabel("Separate sidecar").first().check();
+
+  await expect(submitAnswers).toBeEnabled();
+});
+
+test("fails closed on fact promotion until required inputs are present @platform", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  await detailPanel.getByRole("tab", { name: "Chief" }).click();
+
+  const promoteFact = detailPanel.getByRole("button", { name: "Promote fact" });
+
+  await expect(promoteFact).toBeDisabled();
+  await expect(page.locator('[data-platform-governance="fact-input-required"]')).toBeVisible();
+
+  await page.getByPlaceholder("Fact title").fill("Operator policy");
+  await expect(promoteFact).toBeDisabled();
+
+  await page.getByPlaceholder("Why this fact should enter tenant memory").fill("Escalate after two repeated fingerprints.");
+  await expect(promoteFact).toBeEnabled();
+});
+
 test("preserves the selected run when opening run studio from change detail @platform", async ({ page }) => {
   await page.goto("/");
 

@@ -20,6 +20,7 @@ export function ClarificationPanel({
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Record<string, string>>({});
   const clarificationWorkflow = useAsyncWorkflowCommandMachine();
+  const hasSelectedAnswers = openRound ? openRound.questions.some((question) => Boolean(selected[question.id])) : false;
 
   const handleSubmit = () => {
     if (!openRound) {
@@ -150,12 +151,17 @@ export function ClarificationPanel({
               )}
             </PlatformPrimitives.Fieldset.Root>
           ))}
+          {!hasSelectedAnswers ? (
+            <p className="governance-note" data-platform-governance="clarification-selection-required">
+              Select at least one answer before submitting clarification state to the backend-owned shell.
+            </p>
+          ) : null}
           <PlatformPrimitives.Button
             type="button"
             className="primary-button"
             data-platform-foundation="base-ui-clarification-actions"
             onClick={handleSubmit}
-            disabled={clarificationWorkflow.isPending}
+            disabled={clarificationWorkflow.isPending || !hasSelectedAnswers}
           >
             Submit answers
           </PlatformPrimitives.Button>

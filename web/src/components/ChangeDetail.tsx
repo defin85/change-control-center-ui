@@ -49,6 +49,7 @@ export function ChangeDetail({
   const [factTitle, setFactTitle] = useState("");
   const [factBody, setFactBody] = useState("");
   const actionWorkflow = useAsyncWorkflowCommandMachine();
+  const canPromoteFact = factTitle.trim().length > 0 && factBody.trim().length > 0;
 
   if (!detail) {
     return (
@@ -387,10 +388,16 @@ export function ChangeDetail({
               onChange={(event) => setFactBody(event.target.value)}
               placeholder="Why this fact should enter tenant memory"
             />
+            {!canPromoteFact ? (
+              <p className="governance-note" data-platform-governance="fact-input-required">
+                Provide both a fact title and durable rationale before promoting tenant memory.
+              </p>
+            ) : null}
             <PlatformPrimitives.Button
               type="button"
               className="ghost-button"
               data-platform-foundation="base-ui-chief-actions"
+              disabled={!canPromoteFact}
               onClick={() => {
                 if (!factTitle.trim() || !factBody.trim()) {
                   return;
