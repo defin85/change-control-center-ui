@@ -394,7 +394,7 @@ test("fails closed on the global run action when no change is selected @platform
   await page.setViewportSize({ width: 900, height: 1200 });
   await page.goto("/");
 
-  const headerRunAction = page.locator("header").getByRole("button", { name: "Run next step" });
+  const headerRunAction = page.locator("header [data-platform-action='run-next-step']").first();
 
   await expect(headerRunAction).toBeDisabled();
   await expect(page.locator('[data-platform-governance="run-next-selection-required"]')).toBeVisible();
@@ -412,7 +412,7 @@ test("demotes the global next-step action while a change workspace is focused @p
   await page.setViewportSize({ width: 900, height: 1200 });
   await page.goto("/");
 
-  const headerRunAction = page.locator("header").getByRole("button", { name: "Run next step" });
+  const headerRunAction = page.locator("header [data-platform-action='run-next-step']").first();
 
   await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "primary");
 
@@ -420,9 +420,10 @@ test("demotes the global next-step action while a change workspace is focused @p
   const detailPanel = page.getByRole("dialog", { name: "Selected change context" }).locator(".detail-panel").first();
   const detailRunAction = detailPanel.getByRole("button", { name: "Run next step" });
 
+  await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "secondary");
   await expect(detailRunAction).toHaveAttribute("data-platform-hierarchy", "primary");
   await page.getByRole("button", { name: "Close workspace" }).click();
-  await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "secondary");
+  await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "primary");
 });
 
 test("keeps global header mutations behind an explicit workflow pending boundary @platform", async ({ page }) => {

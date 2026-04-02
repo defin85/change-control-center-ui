@@ -331,6 +331,10 @@ textarea {
   color: #fff;
 }
 
+.queue-row.active .responsive-field-label {
+  color: #eef4fb;
+}
+
 .filter-chip {
   flex-direction: column;
   align-items: start;

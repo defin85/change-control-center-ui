@@ -5,7 +5,7 @@ import { useAsyncWorkflowCommandMachine } from "../workflow";
 type WorkbenchHeaderProps = {
   activeTenantId: string;
   canRunNext: boolean;
-  isChangeFocused: boolean;
+  hasVisibleContextualPrimaryAction: boolean;
   realtimeNotice: string | null;
   searchQuery: string;
   tenants: BootstrapResponse["tenants"];
@@ -18,7 +18,7 @@ type WorkbenchHeaderProps = {
 export function WorkbenchHeader({
   activeTenantId,
   canRunNext,
-  isChangeFocused,
+  hasVisibleContextualPrimaryAction,
   realtimeNotice,
   searchQuery,
   tenants,
@@ -28,7 +28,7 @@ export function WorkbenchHeader({
   onTenantChange,
 }: WorkbenchHeaderProps) {
   const globalWorkflow = useAsyncWorkflowCommandMachine();
-  const runNextClassName = isChangeFocused ? "ghost-button header-secondary-action" : "primary-button";
+  const runNextClassName = hasVisibleContextualPrimaryAction ? "ghost-button header-secondary-action" : "primary-button";
   const toolbarItems = tenants.map((tenant) => ({
     label: tenant.name,
     value: tenant.id,
@@ -73,12 +73,12 @@ export function WorkbenchHeader({
             type="button"
             className={runNextClassName}
             data-platform-action="run-next-step"
-            data-platform-hierarchy={isChangeFocused ? "secondary" : "primary"}
+            data-platform-hierarchy={hasVisibleContextualPrimaryAction ? "secondary" : "primary"}
             disabled={!canRunNext || globalWorkflow.isPending}
             title={
               !canRunNext
                 ? "Select a change before running the next backend-owned step."
-                : isChangeFocused
+                : hasVisibleContextualPrimaryAction
                   ? "Use the selected change workspace for the primary next step."
                   : undefined
             }

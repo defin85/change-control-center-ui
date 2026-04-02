@@ -238,7 +238,9 @@ test("renders labeled compact queue and detail rows on narrow viewports @platfor
   const queueRow = page.locator('[data-change-id="ch-146"]');
   await queueRow.click();
 
-  await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "ID" })).toBeVisible();
+  const idLabel = queueRow.locator('[data-platform-compact-label]').filter({ hasText: "ID" });
+  await expect(idLabel).toBeVisible();
+  await expect(idLabel).toHaveCSS("color", "rgb(238, 244, 251)");
   await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Title" })).toBeVisible();
   await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Next action" })).toBeVisible();
 

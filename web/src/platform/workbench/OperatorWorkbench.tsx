@@ -120,8 +120,8 @@ export function OperatorWorkbench({
   const activeViewHint = describeView(activeViewId);
   const activeFilter = describeFilter(activeFilterId);
   const selectedRun = detail?.runs.find((run) => run.id === selectedRunId) ?? null;
-  const isChangeFocused = Boolean(selectedChangeId);
   const isDetailWorkspaceOpen = Boolean(selectedChangeId) && dismissedChangeId !== selectedChangeId;
+  const hasVisibleContextualPrimaryAction = Boolean(selectedChangeId) && (!isCompactViewport || isDetailWorkspaceOpen);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 1080px)");
@@ -151,7 +151,7 @@ export function OperatorWorkbench({
         <WorkbenchHeader
           activeTenantId={activeTenantId}
           canRunNext={Boolean(selectedChangeId)}
-          isChangeFocused={isChangeFocused}
+          hasVisibleContextualPrimaryAction={hasVisibleContextualPrimaryAction}
           realtimeNotice={realtimeNotice ?? null}
           searchQuery={searchQuery}
           tenants={bootstrap.tenants}
