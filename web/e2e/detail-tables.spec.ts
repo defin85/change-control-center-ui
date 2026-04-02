@@ -56,7 +56,7 @@ const detailResponse = {
       summary: "Memory summary",
       openQuestions: [],
       decisions: [],
-      facts: [{ title: "Saved fact", body: "Fact body" }],
+      facts: [{ id: "fact-saved", tenantId: "tenant-demo", title: "Saved fact", body: "Fact body", status: "approved" }],
       activeFocus: [],
       clarifications: [],
     },
@@ -109,7 +109,15 @@ const detailResponse = {
       decision: "accepted",
       memoryPacket: {
         tenantMemory: {
-          facts: [{ title: "Tenant fact", body: "Tenant fact body" }],
+          facts: [
+            {
+              id: "fact-tenant",
+              tenantId: "tenant-demo",
+              title: "Tenant fact",
+              body: "Tenant fact body",
+              status: "approved",
+            },
+          ],
         },
         changeContract: {},
         changeMemory: {
@@ -135,7 +143,7 @@ const detailResponse = {
   ],
   clarificationRounds: [],
   focusGraph: { items: [] },
-  tenantMemory: [{ title: "Tenant fact", body: "Tenant fact body" }],
+  tenantMemory: [{ id: "fact-tenant", tenantId: "tenant-demo", title: "Tenant fact", body: "Tenant fact body", status: "approved" }],
 };
 
 test("renders detail tabs through the approved table foundation @platform", async ({ page }) => {
@@ -164,23 +172,28 @@ test("renders detail tabs through the approved table foundation @platform", asyn
     });
   });
 
-  await page.goto("/?change=ch-146");
+  await page.goto("/");
 
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').filter({ hasText: "Foundation proof change" }).first();
+  const queueRow = page.getByRole("button", { name: /Foundation proof change/i });
+  const detailTabs = detailPanel.locator(".tab-list");
 
-  await page.goto("/?change=ch-146&tab=traceability");
+  await queueRow.click();
+  await expect(page.getByRole("heading", { name: "Foundation proof change" })).toBeVisible();
+
+  await detailTabs.getByRole("tab", { name: "Traceability" }).click();
   await expect(detailPanel.locator('[data-platform-foundation="tanstack-table"]')).toBeVisible();
   await expect(detailPanel.getByText("Requirement")).toBeVisible();
   await expect(detailPanel.getByText("Status")).toBeVisible();
 
-  await page.goto("/?change=ch-146&tab=runs");
+  await detailTabs.getByRole("tab", { name: "Runs" }).click();
   await expect(detailPanel.locator('[data-platform-foundation="tanstack-table"]')).toBeVisible();
   await expect(detailPanel.getByRole("button", { name: /run-30/i })).toHaveAttribute(
     "data-platform-foundation",
     "base-ui-run-row",
   );
 
-  await page.goto("/?change=ch-146&tab=gaps");
+  await detailTabs.getByRole("tab", { name: "Gaps" }).click();
   await expect(detailPanel.locator('[data-platform-foundation="tanstack-table"]')).toBeVisible();
   await expect(detailPanel.locator('[data-platform-foundation="base-ui-gap-row"]').first()).toBeVisible();
   await expect(detailPanel.locator('[data-platform-foundation="base-ui-gap-row"]').first()).toHaveAttribute(
@@ -188,7 +201,7 @@ test("renders detail tabs through the approved table foundation @platform", asyn
     "base-ui-gap-row",
   );
 
-  await page.goto("/?change=ch-146&tab=evidence");
+  await detailTabs.getByRole("tab", { name: "Evidence" }).click();
   await expect(detailPanel.locator('[data-platform-foundation="tanstack-table"]')).toBeVisible();
   await expect(detailPanel.getByText("Compact review output")).toBeVisible();
 });

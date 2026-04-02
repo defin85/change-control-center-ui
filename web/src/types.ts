@@ -45,11 +45,11 @@ export type RuntimeEvent = {
 };
 
 export type FactRecord = {
-  id?: string;
-  tenantId?: string;
+  id: string;
+  tenantId: string;
   title: string;
   body: string;
-  status?: string;
+  status: string;
 };
 
 export type RunRecord = {

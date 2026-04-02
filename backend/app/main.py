@@ -267,7 +267,7 @@ def create_app(
         change = store.get_change(tenant_id, change_id)
         if not change:
             raise HTTPException(status_code=404, detail="Change not found")
-        clarification_rounds = store.list_clarification_rounds(change_id)
+        clarification_rounds = store.list_clarification_rounds(tenant_id, change_id)
         focus_graph = build_focus_graph(change, clarification_rounds)
         return {
             "change": change,
@@ -291,7 +291,7 @@ def create_app(
         if not change:
             raise HTTPException(status_code=404, detail="Change not found")
 
-        clarification_rounds = store.list_clarification_rounds(change_id)
+        clarification_rounds = store.list_clarification_rounds(tenant_id, change_id)
         focus_graph = build_focus_graph(change, clarification_rounds)
         tenant_memory = store.list_tenant_memory(tenant_id)
         memory_packet = curated_memory_packet(tenant_memory, change, focus_graph)
@@ -419,7 +419,10 @@ def create_app(
         if not clarification_round:
             raise HTTPException(status_code=404, detail="Clarification round not found")
         answers = [answer.model_dump(exclude_none=True) for answer in request.answers]
-        answered_round = answer_clarification_round(clarification_round, answers)
+        try:
+            answered_round = answer_clarification_round(clarification_round, answers)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         store.save_clarification_round(answered_round)
         change = store.get_change(tenant_id, answered_round["changeId"])
         if change:

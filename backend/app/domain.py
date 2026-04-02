@@ -83,13 +83,8 @@ def curated_memory_packet(
 
 
 def _next_run_id(change: dict[str, Any], existing_runs: list[dict[str, Any]]) -> str:
-    numeric_ids = [
-        int(run["id"].split("-")[1])
-        for run in existing_runs
-        if run["id"].startswith("run-") and run["id"].split("-")[1].isdigit()
-    ]
-    next_value = max(numeric_ids or [40]) + 1
-    return f"run-{next_value}"
+    del change, existing_runs
+    return f"run-{uuid.uuid4().int % 10_000_000_000}"
 
 
 def _base_run(
@@ -407,6 +402,8 @@ def create_auto_clarification_round(change: dict[str, Any]) -> dict[str, Any]:
 
 
 def answer_clarification_round(round_data: dict[str, Any], answers: list[dict[str, Any]]) -> dict[str, Any]:
+    if round_data["status"] != "open":
+        raise ValueError("Clarification round is already historical")
     round_data["answers"] = answers
     round_data["status"] = "answered"
     round_data["updatedAt"] = iso_now()

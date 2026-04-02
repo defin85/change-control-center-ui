@@ -170,6 +170,52 @@ def test_clarification_answers_reject_empty_payload(client: TestClient) -> None:
     assert answer_response.status_code == 422
 
 
+def test_answered_clarification_rounds_become_history_and_reject_resubmission(client: TestClient) -> None:
+    round_response = client.post("/api/tenants/tenant-demo/changes/ch-150/clarifications/auto")
+    assert round_response.status_code == 201
+    first_round = round_response.json()["round"]
+
+    answer_payload = {
+        "answers": [
+            {
+                "questionId": question["id"],
+                "selectedOptionId": question["options"][0]["id"],
+                "freeformNote": f"History answer for {question['id']}.",
+            }
+            for question in first_round["questions"]
+        ]
+    }
+    answer_response = client.post(
+        f"/api/tenants/tenant-demo/clarifications/{first_round['id']}/answers",
+        json=answer_payload,
+    )
+    assert answer_response.status_code == 200
+
+    duplicate_response = client.post(
+        f"/api/tenants/tenant-demo/clarifications/{first_round['id']}/answers",
+        json=answer_payload,
+    )
+    assert duplicate_response.status_code == 409
+
+    second_round_response = client.post("/api/tenants/tenant-demo/changes/ch-150/clarifications/auto")
+    assert second_round_response.status_code == 201
+    second_round = second_round_response.json()["round"]
+    assert second_round["status"] == "open"
+    assert second_round["answers"] == []
+
+    detail_response = client.get("/api/tenants/tenant-demo/changes/ch-150")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+
+    answered_round = next(round_data for round_data in detail["clarificationRounds"] if round_data["id"] == first_round["id"])
+    active_round = next(round_data for round_data in detail["clarificationRounds"] if round_data["id"] == second_round["id"])
+
+    assert answered_round["status"] == "answered"
+    assert answered_round["answers"] == answer_payload["answers"]
+    assert active_round["status"] == "open"
+    assert active_round["answers"] == []
+
+
 def test_memory_promotion_updates_tenant_memory_and_future_run_packets(
     make_client,
     app_env: dict[str, str],
@@ -190,6 +236,20 @@ def test_memory_promotion_updates_tenant_memory_and_future_run_packets(
             }
         )
         assert promote_response.status_code == 201
+        promoted_fact = promote_response.json()["fact"]
+        assert promoted_fact["id"].startswith("fact-")
+        assert promoted_fact["tenantId"] == "tenant-demo"
+        assert promoted_fact["status"] == "approved"
+
+        detail_response = client.get("/api/tenants/tenant-demo/changes/ch-150")
+        assert detail_response.status_code == 200
+        detail = detail_response.json()
+        assert any(
+            fact["id"] == promoted_fact["id"]
+            and fact["tenantId"] == "tenant-demo"
+            and fact["status"] == "approved"
+            for fact in detail["tenantMemory"]
+        )
 
         run_response = client.post(
             "/api/tenants/tenant-demo/changes/ch-150/runs",
@@ -199,7 +259,10 @@ def test_memory_promotion_updates_tenant_memory_and_future_run_packets(
 
     memory_packet = run_response.json()["run"]["memoryPacket"]
     facts = memory_packet["tenantMemory"]["facts"]
-    assert any(fact["title"] == "Runtime adapter default deployment" for fact in facts)
+    matching_fact = next(fact for fact in facts if fact["id"] == promoted_fact["id"])
+    assert matching_fact["title"] == "Runtime adapter default deployment"
+    assert matching_fact["tenantId"] == "tenant-demo"
+    assert matching_fact["status"] == "approved"
 
 
 def test_fact_promotion_rejects_empty_title_or_body(client: TestClient) -> None:

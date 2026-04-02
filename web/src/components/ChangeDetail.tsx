@@ -388,24 +388,19 @@ export function ChangeDetail({
           emptyMessage="No open findings yet."
           headerClassName="gaps-head"
           renderRow={(row) => (
-            <PlatformPrimitives.Button
+            <div
               key={row.id}
-              type="button"
               className="table-row gap-row"
               data-platform-foundation="base-ui-gap-row"
-              onClick={() =>
-                actionWorkflow.runCommand({
-                  label: "Mark blocked by spec",
-                  execute: onBlockBySpec,
-                })
-              }
+              role="row"
+              tabIndex={0}
             >
               {row.getVisibleCells().map((cell) => (
                 <span key={cell.id}>
                   {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </span>
               ))}
-            </PlatformPrimitives.Button>
+            </div>
           )}
         />
       )}
@@ -547,6 +542,7 @@ export function ChangeDetail({
 
       {activeTab === "clarifications" && (
         <ClarificationPanel
+          changeId={change.id}
           rounds={clarificationRounds}
           onCreateRound={onCreateClarificationRound}
           onAnswerRound={onAnswerClarificationRound}

@@ -9,8 +9,6 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from backend.app.main import create_app
-
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB_ROOT = ROOT / "web"
@@ -163,11 +161,28 @@ def test_change_detail_schema_accepts_seeded_payload_without_clarification_memor
     assert result["issues"] == []
 
 
-def test_change_detail_schema_accepts_real_backend_payload() -> None:
-    client = TestClient(create_app())
+def test_change_detail_schema_accepts_real_backend_payload(client: TestClient) -> None:
     payload = client.get("/api/tenants/tenant-demo/changes/ch-142").json()
 
     result = _validate_payload(payload)
+
+    assert result["success"] is True
+    assert result["issues"] == []
+
+
+def test_promoted_fact_schema_accepts_canonical_backend_payload(client: TestClient) -> None:
+    response = client.post(
+        "/api/tenants/tenant-demo/changes/ch-150/promotions",
+        json={
+            "fact": {
+                "title": "Runtime adapter default deployment",
+                "body": "Sidecar rollout is approved for the first release.",
+            }
+        },
+    )
+    assert response.status_code == 201
+
+    result = _validate_against_schema("promotedFactResponseSchema", response.json())
 
     assert result["success"] is True
     assert result["issues"] == []

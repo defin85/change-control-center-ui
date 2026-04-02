@@ -263,10 +263,10 @@ class SQLiteStore:
             (artifact["id"], artifact["changeId"], artifact.get("runId"), _json_dumps(artifact)),
         )
 
-    def list_clarification_rounds(self, change_id: str) -> list[dict[str, Any]]:
+    def list_clarification_rounds(self, tenant_id: str, change_id: str) -> list[dict[str, Any]]:
         rows = self._fetchall(
-            "select round_json from clarification_rounds where change_id = ? order by id",
-            (change_id,),
+            "select round_json from clarification_rounds where tenant_id = ? and change_id = ? order by id",
+            (tenant_id, change_id),
         )
         return [json.loads(row["round_json"]) for row in rows]
 

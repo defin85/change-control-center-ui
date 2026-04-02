@@ -315,7 +315,17 @@ SEED_FIXTURES = {
             "checks": ["pytest targeted ✅", "contract smoke ❌"],
             "decision": "Keep loop active.",
             "memoryPacket": {
-                "tenantMemory": {"facts": [{"title": "Operator IA is stable", "body": "Preserve queue/detail/run/chief."}]},
+                "tenantMemory": {
+                    "facts": [
+                        {
+                            "id": "fact-001",
+                            "tenantId": "tenant-demo",
+                            "title": "Operator IA is stable",
+                            "body": "Control Queue, Change Detail, Run Studio, and Chief must remain first-class surfaces.",
+                            "status": "approved",
+                        }
+                    ]
+                },
                 "changeContract": {"goal": "Replace the static prototype with a real application foundation."},
                 "changeMemory": {"summary": "Runtime mismatch still open."},
                 "focusGraph": {"items": [{"id": "gap-g91", "kind": "gap", "title": "Close runtime mismatch"}]},
@@ -337,4 +347,3 @@ SEED_FIXTURES = {
 
 def build_seed_fixtures() -> dict:
     return deepcopy(SEED_FIXTURES)
-

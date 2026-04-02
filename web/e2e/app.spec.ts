@@ -1,4 +1,37 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+function uniqueTitle(prefix: string) {
+  return `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function createIsolatedChange(page: Page, prefix: string) {
+  const title = uniqueTitle(prefix);
+  const createResponse = await page.request.post("/api/tenants/tenant-demo/changes", {
+    data: { title },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const payload = (await createResponse.json()) as { change: { id: string; title: string } };
+  return payload.change;
+}
+
+async function waitForDetailPanel(page: Page, title: string) {
+  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  await expect(detailPanel.getByRole("heading", { name: title })).toBeVisible();
+  return detailPanel;
+}
+
+async function openIsolatedChange(page: Page, prefix: string) {
+  const change = await createIsolatedChange(page, prefix);
+  await page.goto(`/?change=${change.id}`);
+  await waitForDetailPanel(page, change.title);
+  return change;
+}
 
 test("shows a normalized contract failure when bootstrap payload is invalid @platform", async ({ page }) => {
   await page.route("**/api/bootstrap", async (route) => {
@@ -135,17 +168,17 @@ test("creates a run and shows runtime lineage in run studio @platform", async ({
 });
 
 test("persists clarification answers across reload @smoke", async ({ page }) => {
-  await page.goto("/");
+  const change = await createIsolatedChange(page, "Clarification reload proof");
+  const createRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
+  expect(createRoundResponse.ok()).toBeTruthy();
 
-  await page.getByRole("button", { name: /ch-150/i }).click();
-  await page.getByRole("tab", { name: "Clarifications" }).click();
-  await page.getByRole("button", { name: /generate round/i }).click();
-  await page.getByLabel("Separate sidecar").first().check();
+  await page.goto(`/?change=${change.id}&tab=clarifications`);
+  await page.locator(".option-card").first().click();
   await page.getByPlaceholder("Дополнительный комментарий").first().fill("Зафиксировать sidecar deployment.");
   await page.getByRole("button", { name: /submit answers/i }).click();
 
   await page.reload();
-  await page.getByRole("button", { name: /ch-150/i }).click();
+  await expect(page).toHaveURL(new RegExp(`change=${change.id}`));
   await page.getByRole("tab", { name: "Clarifications" }).click();
 
   await expect(page.getByText("Зафиксировать sidecar deployment.")).toBeVisible();
@@ -278,6 +311,26 @@ test("rehydrates queue context from backend state during same-tenant browser nav
   await expect(page.locator(".queue-panel")).toContainText("Backend rehydrated queue title");
 });
 
+test("fails closed on stale cross-tenant route context without a terminal shell error @platform", async ({ page }) => {
+  let staleDetailRequests = 0;
+
+  await page.route("**/api/tenants/tenant-sandbox/changes/ch-142", async (route) => {
+    staleDetailRequests += 1;
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Change not found" }),
+    });
+  });
+
+  await page.goto("/?tenant=tenant-sandbox&change=ch-142");
+
+  await expect.poll(() => staleDetailRequests).toBe(0);
+  await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Isolated sandbox change" })).toBeVisible();
+  await expect(page.getByText(/^Error:/)).toHaveCount(0);
+});
+
 test("uses a drawer-style detail workspace on narrow viewports @platform", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1200 });
   await page.goto("/");
@@ -313,11 +366,60 @@ test("fails closed on the global run action when no change is selected @platform
   await expect(headerRunAction).toBeDisabled();
 });
 
-test("fails closed on run studio entry until a backend-owned run exists @platform", async ({ page }) => {
-  await page.goto("/");
+test("keeps global header mutations behind an explicit workflow pending boundary @platform", async ({ page }) => {
+  await openIsolatedChange(page, "Header workflow pending");
 
-  await page.locator("header").getByRole("button", { name: "New change" }).click();
-  await page.getByRole("button", { name: /^ch-.* New change/ }).click();
+  let delayedRunNext: Promise<void> | null = null;
+  await page.route("**/api/tenants/tenant-demo/changes/*/actions/run-next", async (route) => {
+    delayedRunNext = (async () => {
+      const response = await route.fetch();
+      const body = await response.body();
+      await delay(300);
+      await route.fulfill({
+        status: response.status(),
+        headers: response.headers(),
+        body,
+      });
+    })();
+    await delayedRunNext;
+  });
+
+  const header = page.locator("header");
+  const runNext = header.getByRole("button", { name: "Run next step" });
+  const newChange = header.getByRole("button", { name: "New change" });
+
+  await runNext.click();
+
+  await expect(runNext).toBeDisabled();
+  await expect(newChange).toBeDisabled();
+  await expect(page.locator('[data-platform-governance="global-command-pending"]')).toContainText("Run next step");
+  await expect.poll(() => delayedRunNext !== null).toBe(true);
+  await delayedRunNext;
+  await expect(page.locator('[data-platform-governance="global-command-pending"]')).toHaveCount(0);
+});
+
+test("surfaces normalized failures for global header mutations @platform", async ({ page }) => {
+  await openIsolatedChange(page, "Header workflow failure");
+
+  await page.route("**/api/tenants/tenant-demo/changes/*/actions/run-next", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "header run unavailable" }),
+    });
+  });
+
+  await page.locator("header").getByRole("button", { name: "Run next step" }).click();
+
+  await expect(page.locator('[data-platform-governance="global-command-error"]')).toContainText("Global command failed.");
+  await expect(page.locator('[data-platform-governance="global-command-error"]')).toContainText(
+    /Control API request failed \(HTTP 503\)/i,
+  );
+  await expect(page.locator('[data-platform-governance="global-command-error"]')).toContainText(/header run unavailable/i);
+});
+
+test("fails closed on run studio entry until a backend-owned run exists @platform", async ({ page }) => {
+  await openIsolatedChange(page, "Run studio gate");
 
   const detailActions = page.locator(".detail-stage .detail-panel").first();
   const openRunStudio = detailActions.getByRole("button", { name: "Open run studio" });
@@ -331,20 +433,45 @@ test("fails closed on run studio entry until a backend-owned run exists @platfor
 });
 
 test("fails closed on clarification submission until an answer is selected @platform", async ({ page }) => {
-  await page.goto("/");
+  const change = await createIsolatedChange(page, "Clarification selection gate");
+  const createRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
+  expect(createRoundResponse.ok()).toBeTruthy();
 
-  await page.getByRole("button", { name: /ch-150/i }).click();
-  await page.getByRole("tab", { name: "Clarifications" }).click();
-  await page.getByRole("button", { name: /generate round/i }).click();
+  await page.goto(`/?change=${change.id}&tab=clarifications`);
 
   const submitAnswers = page.getByRole("button", { name: /submit answers/i });
 
   await expect(submitAnswers).toBeDisabled();
   await expect(page.locator('[data-platform-governance="clarification-selection-required"]')).toBeVisible();
 
-  await page.getByLabel("Separate sidecar").first().check();
+  await page.locator(".option-card").first().click();
 
   await expect(submitAnswers).toBeEnabled();
+});
+
+test("keeps historical clarification rounds read-only and resets drafts for the next open round @platform", async ({ page }) => {
+  const change = await createIsolatedChange(page, "Clarification history proof");
+  const firstRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
+  expect(firstRoundResponse.ok()).toBeTruthy();
+
+  await page.goto(`/?change=${change.id}&tab=clarifications`);
+  await page.locator(".option-card").first().click();
+  await page.getByPlaceholder("Дополнительный комментарий").first().fill("Historical answer should stay visible.");
+  await page.getByRole("button", { name: /submit answers/i }).click();
+
+  await expect(page.getByText("Historical answer should stay visible.")).toBeVisible();
+  await expect(
+    page.getByText("Historical clarification rounds are read-only. Generate a new round to continue planning."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /submit answers/i })).toHaveCount(0);
+
+  const secondRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
+  expect(secondRoundResponse.ok()).toBeTruthy();
+  await page.reload();
+
+  await expect(page.getByText("Historical answer should stay visible.")).toBeVisible();
+  await expect(page.getByPlaceholder("Дополнительный комментарий").first()).toHaveValue("");
+  await expect(page.getByRole("button", { name: /submit answers/i })).toBeDisabled();
 });
 
 test("fails closed on fact promotion until required inputs are present @platform", async ({ page }) => {
@@ -366,22 +493,45 @@ test("fails closed on fact promotion until required inputs are present @platform
   await expect(promoteFact).toBeEnabled();
 });
 
-test("preserves the selected run when opening run studio from change detail @platform", async ({ page }) => {
-  await page.goto("/");
+test("promotes durable facts through the canonical backend flow @platform", async ({ page }) => {
+  const change = await openIsolatedChange(page, "Fact promotion proof");
+  const detailPanel = await waitForDetailPanel(page, change.title);
+  await detailPanel.getByRole("tab", { name: "Chief" }).click();
 
+  await page.getByPlaceholder("Fact title").fill("Operator memory policy");
+  await page.getByPlaceholder("Why this fact should enter tenant memory").fill("Escalate after two repeated fingerprints.");
+  await detailPanel.getByRole("button", { name: "Promote fact" }).click();
+
+  await expect(detailPanel.getByText("Operator memory policy")).toBeVisible();
+  await expect(detailPanel.getByText("Escalate after two repeated fingerprints.")).toBeVisible();
+
+  await page.reload();
+  await page.getByRole("button", { name: new RegExp(change.id, "i") }).click();
+  const reloadedDetailPanel = await waitForDetailPanel(page, change.title);
+  await reloadedDetailPanel.getByRole("tab", { name: "Chief" }).click();
+
+  await expect(reloadedDetailPanel.getByText("Operator memory policy")).toBeVisible();
+  await expect(reloadedDetailPanel.getByText("Escalate after two repeated fingerprints.")).toBeVisible();
+});
+
+test("preserves the selected run when opening run studio from change detail @platform", async ({ page }) => {
+  await openIsolatedChange(page, "Run studio selection proof");
   const detailActions = page.locator(".detail-stage .detail-panel").first();
   const runStudio = page.locator("#run-studio");
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
   await detailActions.getByRole("button", { name: "Run next step" }).click();
   await detailActions.getByRole("tab", { name: "Runs" }).click();
-  await page.getByRole("button", { name: /run-30/i }).click();
+  const runRow = detailActions.getByRole("button", { name: /run-\d+/i }).first();
+  await expect(runRow).toBeVisible();
+  await runRow.click();
 
-  await expect(runStudio.getByRole("heading", { name: "run-30" })).toBeVisible();
+  const selectedRunHeading = runStudio.getByRole("heading").first();
+  const selectedRunName = await selectedRunHeading.textContent();
+  await expect(selectedRunHeading).toBeVisible();
 
   await detailActions.getByRole("button", { name: "Open run studio" }).click();
 
-  await expect(runStudio.getByRole("heading", { name: "run-30" })).toBeVisible();
+  await expect(runStudio.getByRole("heading", { name: selectedRunName ?? "" })).toBeVisible();
 });
 
 test("keeps the operator shell available when realtime subscription fails @platform", async ({ page }) => {
@@ -416,6 +566,48 @@ test("keeps the operator shell available when realtime subscription fails @platf
     }
 
     window.WebSocket = FailingWebSocket as unknown as typeof WebSocket;
+  });
+
+  await page.goto("/");
+
+  await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
+  await expect(page.locator('[data-platform-governance="realtime-degraded"]')).toBeVisible();
+  await expect(page.getByText(/realtime subscription failed/i)).toBeVisible();
+});
+
+test("surfaces realtime degradation after an unexpected close without a socket error @platform", async ({ page }) => {
+  await page.addInitScript(() => {
+    class ClosingWebSocket {
+      static CONNECTING = 0;
+      static OPEN = 1;
+      static CLOSING = 2;
+      static CLOSED = 3;
+
+      readyState = ClosingWebSocket.CONNECTING;
+      url: string;
+      onopen: ((event: Event) => void) | null = null;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      onclose: ((event: CloseEvent) => void) | null = null;
+
+      constructor(url: string) {
+        this.url = url;
+        window.setTimeout(() => {
+          this.readyState = ClosingWebSocket.OPEN;
+          this.onopen?.(new Event("open"));
+          this.readyState = ClosingWebSocket.CLOSED;
+          this.onclose?.(new CloseEvent("close"));
+        }, 0);
+      }
+
+      send() {}
+
+      close() {
+        this.readyState = ClosingWebSocket.CLOSED;
+      }
+    }
+
+    window.WebSocket = ClosingWebSocket as unknown as typeof WebSocket;
   });
 
   await page.goto("/");
@@ -529,6 +721,7 @@ test("reconciles tenant events without losing selected operator context @platfor
   await page.goto("/");
 
   await page.getByRole("button", { name: /ch-146/i }).click();
+  await expect(page.getByRole("heading", { name: "Bootstrap real app stack" })).toBeVisible();
   await expect(page.locator(".status-bar")).not.toContainText("Escalated");
 
   const response = await page.request.post("/api/tenants/tenant-demo/changes/ch-146/actions/escalate");
@@ -543,10 +736,9 @@ test("operator actions create a change, mutate its state, and resolve runtime ap
 
   await page.locator("header").getByRole("button", { name: "New change" }).click();
   await page.getByRole("button", { name: /^ch-.* New change/ }).click();
-  await expect(page.getByRole("heading", { name: "New change" })).toBeVisible();
+  const detailActions = await waitForDetailPanel(page, "New change");
   await expect(page.locator(".status-bar")).toContainText("draft");
 
-  const detailActions = page.locator(".detail-stage .detail-panel").first();
   await detailActions.getByRole("button", { name: "Escalate" }).click();
   await expect(page.locator(".status-bar")).toContainText("Escalated");
   await expect(page.locator(".status-bar")).toContainText("Operator intervention required");
@@ -555,9 +747,11 @@ test("operator actions create a change, mutate its state, and resolve runtime ap
   await expect(page.locator(".status-bar")).toContainText("Blocked by spec");
   await expect(page.locator(".status-bar")).toContainText("Clarify specification");
 
-  await page.getByRole("button", { name: /ch-146/i }).click();
-  await expect(page).toHaveURL(/change=ch-146/);
-  await detailActions.getByRole("button", { name: "Run next step" }).click();
+  const runChange = await createIsolatedChange(page, "Operator action run proof");
+  await page.getByRole("button", { name: new RegExp(runChange.id, "i") }).click();
+  await expect(page).toHaveURL(new RegExp(`change=${runChange.id}`));
+  const runDetailActions = await waitForDetailPanel(page, runChange.title);
+  await runDetailActions.getByRole("button", { name: "Run next step" }).click();
 
   const runStudio = page.locator("#run-studio");
   await expect(runStudio.getByRole("button", { name: "Accept" })).toHaveAttribute(
@@ -613,6 +807,25 @@ test("surfaces normalized contract failures for fact promotion mutations @platfo
   await expect(detailPanel.getByText(/Fact promotion failed\./i)).toBeVisible();
   await expect(detailPanel.getByText(/Control API request failed \(HTTP 503\)/i)).toBeVisible();
   await expect(detailPanel.getByText(/promotion unavailable/i)).toBeVisible();
+});
+
+test("keeps gap inspection non-mutating until an explicit action is invoked @platform", async ({ page }) => {
+  let blockRequests = 0;
+
+  await page.route("**/api/tenants/tenant-demo/changes/ch-142/actions/block-by-spec", async (route) => {
+    blockRequests += 1;
+    await route.continue();
+  });
+
+  await page.goto("/?change=ch-142&tab=gaps");
+
+  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  await expect(detailPanel.locator('[data-platform-foundation="base-ui-gap-row"]').first()).toBeVisible();
+  await detailPanel.locator('[data-platform-foundation="base-ui-gap-row"]').first().click();
+
+  await expect.poll(() => blockRequests).toBe(0);
+  await expect(detailPanel.getByRole("button", { name: "Mark blocked by spec" })).toBeVisible();
+  await expect(page.locator(".status-bar")).not.toContainText("Blocked by spec");
 });
 
 test("uses approved platform foundations across required operator surfaces @platform", async ({ page }) => {

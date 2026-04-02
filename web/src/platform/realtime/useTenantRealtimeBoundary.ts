@@ -31,6 +31,7 @@ export function useTenantRealtimeBoundary({
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(`${protocol}//${window.location.host}/api/tenants/${tenantId}/events`);
+    let closedIntentionally = false;
 
     socket.onopen = () => socket.send("subscribe");
     socket.onmessage = (event) => {
@@ -47,8 +48,16 @@ export function useTenantRealtimeBoundary({
     socket.onerror = () => {
       handleRealtimeError("Control API realtime subscription failed.");
     };
+    socket.onclose = () => {
+      if (!closedIntentionally) {
+        handleRealtimeError("Control API realtime subscription failed.");
+      }
+    };
 
-    return () => socket.close();
+    return () => {
+      closedIntentionally = true;
+      socket.close();
+    };
   }, [tenantId]);
 }
 

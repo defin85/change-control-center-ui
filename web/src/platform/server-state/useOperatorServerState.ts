@@ -30,6 +30,7 @@ import {
   readOperatorRouteState,
   type OperatorRouteState,
 } from "../navigation";
+import { ControlApiError } from "../contracts";
 import { useTenantRealtimeBoundary, type TenantRealtimeEvent } from "../realtime";
 import type { OperatorWorkbenchProps } from "../workbench/OperatorWorkbench";
 import { filterChanges, resolveTenantId, resolveViewId, resolveVisibleChangeSelection } from "./filtering";
@@ -97,33 +98,74 @@ export function useOperatorServerState(): OperatorServerStateResult {
   const [toast, setToast] = useState<string | null>(null);
   const activeTenantRef = useRef<string | null>(null);
   const selectedChangeRef = useRef<string | null>(null);
+  const selectedRunRef = useRef<string | null>(null);
   const historyModeRef = useRef<"push" | "replace">("replace");
   const historyInitializedRef = useRef(false);
+  const orchestrationVersionRef = useRef(0);
+  const runRequestVersionRef = useRef(0);
   const shouldAutoSelectChange = !window.matchMedia("(max-width: 1080px)").matches;
 
-  function selectChange(changeId: string | null) {
-    selectedChangeRef.current = changeId;
-    setSelectedChangeId(changeId);
-    if (!changeId) {
-      setDetail(null);
-      setSelectedRunId(null);
+  function beginOrchestration() {
+    orchestrationVersionRef.current += 1;
+    return orchestrationVersionRef.current;
+  }
+
+  function beginRunRequest() {
+    runRequestVersionRef.current += 1;
+    return runRequestVersionRef.current;
+  }
+
+  function isActiveOrchestration(version: number, tenantId: string, changeId?: string | null) {
+    return (
+      orchestrationVersionRef.current === version &&
+      activeTenantRef.current === tenantId &&
+      (changeId === undefined || selectedChangeRef.current === changeId)
+    );
+  }
+
+  function resolveOperatorError(reason: unknown) {
+    if (reason instanceof Error && reason.message) {
+      return reason.message;
     }
+
+    return "Operator shell request failed.";
+  }
+
+  function isMissingSelectedChange(reason: unknown) {
+    return reason instanceof ControlApiError && reason.kind === "http" && reason.status === 404;
+  }
+
+  function selectChange(changeId: string | null) {
+    beginRunRequest();
+    selectedChangeRef.current = changeId;
+    selectedRunRef.current = null;
+    setSelectedChangeId(changeId);
+    setSelectedRunId(null);
+    setDetail((current) => (changeId && current?.change.id === changeId ? current : null));
   }
 
   function applyDetailPayload(payload: ChangeDetailResponse, preferredRunId?: string | null) {
     setDetail(payload);
+    beginRunRequest();
     setSelectedRunId((current) => {
       const requestedRunId = preferredRunId ?? current;
       if (requestedRunId && payload.runs.some((run) => run.id === requestedRunId)) {
+        selectedRunRef.current = requestedRunId;
         return requestedRunId;
       }
-      return payload.runs[0]?.id ?? null;
+      const fallbackRunId = payload.runs[0]?.id ?? null;
+      selectedRunRef.current = fallbackRunId;
+      return fallbackRunId;
     });
   }
 
   async function refreshRunDetail(tenantId: string, runId: string) {
     const runCacheKey = buildRunCacheKey(tenantId, runId);
+    const requestVersion = beginRunRequest();
     const payload = await fetchRunDetail(tenantId, runId);
+    if (runRequestVersionRef.current !== requestVersion || activeTenantRef.current !== tenantId || selectedRunRef.current !== runId) {
+      return;
+    }
     setRunApprovals((current) => ({
       ...current,
       [runCacheKey]: payload.approvals,
@@ -134,57 +176,109 @@ export function useOperatorServerState(): OperatorServerStateResult {
     }));
   }
 
-  async function refreshCurrentChange(changeId: string) {
-    if (!activeTenantId) {
-      return;
+  async function refreshCurrentChange(tenantId: string, changeId: string, preferredRunId?: string | null) {
+    const flowVersion = beginOrchestration();
+
+    try {
+      const [changesPayload, detailPayload] = await Promise.all([
+        fetchChanges(tenantId),
+        fetchChangeDetail(tenantId, changeId),
+      ]);
+      if (!isActiveOrchestration(flowVersion, tenantId, changeId)) {
+        return;
+      }
+
+      setChanges(changesPayload.changes);
+      const nextSelectedChangeId = resolveVisibleChangeSelection(
+        changesPayload.changes,
+        {
+          activeViewId,
+          activeFilterId,
+          searchQuery,
+        },
+        changeId,
+        shouldAutoSelectChange,
+      );
+      if (nextSelectedChangeId !== changeId) {
+        selectChange(nextSelectedChangeId);
+        if (!nextSelectedChangeId) {
+          setToast(`Selected change ${changeId} is no longer visible in the active queue context.`);
+        }
+        return;
+      }
+
+      applyDetailPayload(detailPayload, preferredRunId ?? null);
+    } catch (reason) {
+      if (!isActiveOrchestration(flowVersion, tenantId, changeId)) {
+        return;
+      }
+      if (isMissingSelectedChange(reason)) {
+        selectChange(null);
+        setToast(`Selected change ${changeId} is no longer available for this tenant.`);
+        return;
+      }
+      setError(resolveOperatorError(reason));
     }
-    const [changesPayload, detailPayload] = await Promise.all([
-      fetchChanges(activeTenantId),
-      fetchChangeDetail(activeTenantId, changeId),
-    ]);
-    setChanges(changesPayload.changes);
-    applyDetailPayload(detailPayload);
   }
+
+  const selectChangeEvent = useEffectEvent(selectChange);
+  const applyDetailPayloadEvent = useEffectEvent(applyDetailPayload);
 
   const applyNavigationState = useEffectEvent(async (routeState: OperatorRouteState) => {
     if (!bootstrap) {
       return;
     }
+    const flowVersion = beginOrchestration();
 
-    const nextTenantId = resolveTenantId(bootstrap, routeState.tenantId ?? activeTenantRef.current ?? bootstrap.activeTenantId);
-    const nextViewId = resolveViewId(bootstrap, routeState.viewId ?? DEFAULT_OPERATOR_VIEW_ID, DEFAULT_OPERATOR_VIEW_ID);
-    const nextFilterId = routeState.filterId ?? DEFAULT_OPERATOR_FILTER_ID;
-    const nextSearchQuery = routeState.searchQuery ?? "";
-    const queueSnapshot = (await fetchChanges(nextTenantId)).changes;
-    const nextSelectedChangeId = resolveVisibleChangeSelection(
-      queueSnapshot,
-      {
-        activeViewId: nextViewId,
-        activeFilterId: nextFilterId,
-        searchQuery: nextSearchQuery,
-      },
-      routeState.changeId,
-      shouldAutoSelectChange,
-    );
+    try {
+      const nextTenantId = resolveTenantId(bootstrap, routeState.tenantId ?? activeTenantRef.current ?? bootstrap.activeTenantId);
+      const nextViewId = resolveViewId(bootstrap, routeState.viewId ?? DEFAULT_OPERATOR_VIEW_ID, DEFAULT_OPERATOR_VIEW_ID);
+      const nextFilterId = routeState.filterId ?? DEFAULT_OPERATOR_FILTER_ID;
+      const nextSearchQuery = routeState.searchQuery ?? "";
+      const queueSnapshot = (await fetchChanges(nextTenantId)).changes;
+      if (orchestrationVersionRef.current !== flowVersion) {
+        return;
+      }
+      const nextSelectedChangeId = resolveVisibleChangeSelection(
+        queueSnapshot,
+        {
+          activeViewId: nextViewId,
+          activeFilterId: nextFilterId,
+          searchQuery: nextSearchQuery,
+        },
+        routeState.changeId,
+        shouldAutoSelectChange,
+      );
 
-    setActiveTenantId(nextTenantId);
-    activeTenantRef.current = nextTenantId;
-    setChanges(queueSnapshot);
-    setActiveViewId(nextViewId);
-    setActiveFilterId(nextFilterId);
-    setSearchQuery(nextSearchQuery);
-    setActiveTabId(routeState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
-    selectChange(nextSelectedChangeId);
+      setActiveTenantId(nextTenantId);
+      activeTenantRef.current = nextTenantId;
+      setChanges(queueSnapshot);
+      setActiveViewId(nextViewId);
+      setActiveFilterId(nextFilterId);
+      setSearchQuery(nextSearchQuery);
+      setActiveTabId(routeState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
+      selectChange(nextSelectedChangeId);
 
-    if (!nextSelectedChangeId) {
-      return;
+      if (!nextSelectedChangeId) {
+        return;
+      }
+
+      const detailPayload = await fetchChangeDetail(nextTenantId, nextSelectedChangeId);
+      if (!isActiveOrchestration(flowVersion, nextTenantId, nextSelectedChangeId)) {
+        return;
+      }
+      applyDetailPayload(detailPayload, routeState.runId ?? null);
+    } catch (reason) {
+      if (orchestrationVersionRef.current !== flowVersion) {
+        return;
+      }
+      if (routeState.changeId && isMissingSelectedChange(reason)) {
+        selectChange(null);
+        setToast(`Selected change ${routeState.changeId} is no longer available for this tenant.`);
+        return;
+      }
+      setError(resolveOperatorError(reason));
     }
-
-    const detailPayload = await fetchChangeDetail(nextTenantId, nextSelectedChangeId);
-    if (activeTenantRef.current !== nextTenantId || selectedChangeRef.current !== nextSelectedChangeId) {
-      return;
-    }
-    applyDetailPayload(detailPayload, routeState.runId ?? null);
   });
 
   const activeTenant = useMemo(
@@ -233,6 +327,11 @@ export function useOperatorServerState(): OperatorServerStateResult {
   }, [activeSelectedChangeId]);
 
   useEffect(() => {
+    selectedRunRef.current = activeSelectedRunId;
+  }, [activeSelectedRunId]);
+
+  useEffect(() => {
+    const flowVersion = beginOrchestration();
     void fetchBootstrap()
       .then(async (payload) => {
         const initialTenantId = resolveTenantId(payload, initialRouteState.tenantId);
@@ -245,12 +344,15 @@ export function useOperatorServerState(): OperatorServerStateResult {
         const initialSearchQuery = initialRouteState.searchQuery ?? "";
         const initialChanges =
           initialTenantId === payload.activeTenantId ? payload.changes : (await fetchChanges(initialTenantId)).changes;
+        if (orchestrationVersionRef.current !== flowVersion) {
+          return;
+        }
 
         setBootstrap(payload);
         setActiveTenantId(initialTenantId);
         activeTenantRef.current = initialTenantId;
         setChanges(initialChanges);
-        selectChange(
+        selectChangeEvent(
           resolveVisibleChangeSelection(
             initialChanges,
             {
@@ -268,7 +370,11 @@ export function useOperatorServerState(): OperatorServerStateResult {
         setActiveTabId(initialRouteState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
         setRealtimeNotice(null);
       })
-      .catch((reason: Error) => setError(reason.message));
+      .catch((reason: Error) => {
+        if (orchestrationVersionRef.current === flowVersion) {
+          setError(reason.message);
+        }
+      });
   }, [initialRouteState, shouldAutoSelectChange]);
 
   useEffect(() => {
@@ -290,16 +396,28 @@ export function useOperatorServerState(): OperatorServerStateResult {
       return;
     }
 
+    const flowVersion = beginOrchestration();
     const targetTenantId = activeTenantId;
     const targetChangeId = activeSelectedChangeId;
+    const preferredRunId = readOperatorRouteState(window.location.search).runId ?? selectedRunRef.current;
     void fetchChangeDetail(activeTenantId, activeSelectedChangeId)
       .then((payload) => {
-        if (activeTenantRef.current !== targetTenantId || selectedChangeRef.current !== targetChangeId) {
+        if (!isActiveOrchestration(flowVersion, targetTenantId, targetChangeId)) {
           return;
         }
-        applyDetailPayload(payload);
+        applyDetailPayloadEvent(payload, preferredRunId);
       })
-      .catch((reason: Error) => setError(reason.message));
+      .catch((reason: Error) => {
+        if (!isActiveOrchestration(flowVersion, targetTenantId, targetChangeId)) {
+          return;
+        }
+        if (isMissingSelectedChange(reason)) {
+          selectChangeEvent(null);
+          setToast(`Selected change ${targetChangeId} is no longer available for this tenant.`);
+          return;
+        }
+        setError(reason.message);
+      });
   }, [activeSelectedChangeId, activeTenantId]);
 
   useEffect(() => {
@@ -335,47 +453,60 @@ export function useOperatorServerState(): OperatorServerStateResult {
       if (!activeTenantId) {
         return;
       }
+      const flowVersion = beginOrchestration();
+      const targetTenantId = activeTenantId;
+      const targetChangeId = activeSelectedChangeId;
+      const targetRunId = activeSelectedRunId;
 
       const shouldRefreshQueue = shouldRefreshQueueForTenantEvent(event);
-      const shouldRefreshSelectedChange = shouldRefreshSelectedChangeForTenantEvent(event, activeSelectedChangeId);
-      const shouldRefreshSelectedRun = shouldRefreshSelectedRunForTenantEvent(event, activeSelectedRunId);
+      const shouldRefreshSelectedChange = shouldRefreshSelectedChangeForTenantEvent(event, targetChangeId);
+      const shouldRefreshSelectedRun = shouldRefreshSelectedRunForTenantEvent(event, targetRunId);
 
       if (!shouldRefreshQueue && !shouldRefreshSelectedChange && !shouldRefreshSelectedRun) {
         setRealtimeNotice(null);
         return;
       }
 
-      const [queuePayload, detailPayload] = await Promise.all([
-        shouldRefreshQueue ? fetchChanges(activeTenantId) : Promise.resolve(null),
-        shouldRefreshSelectedChange && activeSelectedChangeId
-          ? fetchChangeDetail(activeTenantId, activeSelectedChangeId)
-          : Promise.resolve(null),
-      ]);
-
-      setRealtimeNotice(null);
-      if (queuePayload) {
-        setChanges(queuePayload.changes);
-      }
-
-      if (!detailPayload || !activeSelectedChangeId) {
-        if (shouldRefreshSelectedRun && activeSelectedRunId) {
-          await refreshRunDetail(activeTenantId, activeSelectedRunId);
+      try {
+        const [queuePayload, detailPayload] = await Promise.all([
+          shouldRefreshQueue ? fetchChanges(targetTenantId) : Promise.resolve(null),
+          shouldRefreshSelectedChange && targetChangeId
+            ? fetchChangeDetail(targetTenantId, targetChangeId)
+            : Promise.resolve(null),
+        ]);
+        if (!isActiveOrchestration(flowVersion, targetTenantId, targetChangeId)) {
+          return;
         }
-        return;
-      }
 
-      const targetTenantId = activeTenantId;
-      const targetChangeId = activeSelectedChangeId;
-      if (activeTenantRef.current !== targetTenantId || selectedChangeRef.current !== targetChangeId) {
-        return;
-      }
+        setRealtimeNotice(null);
+        if (queuePayload) {
+          setChanges(queuePayload.changes);
+        }
 
-      const preferredRunId = detailPayload.runs.some((run) => run.id === activeSelectedRunId)
-        ? activeSelectedRunId
-        : detailPayload.runs[0]?.id ?? null;
-      applyDetailPayload(detailPayload, preferredRunId);
-      if (preferredRunId && shouldRefreshSelectedRun) {
-        await refreshRunDetail(activeTenantId, preferredRunId);
+        if (!detailPayload || !targetChangeId) {
+          if (shouldRefreshSelectedRun && targetRunId) {
+            await refreshRunDetail(targetTenantId, targetRunId);
+          }
+          return;
+        }
+
+        const preferredRunId = detailPayload.runs.some((run) => run.id === targetRunId)
+          ? targetRunId
+          : detailPayload.runs[0]?.id ?? null;
+        applyDetailPayload(detailPayload, preferredRunId);
+        if (preferredRunId && shouldRefreshSelectedRun) {
+          await refreshRunDetail(targetTenantId, preferredRunId);
+        }
+      } catch (reason) {
+        if (!isActiveOrchestration(flowVersion, targetTenantId, targetChangeId)) {
+          return;
+        }
+        if (targetChangeId && isMissingSelectedChange(reason)) {
+          selectChange(null);
+          setToast(`Selected change ${targetChangeId} is no longer available for this tenant.`);
+          return;
+        }
+        throw reason;
       }
     },
     onRealtimeError: (message) => setRealtimeNotice(message),
@@ -386,13 +517,22 @@ export function useOperatorServerState(): OperatorServerStateResult {
       return;
     }
 
+    const targetTenantId = activeTenantId;
+    const targetRunId = activeSelectedRunId;
+    const requestVersion = beginRunRequest();
+    const runCacheKey = buildRunCacheKey(targetTenantId, targetRunId);
     let cancelled = false;
-    void fetchRunDetail(activeTenantId, activeSelectedRunId)
+
+    void fetchRunDetail(targetTenantId, targetRunId)
       .then((payload) => {
-        if (cancelled) {
+        if (
+          cancelled ||
+          runRequestVersionRef.current !== requestVersion ||
+          activeTenantRef.current !== targetTenantId ||
+          selectedRunRef.current !== targetRunId
+        ) {
           return;
         }
-        const runCacheKey = buildRunCacheKey(activeTenantId, activeSelectedRunId);
         setRunApprovals((current) => ({
           ...current,
           [runCacheKey]: payload.approvals,
@@ -403,7 +543,12 @@ export function useOperatorServerState(): OperatorServerStateResult {
         }));
       })
       .catch((reason: Error) => {
-        if (!cancelled) {
+        if (
+          !cancelled &&
+          runRequestVersionRef.current === requestVersion &&
+          activeTenantRef.current === targetTenantId &&
+          selectedRunRef.current === targetRunId
+        ) {
           setError(reason.message);
         }
       });
@@ -426,8 +571,10 @@ export function useOperatorServerState(): OperatorServerStateResult {
       setToast("Select a change before running the next backend-owned step.");
       return;
     }
-    const payload = await runNext(activeTenantId, activeSelectedChangeId);
-    const runCacheKey = buildRunCacheKey(activeTenantId, payload.run.id);
+    const targetTenantId = activeTenantId;
+    const targetChangeId = activeSelectedChangeId;
+    const payload = await runNext(targetTenantId, targetChangeId);
+    const runCacheKey = buildRunCacheKey(targetTenantId, payload.run.id);
     setRunApprovals((current) => ({
       ...current,
       [runCacheKey]: payload.approvals,
@@ -436,8 +583,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
       ...current,
       [runCacheKey]: payload.events,
     }));
-    await refreshCurrentChange(activeSelectedChangeId);
+    await refreshCurrentChange(targetTenantId, targetChangeId, payload.run.id);
     historyModeRef.current = "replace";
+    selectedRunRef.current = payload.run.id;
     setSelectedRunId(payload.run.id);
     setToast(`Run ${payload.run.id} started.`);
   }
@@ -448,7 +596,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
         activeSelectedRunId && activeDetail.runs.some((run) => run.id === activeSelectedRunId)
           ? activeSelectedRunId
           : activeDetail.runs[0].id;
+      beginRunRequest();
       historyModeRef.current = "replace";
+      selectedRunRef.current = preferredRunId;
       setSelectedRunId(preferredRunId);
       window.requestAnimationFrame(() => {
         document.getElementById("run-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -462,12 +612,20 @@ export function useOperatorServerState(): OperatorServerStateResult {
     if (!activeTenantId) {
       return;
     }
-    const payload = await createChange(activeTenantId);
-    const changesPayload = await fetchChanges(activeTenantId);
+    const targetTenantId = activeTenantId;
+    const flowVersion = beginOrchestration();
+    const payload = await createChange(targetTenantId);
+    const changesPayload = await fetchChanges(targetTenantId);
+    if (orchestrationVersionRef.current !== flowVersion || activeTenantRef.current !== targetTenantId) {
+      return;
+    }
     setChanges(changesPayload.changes);
     historyModeRef.current = "push";
     selectChange(payload.change.id);
-    const detailPayload = await fetchChangeDetail(activeTenantId, payload.change.id);
+    const detailPayload = await fetchChangeDetail(targetTenantId, payload.change.id);
+    if (!isActiveOrchestration(flowVersion, targetTenantId, payload.change.id)) {
+      return;
+    }
     applyDetailPayload(detailPayload);
     setToast(`Created ${payload.change.id}.`);
   }
@@ -476,104 +634,128 @@ export function useOperatorServerState(): OperatorServerStateResult {
     if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
-    await escalateChange(activeTenantId, activeSelectedChangeId);
-    await refreshCurrentChange(activeSelectedChangeId);
-    setToast(`Escalated ${activeSelectedChangeId}.`);
+    const targetTenantId = activeTenantId;
+    const targetChangeId = activeSelectedChangeId;
+    await escalateChange(targetTenantId, targetChangeId);
+    await refreshCurrentChange(targetTenantId, targetChangeId);
+    setToast(`Escalated ${targetChangeId}.`);
   }
 
   async function handleBlockBySpec() {
     if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
-    await blockChangeBySpec(activeTenantId, activeSelectedChangeId);
-    await refreshCurrentChange(activeSelectedChangeId);
-    setToast(`Blocked ${activeSelectedChangeId} by spec.`);
+    const targetTenantId = activeTenantId;
+    const targetChangeId = activeSelectedChangeId;
+    await blockChangeBySpec(targetTenantId, targetChangeId);
+    await refreshCurrentChange(targetTenantId, targetChangeId);
+    setToast(`Blocked ${targetChangeId} by spec.`);
   }
 
   async function handleCreateClarificationRound() {
     if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
-    await createClarificationRound(activeTenantId, activeSelectedChangeId);
-    await refreshCurrentChange(activeSelectedChangeId);
+    const targetTenantId = activeTenantId;
+    const targetChangeId = activeSelectedChangeId;
+    await createClarificationRound(targetTenantId, targetChangeId);
+    await refreshCurrentChange(targetTenantId, targetChangeId);
   }
 
   async function handleAnswerClarificationRound(roundId: string, answers: ClarificationAnswer[]) {
     if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
-    await answerClarificationRound(activeTenantId, roundId, answers);
-    await refreshCurrentChange(activeSelectedChangeId);
+    const targetTenantId = activeTenantId;
+    const targetChangeId = activeSelectedChangeId;
+    await answerClarificationRound(targetTenantId, roundId, answers);
+    await refreshCurrentChange(targetTenantId, targetChangeId);
   }
 
   async function handlePromoteFact(title: string, body: string) {
     if (!activeTenantId || !activeSelectedChangeId) {
       return;
     }
-    await promoteFact(activeTenantId, activeSelectedChangeId, title, body);
-    await refreshCurrentChange(activeSelectedChangeId);
+    const targetTenantId = activeTenantId;
+    const targetChangeId = activeSelectedChangeId;
+    await promoteFact(targetTenantId, targetChangeId, title, body);
+    await refreshCurrentChange(targetTenantId, targetChangeId);
   }
 
   async function handleApprovalDecision(approvalId: string, decision: "accept" | "decline") {
     if (!activeTenantId || !activeSelectedRunId) {
       return;
     }
-    const payload = await decideApproval(activeTenantId, approvalId, decision);
-    const runCacheKey = buildRunCacheKey(activeTenantId, activeSelectedRunId);
+    const targetTenantId = activeTenantId;
+    const targetRunId = activeSelectedRunId;
+    const payload = await decideApproval(targetTenantId, approvalId, decision);
+    const runCacheKey = buildRunCacheKey(targetTenantId, targetRunId);
     setRunApprovals((current) => ({
       ...current,
       [runCacheKey]: (current[runCacheKey] ?? []).map((approval) =>
         approval.id === approvalId ? payload.approval : approval,
       ),
     }));
-    await refreshRunDetail(activeTenantId, activeSelectedRunId);
+    await refreshRunDetail(targetTenantId, targetRunId);
     setToast(`${decision === "accept" ? "Accepted" : "Declined"} ${approvalId}.`);
   }
 
   async function handleTenantChange(tenantId: string) {
+    const flowVersion = beginOrchestration();
     historyModeRef.current = "push";
     setRealtimeNotice(null);
-    setActiveTenantId(tenantId);
-    activeTenantRef.current = tenantId;
-    setDetail(null);
-    setSelectedRunId(null);
-    const payload = await fetchChanges(tenantId);
-    setChanges(payload.changes);
-    selectChange(shouldAutoSelectChange ? payload.changes[0]?.id ?? null : null);
+    setError(null);
+    setChanges([]);
     setActiveViewId(DEFAULT_OPERATOR_VIEW_ID);
     setActiveFilterId(DEFAULT_OPERATOR_FILTER_ID);
     setSearchQuery("");
     setActiveTabId(DEFAULT_OPERATOR_TAB_ID);
+    selectChange(null);
+    setActiveTenantId(tenantId);
+    activeTenantRef.current = tenantId;
+    const payload = await fetchChanges(tenantId);
+    if (orchestrationVersionRef.current !== flowVersion || activeTenantRef.current !== tenantId) {
+      return;
+    }
+    setChanges(payload.changes);
+    selectChange(shouldAutoSelectChange ? payload.changes[0]?.id ?? null : null);
   }
 
   function handleSearchQueryChange(value: string) {
+    beginOrchestration();
     historyModeRef.current = "push";
     setSearchQuery(value);
   }
 
   function handleSelectView(viewId: string) {
+    beginOrchestration();
     historyModeRef.current = "push";
     setActiveViewId(viewId);
   }
 
   function handleSelectFilter(filterId: string) {
+    beginOrchestration();
     historyModeRef.current = "push";
     setActiveFilterId(filterId);
   }
 
   function handleSelectChange(changeId: string | null) {
+    beginOrchestration();
     historyModeRef.current = "push";
     selectChange(changeId);
   }
 
   function handleClearSelection() {
+    beginOrchestration();
     historyModeRef.current = "push";
     selectChange(null);
     setDetail(null);
   }
 
   function handleSelectRun(runId: string) {
+    beginRunRequest();
     historyModeRef.current = "replace";
+    selectedRunRef.current = runId;
     setSelectedRunId(runId);
   }
 

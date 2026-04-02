@@ -7,6 +7,7 @@ WORKFLOW_SURFACES = ROOT / "web/src/platform/workflow/surfaces.ts"
 CHANGE_DETAIL = ROOT / "web/src/components/ChangeDetail.tsx"
 RUN_STUDIO = ROOT / "web/src/components/RunStudio.tsx"
 CLARIFICATION_PANEL = ROOT / "web/src/components/ClarificationPanel.tsx"
+WORKBENCH_HEADER = ROOT / "web/src/platform/workbench/WorkbenchHeader.tsx"
 
 
 def _read(path: Path) -> str:
@@ -26,3 +27,4 @@ def test_workflow_surfaces_keep_machine_boundary_on_shipped_components() -> None
     assert "useAsyncWorkflowCommandMachine" in _read(CHANGE_DETAIL)
     assert "useAsyncWorkflowCommandMachine" in _read(RUN_STUDIO)
     assert "useAsyncWorkflowCommandMachine" in _read(CLARIFICATION_PANEL)
+    assert "useAsyncWorkflowCommandMachine" in _read(WORKBENCH_HEADER)

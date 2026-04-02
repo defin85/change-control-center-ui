@@ -1,4 +1,4 @@
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
 function delay(ms: number) {
   return new Promise((resolve) => {
@@ -6,26 +6,46 @@ function delay(ms: number) {
   });
 }
 
+function uniqueTitle(prefix: string) {
+  return `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+async function createIsolatedChange(page: Page, prefix: string) {
+  const createResponse = await page.request.post("/api/tenants/tenant-demo/changes", {
+    data: { title: uniqueTitle(prefix) },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const payload = (await createResponse.json()) as { change: { id: string; title: string } };
+  return payload.change;
+}
+
 async function fulfillAfterDelay(route: Route, ms: number) {
   const response = await route.fetch();
+  const body = await response.body();
+  const headers = response.headers();
   await delay(ms);
-  await route.fulfill({ response });
+  await route.fulfill({
+    status: response.status(),
+    headers,
+    body,
+  });
 }
 
 test("keeps workflow-heavy operator commands behind an explicit pending boundary @platform", async ({ page }) => {
-  await page.goto("/");
-
-  await page.getByRole("button", { name: /ch-142/i }).click();
-  await page.getByRole("tab", { name: "Runs" }).click();
-  await page.getByRole("button", { name: /run-30/i }).click();
+  const change = await createIsolatedChange(page, "Workflow boundary");
+  await page.goto(`/?change=${change.id}`);
 
   const detailPanel = page.locator(".detail-stage .detail-panel").first();
-  const runStudio = page.locator("#run-studio");
+  const runStudio = page.locator('[data-platform-shell="run-inspection"]');
 
-  await expect(runStudio.getByRole("heading", { name: "run-30" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: change.title })).toBeVisible();
+  await expect(runStudio.getByRole("heading", { name: "No Run Selected" })).toBeVisible();
+  await expect(runStudio.getByText("Choose a run from the detail view to inspect its lineage and curated memory packet.")).toBeVisible();
 
-  await page.route("**/api/tenants/tenant-demo/changes/ch-142/actions/run-next", async (route) => {
-    await fulfillAfterDelay(route, 300);
+  let runNextRequest: Promise<void> | null = null;
+  await page.route(`**/api/tenants/tenant-demo/changes/${change.id}/actions/run-next`, async (route) => {
+    runNextRequest = fulfillAfterDelay(route, 300);
+    await runNextRequest;
   });
 
   await detailPanel.getByRole("button", { name: "Run next step" }).click();
@@ -33,12 +53,17 @@ test("keeps workflow-heavy operator commands behind an explicit pending boundary
   await expect(detailPanel.getByRole("button", { name: "Run next step" })).toBeDisabled();
   await expect(detailPanel.getByRole("button", { name: "Escalate" })).toBeDisabled();
   await expect(detailPanel.locator(".empty-state").filter({ hasText: "Run next step" })).toBeVisible();
+  await expect(runStudio.getByRole("heading", { name: "No Run Selected" })).toBeVisible();
 
+  await expect.poll(() => runNextRequest !== null).toBe(true);
+  await runNextRequest;
   await expect(runStudio.getByRole("button", { name: "Accept" })).toBeVisible();
   await expect(runStudio.getByRole("button", { name: "Accept" })).toBeEnabled();
 
+  let approvalDecision: Promise<void> | null = null;
   await page.route("**/api/tenants/tenant-demo/approvals/*/decision", async (route) => {
-    await fulfillAfterDelay(route, 1000);
+    approvalDecision = fulfillAfterDelay(route, 1000);
+    await approvalDecision;
   });
 
   const approvalActions = runStudio.locator(".approval-actions");
@@ -49,14 +74,18 @@ test("keeps workflow-heavy operator commands behind an explicit pending boundary
   await expect(approvalActions.getByRole("button", { name: "Accept" })).toBeDisabled();
   await expect(approvalActions.getByRole("button", { name: "Decline" })).toBeDisabled();
 
+  await expect.poll(() => approvalDecision !== null).toBe(true);
+  await approvalDecision;
   await expect(runStudio.getByText(/accepted/i)).toBeVisible();
   await expect(approvalActions).toHaveCount(0);
   await expect(runStudio.getByText("serverRequest/resolved")).toBeVisible();
 
   await page.getByRole("tab", { name: "Clarifications" }).click();
 
-  await page.route("**/api/tenants/tenant-demo/changes/ch-142/clarifications/auto", async (route) => {
-    await fulfillAfterDelay(route, 300);
+  let clarificationRequest: Promise<void> | null = null;
+  await page.route(`**/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`, async (route) => {
+    clarificationRequest = fulfillAfterDelay(route, 300);
+    await clarificationRequest;
   });
 
   const generateRound = page.getByRole("button", { name: /generate round/i });
@@ -64,6 +93,8 @@ test("keeps workflow-heavy operator commands behind an explicit pending boundary
 
   await expect(generateRound).toBeDisabled();
   await expect(page.locator(".empty-state").filter({ hasText: "Generate clarification round" })).toBeVisible();
+  await expect.poll(() => clarificationRequest !== null).toBe(true);
+  await clarificationRequest;
   await expect(page.getByRole("button", { name: /submit answers/i })).toBeVisible();
 });
 

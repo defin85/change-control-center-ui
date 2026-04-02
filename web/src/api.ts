@@ -4,6 +4,7 @@ import type {
   ChangeDetailResponse,
   ClarificationAnswer,
   ClarificationRound,
+  FactRecord,
   RuntimeEvent,
   RunDetailResponse,
   RunRecord,
@@ -96,7 +97,7 @@ export function promoteFact(
   changeId: string,
   title: string,
   body: string,
-): Promise<{ fact: { id: string; title: string; body: string } }> {
+): Promise<{ fact: FactRecord }> {
   return requestControlApi(`/api/tenants/${tenantId}/changes/${changeId}/promotions`, promotedFactResponseSchema, {
     method: "POST",
     body: JSON.stringify({ fact: { title, body } }),

@@ -44,19 +44,19 @@ const clarificationMemoryEntrySchema = strictObject({
   freeformNote: optionalStringSchema,
 });
 
-const factSchema = strictObject({
-  id: optionalStringSchema,
-  tenantId: optionalStringSchema,
+const canonicalFactSchema = strictObject({
+  id: z.string(),
+  tenantId: z.string(),
   title: z.string(),
   body: z.string(),
-  status: optionalStringSchema,
+  status: z.string(),
 });
 
 const changeMemorySchema = strictObject({
   summary: z.string(),
   openQuestions: z.array(z.string()).default([]),
   decisions: z.array(z.string()).default([]),
-  facts: z.array(factSchema).default([]),
+  facts: z.array(canonicalFactSchema).default([]),
   activeFocus: z.array(z.string()).default([]),
   clarifications: z.array(clarificationMemoryEntrySchema).default([]),
 });
@@ -79,7 +79,7 @@ const runRecordSchema = strictObject({
   decision: z.string(),
   memoryPacket: strictObject({
     tenantMemory: strictObject({
-      facts: z.array(factSchema),
+      facts: z.array(canonicalFactSchema),
     }),
     changeContract: recordValueSchema,
     changeMemory: changeMemorySchema,
@@ -244,7 +244,7 @@ export const changeDetailResponseSchema = strictObject({
     items: z.array(focusItemSchema),
   }),
   tenantMemory: z.array(
-    factSchema,
+    canonicalFactSchema,
   ),
 });
 
@@ -266,11 +266,7 @@ export const clarificationRoundResponseSchema = strictObject({
 });
 
 export const promotedFactResponseSchema = strictObject({
-  fact: strictObject({
-    id: z.string(),
-    title: z.string(),
-    body: z.string(),
-  }),
+  fact: canonicalFactSchema,
 });
 
 export const createChangeResponseSchema = strictObject({

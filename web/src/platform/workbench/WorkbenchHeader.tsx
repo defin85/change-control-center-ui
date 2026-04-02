@@ -1,5 +1,6 @@
 import type { BootstrapResponse } from "../../types";
 import { PlatformPrimitives } from "../foundation";
+import { useAsyncWorkflowCommandMachine } from "../workflow";
 
 type WorkbenchHeaderProps = {
   activeTenantId: string;
@@ -24,6 +25,7 @@ export function WorkbenchHeader({
   onRunNext,
   onTenantChange,
 }: WorkbenchHeaderProps) {
+  const globalWorkflow = useAsyncWorkflowCommandMachine();
   const toolbarItems = tenants.map((tenant) => ({
     label: tenant.name,
     value: tenant.id,
@@ -53,7 +55,13 @@ export function WorkbenchHeader({
             type="button"
             className="ghost-button"
             data-platform-action="new-change"
-            onClick={() => void onCreateChange()}
+            onClick={() =>
+              globalWorkflow.runCommand({
+                label: "New change",
+                execute: onCreateChange,
+              })
+            }
+            disabled={globalWorkflow.isPending}
           >
             New change
           </PlatformPrimitives.Toolbar.Button>
@@ -61,9 +69,14 @@ export function WorkbenchHeader({
             type="button"
             className="primary-button"
             data-platform-action="run-next-step"
-            disabled={!canRunNext}
+            disabled={!canRunNext || globalWorkflow.isPending}
             title={canRunNext ? undefined : "Select a change before running the next backend-owned step."}
-            onClick={() => void onRunNext()}
+            onClick={() =>
+              globalWorkflow.runCommand({
+                label: "Run next step",
+                execute: onRunNext,
+              })
+            }
           >
             Run next step
           </PlatformPrimitives.Toolbar.Button>
@@ -105,6 +118,16 @@ export function WorkbenchHeader({
         {!canRunNext ? (
           <p className="governance-note" data-platform-governance="run-next-selection-required">
             Select a change before running the next backend-owned step.
+          </p>
+        ) : null}
+        {globalWorkflow.error ? (
+          <p className="governance-note" data-platform-governance="global-command-error">
+            <strong>Global command failed.</strong> {globalWorkflow.error}
+          </p>
+        ) : null}
+        {globalWorkflow.isPending ? (
+          <p className="governance-note" data-platform-governance="global-command-pending">
+            {globalWorkflow.activeLabel ?? "Global operator command in progress."}
           </p>
         ) : null}
         {realtimeNotice ? (
