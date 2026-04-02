@@ -408,6 +408,9 @@ def create_app(
         change = store.get_change(tenant_id, change_id)
         if not change:
             raise HTTPException(status_code=404, detail="Change not found")
+        existing_rounds = store.list_clarification_rounds(tenant_id, change_id)
+        if any(round_data["status"] == "open" for round_data in existing_rounds):
+            raise HTTPException(status_code=409, detail="An open clarification round already exists")
         clarification_round = create_auto_clarification_round(change)
         store.add_clarification_round(clarification_round)
         await event_hub.broadcast(tenant_id, {"type": "clarification-created", "changeId": change_id, "roundId": clarification_round["id"]})

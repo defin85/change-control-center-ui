@@ -79,6 +79,8 @@ const RUN_REFRESH_EVENT_TYPES = new Set([
   "run-completed",
 ]);
 
+type RefreshCurrentChangeFailureMode = "global" | "throw";
+
 export function useOperatorServerState(): OperatorServerStateResult {
   const [initialRouteState] = useState(() => readOperatorRouteState(window.location.search));
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
@@ -176,8 +178,17 @@ export function useOperatorServerState(): OperatorServerStateResult {
     }));
   }
 
-  async function refreshCurrentChange(tenantId: string, changeId: string, preferredRunId?: string | null) {
+  async function refreshCurrentChange(
+    tenantId: string,
+    changeId: string,
+    options?: {
+      preferredRunId?: string | null;
+      onFailure?: RefreshCurrentChangeFailureMode;
+    },
+  ) {
     const flowVersion = beginOrchestration();
+    const preferredRunId = options?.preferredRunId;
+    const onFailure = options?.onFailure ?? "global";
 
     try {
       const [changesPayload, detailPayload] = await Promise.all([
@@ -216,6 +227,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
         selectChange(null);
         setToast(`Selected change ${changeId} is no longer available for this tenant.`);
         return;
+      }
+      if (onFailure === "throw") {
+        throw reason instanceof Error ? reason : new Error(resolveOperatorError(reason));
       }
       setError(resolveOperatorError(reason));
     }
@@ -453,7 +467,6 @@ export function useOperatorServerState(): OperatorServerStateResult {
       if (!activeTenantId) {
         return;
       }
-      const flowVersion = beginOrchestration();
       const targetTenantId = activeTenantId;
       const targetChangeId = activeSelectedChangeId;
       const targetRunId = activeSelectedRunId;
@@ -466,6 +479,8 @@ export function useOperatorServerState(): OperatorServerStateResult {
         setRealtimeNotice(null);
         return;
       }
+      const flowVersion =
+        shouldRefreshSelectedChange || shouldRefreshSelectedRun ? beginOrchestration() : orchestrationVersionRef.current;
 
       try {
         const [queuePayload, detailPayload] = await Promise.all([
@@ -566,7 +581,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
-  async function handleRunNext() {
+  async function handleRunNext(refreshFailureMode: RefreshCurrentChangeFailureMode) {
     if (!activeTenantId || !activeSelectedChangeId) {
       setToast("Select a change before running the next backend-owned step.");
       return;
@@ -583,11 +598,22 @@ export function useOperatorServerState(): OperatorServerStateResult {
       ...current,
       [runCacheKey]: payload.events,
     }));
-    await refreshCurrentChange(targetTenantId, targetChangeId, payload.run.id);
+    await refreshCurrentChange(targetTenantId, targetChangeId, {
+      preferredRunId: payload.run.id,
+      onFailure: refreshFailureMode,
+    });
     historyModeRef.current = "replace";
     selectedRunRef.current = payload.run.id;
     setSelectedRunId(payload.run.id);
     setToast(`Run ${payload.run.id} started.`);
+  }
+
+  async function handleGlobalRunNext() {
+    await handleRunNext("global");
+  }
+
+  async function handleDetailRunNext() {
+    await handleRunNext("throw");
   }
 
   function handleOpenRunStudio() {
@@ -637,7 +663,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetTenantId = activeTenantId;
     const targetChangeId = activeSelectedChangeId;
     await escalateChange(targetTenantId, targetChangeId);
-    await refreshCurrentChange(targetTenantId, targetChangeId);
+    await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
     setToast(`Escalated ${targetChangeId}.`);
   }
 
@@ -648,7 +674,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetTenantId = activeTenantId;
     const targetChangeId = activeSelectedChangeId;
     await blockChangeBySpec(targetTenantId, targetChangeId);
-    await refreshCurrentChange(targetTenantId, targetChangeId);
+    await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
     setToast(`Blocked ${targetChangeId} by spec.`);
   }
 
@@ -659,7 +685,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetTenantId = activeTenantId;
     const targetChangeId = activeSelectedChangeId;
     await createClarificationRound(targetTenantId, targetChangeId);
-    await refreshCurrentChange(targetTenantId, targetChangeId);
+    await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
   }
 
   async function handleAnswerClarificationRound(roundId: string, answers: ClarificationAnswer[]) {
@@ -669,7 +695,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetTenantId = activeTenantId;
     const targetChangeId = activeSelectedChangeId;
     await answerClarificationRound(targetTenantId, roundId, answers);
-    await refreshCurrentChange(targetTenantId, targetChangeId);
+    await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
   }
 
   async function handlePromoteFact(title: string, body: string) {
@@ -679,7 +705,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetTenantId = activeTenantId;
     const targetChangeId = activeSelectedChangeId;
     await promoteFact(targetTenantId, targetChangeId, title, body);
-    await refreshCurrentChange(targetTenantId, targetChangeId);
+    await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
   }
 
   async function handleApprovalDecision(approvalId: string, decision: "accept" | "decline") {
@@ -794,7 +820,8 @@ export function useOperatorServerState(): OperatorServerStateResult {
       toast,
       onSearchQueryChange: handleSearchQueryChange,
       onCreateChange: handleCreateChange,
-      onRunNext: handleRunNext,
+      onGlobalRunNext: handleGlobalRunNext,
+      onRunNext: handleDetailRunNext,
       onTenantChange: handleTenantChange,
       onSelectView: handleSelectView,
       onSelectFilter: handleSelectFilter,

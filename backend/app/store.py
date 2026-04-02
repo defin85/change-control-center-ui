@@ -186,7 +186,7 @@ class SQLiteStore:
 
     def list_runs(self, tenant_id: str, change_id: str) -> list[dict[str, Any]]:
         rows = self._fetchall(
-            "select run_json from runs where tenant_id = ? and change_id = ? order by id desc",
+            "select run_json from runs where tenant_id = ? and change_id = ? order by rowid desc",
             (tenant_id, change_id),
         )
         return [json.loads(row["run_json"]) for row in rows]

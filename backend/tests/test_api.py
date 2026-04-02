@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.app.store import SQLiteStore
+
 
 def test_bootstrap_returns_real_backend_state(client: TestClient) -> None:
     response = client.get("/api/bootstrap")
@@ -214,6 +216,64 @@ def test_answered_clarification_rounds_become_history_and_reject_resubmission(cl
     assert answered_round["answers"] == answer_payload["answers"]
     assert active_round["status"] == "open"
     assert active_round["answers"] == []
+
+
+def test_open_clarification_rounds_reject_parallel_auto_generation(client: TestClient) -> None:
+    first_round_response = client.post("/api/tenants/tenant-demo/changes/ch-150/clarifications/auto")
+    assert first_round_response.status_code == 201
+
+    second_round_response = client.post("/api/tenants/tenant-demo/changes/ch-150/clarifications/auto")
+
+    assert second_round_response.status_code == 409
+    assert second_round_response.json()["detail"] == "An open clarification round already exists"
+
+
+def test_runs_list_newest_inserted_run_first_even_when_ids_are_not_lexically_sorted(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "ccc.db")
+    store.initialize()
+    base_run = {
+        "changeId": "ch-150",
+        "tenantId": "tenant-demo",
+        "kind": "design",
+        "status": "completed",
+        "transport": "stdio",
+        "threadId": "thr_ordering",
+        "turnId": "turn_ordering",
+        "worktree": "wt-ordering",
+        "result": "done",
+        "duration": "1s",
+        "outcome": "ordering proof",
+        "prompt": "/design ch-150",
+        "checks": [],
+        "decision": "ordering proof",
+        "memoryPacket": {
+            "tenantMemory": {"facts": []},
+            "changeContract": {},
+            "changeMemory": {
+                "summary": "",
+                "openQuestions": [],
+                "decisions": [],
+                "facts": [],
+                "activeFocus": [],
+                "clarifications": [],
+            },
+            "focusGraph": {"items": []},
+        },
+    }
+
+    store.create_run({
+        **base_run,
+        "id": "run-z-last-lexically",
+    })
+    store.create_run({
+        **base_run,
+        "id": "run-a-latest-inserted",
+        "turnId": "turn_ordering_latest",
+    })
+
+    runs = store.list_runs("tenant-demo", "ch-150")
+
+    assert [run["id"] for run in runs[:2]] == ["run-a-latest-inserted", "run-z-last-lexically"]
 
 
 def test_memory_promotion_updates_tenant_memory_and_future_run_packets(

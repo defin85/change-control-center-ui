@@ -449,6 +449,20 @@ test("fails closed on clarification submission until an answer is selected @plat
   await expect(submitAnswers).toBeEnabled();
 });
 
+test("keeps clarification round creation unavailable while an open round already exists @platform", async ({ page }) => {
+  const change = await createIsolatedChange(page, "Clarification open-round gate");
+  const createRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
+  expect(createRoundResponse.ok()).toBeTruthy();
+
+  await page.goto(`/?change=${change.id}&tab=clarifications`);
+
+  const generateRound = page.getByRole("button", { name: /generate round/i });
+  await expect(generateRound).toBeDisabled();
+  await expect(page.locator('[data-platform-governance="clarification-round-open"]')).toContainText(
+    "Finish the active clarification round before generating the next one.",
+  );
+});
+
 test("keeps historical clarification rounds read-only and resets drafts for the next open round @platform", async ({ page }) => {
   const change = await createIsolatedChange(page, "Clarification history proof");
   const firstRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
@@ -783,6 +797,74 @@ test("surfaces normalized contract failures for change command mutations @platfo
   await expect(detailPanel.getByText(/Change command failed\./i)).toBeVisible();
   await expect(detailPanel.getByText(/Control API request failed \(HTTP 503\)/i)).toBeVisible();
   await expect(detailPanel.getByText(/escalation unavailable/i)).toBeVisible();
+});
+
+test("keeps follow-up refresh failures inside the local change workflow boundary @platform", async ({ page }) => {
+  let failNextDetailRefresh = false;
+
+  await page.addInitScript(() => {
+    class SilentWebSocket {
+      static CONNECTING = 0;
+      static OPEN = 1;
+      static CLOSING = 2;
+      static CLOSED = 3;
+
+      readyState = SilentWebSocket.CONNECTING;
+      url: string;
+      onopen: ((event: Event) => void) | null = null;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      onclose: ((event: CloseEvent) => void) | null = null;
+
+      constructor(url: string) {
+        this.url = url;
+        window.setTimeout(() => {
+          this.readyState = SilentWebSocket.OPEN;
+          this.onopen?.(new Event("open"));
+        }, 0);
+      }
+
+      send() {}
+
+      close() {
+        this.readyState = SilentWebSocket.CLOSED;
+        this.onclose?.(new CloseEvent("close"));
+      }
+    }
+
+    window.WebSocket = SilentWebSocket as unknown as typeof WebSocket;
+  });
+
+  await page.route("**/api/tenants/tenant-demo/changes/ch-142/actions/escalate", async (route) => {
+    const response = await route.fetch();
+    failNextDetailRefresh = true;
+    await route.fulfill({ response });
+  });
+
+  await page.route("**/api/tenants/tenant-demo/changes/ch-142", async (route) => {
+    if (failNextDetailRefresh) {
+      failNextDetailRefresh = false;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "detail refresh unavailable" }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+
+  await detailPanel.getByRole("button", { name: "Escalate" }).click();
+
+  await expect(detailPanel.getByText(/Change command failed\./i)).toBeVisible();
+  await expect(detailPanel.getByText(/Control API request failed \(HTTP 503\)/i)).toBeVisible();
+  await expect(detailPanel.getByText(/detail refresh unavailable/i)).toBeVisible();
+  await expect(page.getByText(/^Error:/)).toHaveCount(0);
+  await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
 });
 
 test("surfaces normalized contract failures for fact promotion mutations @platform", async ({ page }) => {

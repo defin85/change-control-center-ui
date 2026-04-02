@@ -39,6 +39,7 @@ export type OperatorWorkbenchProps = {
   toast?: string | null;
   onSearchQueryChange: (value: string) => void;
   onCreateChange: () => Promise<void>;
+  onGlobalRunNext: () => Promise<void>;
   onRunNext: () => Promise<void>;
   onTenantChange: (tenantId: string) => Promise<void>;
   onSelectView: (viewId: string) => void;
@@ -94,6 +95,7 @@ export function OperatorWorkbench({
   toast,
   onSearchQueryChange,
   onCreateChange,
+  onGlobalRunNext,
   onRunNext,
   onTenantChange,
   onSelectView,
@@ -126,7 +128,7 @@ export function OperatorWorkbench({
           tenants={bootstrap.tenants}
           onSearchQueryChange={onSearchQueryChange}
           onCreateChange={onCreateChange}
-          onRunNext={onRunNext}
+          onRunNext={onGlobalRunNext}
           onTenantChange={onTenantChange}
         />
       }

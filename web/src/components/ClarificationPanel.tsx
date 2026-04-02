@@ -22,6 +22,7 @@ export function ClarificationPanel({
   const historicalRounds = useMemo(() => rounds.filter((round) => round.id !== openRound?.id), [openRound?.id, rounds]);
   const clarificationWorkflow = useAsyncWorkflowCommandMachine();
   const draftScopeKey = `${changeId}:${openRound?.id ?? "history-only"}`;
+  const canCreateRound = !openRound && !clarificationWorkflow.isPending;
 
   return (
     <AuthoringShell
@@ -38,7 +39,7 @@ export function ClarificationPanel({
               execute: onCreateRound,
             })
           }
-          disabled={clarificationWorkflow.isPending}
+          disabled={!canCreateRound}
         >
           Generate round
         </PlatformPrimitives.Button>
@@ -51,6 +52,11 @@ export function ClarificationPanel({
       ) : null}
       {clarificationWorkflow.isPending ? (
         <div className="empty-state">{clarificationWorkflow.activeLabel ?? "Clarification workflow in progress."}</div>
+      ) : null}
+      {openRound ? (
+        <p className="governance-note" data-platform-governance="clarification-round-open">
+          Finish the active clarification round before generating the next one.
+        </p>
       ) : null}
       {!openRound && historicalRounds.length === 0 ? <p className="empty-state">No clarification rounds yet.</p> : null}
 
@@ -191,6 +197,14 @@ function ActiveClarificationRound({
         <p className="governance-note" data-platform-governance="clarification-selection-required">
           Select at least one answer before submitting clarification state to the backend-owned shell.
         </p>
+      ) : null}
+      {clarificationWorkflow.error ? (
+        <div className="empty-state">
+          <strong>Clarification workflow failed.</strong> {clarificationWorkflow.error}
+        </div>
+      ) : null}
+      {clarificationWorkflow.isPending ? (
+        <div className="empty-state">{clarificationWorkflow.activeLabel ?? "Clarification workflow in progress."}</div>
       ) : null}
       <PlatformPrimitives.Button
         type="button"
