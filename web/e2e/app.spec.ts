@@ -33,6 +33,13 @@ async function openIsolatedChange(page: Page, prefix: string) {
   return change;
 }
 
+async function activeElementInsideDialog(page: Page) {
+  return page.evaluate(() => {
+    const activeElement = document.activeElement;
+    return activeElement instanceof HTMLElement && Boolean(activeElement.closest('[role="dialog"]'));
+  });
+}
+
 test("shows a normalized contract failure when bootstrap payload is invalid @platform", async ({ page }) => {
   await page.route("**/api/bootstrap", async (route) => {
     await route.fulfill({
@@ -144,6 +151,26 @@ test("wires the approved foundations on the default operator path @platform", as
   await expect(page.locator('[data-platform-foundation="platform-clarification-textarea"]')).toHaveCount(1);
 });
 
+test("aligns document language and form semantics on the backend-served shell @platform", async ({ page }) => {
+  const change = await createIsolatedChange(page, "Locale semantics proof");
+  const createRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
+  expect(createRoundResponse.ok()).toBeTruthy();
+
+  await page.goto(`/?change=${change.id}&tab=chief`);
+  const detailPanel = await waitForDetailPanel(page, change.title);
+
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByLabel("Search")).toHaveAttribute("name", "search");
+  await expect(page.getByLabel("Tenant")).toBeVisible();
+
+  await detailPanel.getByRole("tab", { name: "Chief" }).click();
+  await expect(page.getByLabel("Fact title")).toHaveAttribute("name", "fact-title");
+  await expect(page.getByLabel("Fact rationale")).toHaveAttribute("name", "fact-rationale");
+
+  await detailPanel.getByRole("tab", { name: "Clarifications" }).click();
+  await expect(page.getByLabel(/Additional clarification note:/).first()).toHaveAttribute("name", /clarification-note-/);
+});
+
 test("creates a run and shows runtime lineage in run studio @platform", async ({ page }) => {
   await page.goto("/");
 
@@ -174,7 +201,7 @@ test("persists clarification answers across reload @smoke", async ({ page }) => 
 
   await page.goto(`/?change=${change.id}&tab=clarifications`);
   await page.locator(".option-card").first().click();
-  await page.getByPlaceholder("Дополнительный комментарий").first().fill("Зафиксировать sidecar deployment.");
+  await page.getByLabel(/Additional clarification note:/).first().fill("Зафиксировать sidecar deployment.");
   await page.getByRole("button", { name: /submit answers/i }).click();
 
   await page.reload();
@@ -336,16 +363,31 @@ test("uses a drawer-style detail workspace on narrow viewports @platform", async
   await page.goto("/");
 
   const detailWorkspace = page.locator('[data-platform-shell="detail-workspace"]');
+  const selectedQueueRow = page.locator('[data-change-id="ch-142"]');
 
   await expect(detailWorkspace).toHaveAttribute("data-platform-open", "false");
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await selectedQueueRow.click();
   await expect(detailWorkspace).toHaveAttribute("data-platform-open", "true");
-  await expect(detailWorkspace.getByRole("button", { name: "Close workspace" })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Selected change context" });
+  const closeWorkspace = page.getByRole("button", { name: "Close workspace" });
 
-  await detailWorkspace.getByRole("button", { name: "Close workspace" }).click();
+  await expect(dialog).toBeVisible();
+  await expect(closeWorkspace).toBeVisible();
+  await expect(closeWorkspace).toBeFocused();
+
+  await page.keyboard.press("Tab");
+  await expect.poll(() => activeElementInsideDialog(page)).toBe(true);
+
+  await page.keyboard.press("Shift+Tab");
+  await expect.poll(() => activeElementInsideDialog(page)).toBe(true);
+
+  await closeWorkspace.click();
 
   await expect(detailWorkspace).toHaveAttribute("data-platform-open", "false");
-  await expect(page).not.toHaveURL(/change=ch-142/);
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(selectedQueueRow).toHaveAttribute("aria-pressed", "true");
+  await expect(selectedQueueRow).toBeFocused();
 });
 
 test("fails closed on the global run action when no change is selected @platform", async ({ page }) => {
@@ -358,12 +400,29 @@ test("fails closed on the global run action when no change is selected @platform
   await expect(page.locator('[data-platform-governance="run-next-selection-required"]')).toBeVisible();
 
   await page.getByRole("button", { name: /ch-142/i }).click();
-
-  await expect(headerRunAction).toBeEnabled();
-
   await page.getByRole("button", { name: "Close workspace" }).click();
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(headerRunAction).toBeEnabled();
+  await page.getByRole("button", { name: "Clear selection" }).click();
 
   await expect(headerRunAction).toBeDisabled();
+});
+
+test("demotes the global next-step action while a change workspace is focused @platform", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await page.goto("/");
+
+  const headerRunAction = page.locator("header").getByRole("button", { name: "Run next step" });
+
+  await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "primary");
+
+  await page.getByRole("button", { name: /ch-142/i }).click();
+  const detailPanel = page.getByRole("dialog", { name: "Selected change context" }).locator(".detail-panel").first();
+  const detailRunAction = detailPanel.getByRole("button", { name: "Run next step" });
+
+  await expect(detailRunAction).toHaveAttribute("data-platform-hierarchy", "primary");
+  await page.getByRole("button", { name: "Close workspace" }).click();
+  await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "secondary");
 });
 
 test("keeps global header mutations behind an explicit workflow pending boundary @platform", async ({ page }) => {
@@ -470,7 +529,7 @@ test("keeps historical clarification rounds read-only and resets drafts for the 
 
   await page.goto(`/?change=${change.id}&tab=clarifications`);
   await page.locator(".option-card").first().click();
-  await page.getByPlaceholder("Дополнительный комментарий").first().fill("Historical answer should stay visible.");
+  await page.getByLabel(/Additional clarification note:/).first().fill("Historical answer should stay visible.");
   await page.getByRole("button", { name: /submit answers/i }).click();
 
   await expect(page.getByText("Historical answer should stay visible.")).toBeVisible();
@@ -484,7 +543,7 @@ test("keeps historical clarification rounds read-only and resets drafts for the 
   await page.reload();
 
   await expect(page.getByText("Historical answer should stay visible.")).toBeVisible();
-  await expect(page.getByPlaceholder("Дополнительный комментарий").first()).toHaveValue("");
+  await expect(page.getByLabel(/Additional clarification note:/).first()).toHaveValue("");
   await expect(page.getByRole("button", { name: /submit answers/i })).toBeDisabled();
 });
 
@@ -500,10 +559,10 @@ test("fails closed on fact promotion until required inputs are present @platform
   await expect(promoteFact).toBeDisabled();
   await expect(page.locator('[data-platform-governance="fact-input-required"]')).toBeVisible();
 
-  await page.getByPlaceholder("Fact title").fill("Operator policy");
+  await page.getByLabel("Fact title").fill("Operator policy");
   await expect(promoteFact).toBeDisabled();
 
-  await page.getByPlaceholder("Why this fact should enter tenant memory").fill("Escalate after two repeated fingerprints.");
+  await page.getByLabel("Fact rationale").fill("Escalate after two repeated fingerprints.");
   await expect(promoteFact).toBeEnabled();
 });
 
@@ -512,8 +571,8 @@ test("promotes durable facts through the canonical backend flow @platform", asyn
   const detailPanel = await waitForDetailPanel(page, change.title);
   await detailPanel.getByRole("tab", { name: "Chief" }).click();
 
-  await page.getByPlaceholder("Fact title").fill("Operator memory policy");
-  await page.getByPlaceholder("Why this fact should enter tenant memory").fill("Escalate after two repeated fingerprints.");
+  await page.getByLabel("Fact title").fill("Operator memory policy");
+  await page.getByLabel("Fact rationale").fill("Escalate after two repeated fingerprints.");
   await detailPanel.getByRole("button", { name: "Promote fact" }).click();
 
   await expect(detailPanel.getByText("Operator memory policy")).toBeVisible();
@@ -882,8 +941,8 @@ test("surfaces normalized contract failures for fact promotion mutations @platfo
   const detailPanel = page.locator(".detail-stage .detail-panel").first();
   await detailPanel.getByRole("tab", { name: "Chief" }).click();
 
-  await page.getByPlaceholder("Fact title").fill("Operator policy");
-  await page.getByPlaceholder("Why this fact should enter tenant memory").fill("Escalate after two repeated fingerprints.");
+  await page.getByLabel("Fact title").fill("Operator policy");
+  await page.getByLabel("Fact rationale").fill("Escalate after two repeated fingerprints.");
   await detailPanel.getByRole("button", { name: "Promote fact" }).click();
 
   await expect(detailPanel.getByText(/Fact promotion failed\./i)).toBeVisible();

@@ -183,8 +183,8 @@ test("renders detail tabs through the approved table foundation @platform", asyn
 
   await detailTabs.getByRole("tab", { name: "Traceability" }).click();
   await expect(detailPanel.locator('[data-platform-foundation="tanstack-table"]')).toBeVisible();
-  await expect(detailPanel.getByText("Requirement")).toBeVisible();
-  await expect(detailPanel.getByText("Status")).toBeVisible();
+  await expect(detailPanel.locator(".traceability-head").getByText("Requirement", { exact: true })).toBeVisible();
+  await expect(detailPanel.locator(".traceability-head").getByText("Status", { exact: true })).toBeVisible();
 
   await detailTabs.getByRole("tab", { name: "Runs" }).click();
   await expect(detailPanel.locator('[data-platform-foundation="tanstack-table"]')).toBeVisible();
@@ -204,4 +204,54 @@ test("renders detail tabs through the approved table foundation @platform", asyn
   await detailTabs.getByRole("tab", { name: "Evidence" }).click();
   await expect(detailPanel.locator('[data-platform-foundation="tanstack-table"]')).toBeVisible();
   await expect(detailPanel.getByText("Compact review output")).toBeVisible();
+});
+
+test("renders labeled compact queue and detail rows on narrow viewports @platform", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await page.route("**/api/bootstrap", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bootstrapResponse) });
+  });
+  await page.route("**/api/tenants/tenant-demo/changes", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ changes: bootstrapResponse.changes }),
+    });
+  });
+  await page.route("**/api/tenants/tenant-demo/changes/ch-146", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailResponse) });
+  });
+  await page.route("**/api/tenants/tenant-demo/runs/run-30", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        run: detailResponse.runs[0],
+        events: [],
+        approvals: [],
+      }),
+    });
+  });
+
+  await page.goto("/");
+
+  const queueRow = page.locator('[data-change-id="ch-146"]');
+  await queueRow.click();
+
+  await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "ID" })).toBeVisible();
+  await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Title" })).toBeVisible();
+  await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Next action" })).toBeVisible();
+
+  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').filter({ hasText: "Foundation proof change" }).first();
+  await expect(page.getByRole("heading", { name: "Foundation proof change" })).toBeVisible();
+
+  await detailPanel.getByRole("tab", { name: "Traceability" }).click();
+  const traceabilityRow = detailPanel.locator(".traceability-row").first();
+  await expect(traceabilityRow.locator('[data-platform-compact-label]').filter({ hasText: "Requirement" })).toBeVisible();
+  await expect(traceabilityRow.locator('[data-platform-compact-label]').filter({ hasText: "Evidence" })).toBeVisible();
+
+  await detailPanel.getByRole("tab", { name: "Runs" }).click();
+  const runRow = detailPanel.locator(".run-row").first();
+  await expect(runRow.locator('[data-platform-compact-label]').filter({ hasText: "Run" })).toBeVisible();
+  await expect(runRow.locator('[data-platform-compact-label]').filter({ hasText: "Thread / Turn" })).toBeVisible();
 });

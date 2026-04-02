@@ -198,6 +198,7 @@ export function ChangeDetail({
             type="button"
             className="primary-button"
             data-platform-action="run-next-step"
+            data-platform-hierarchy="primary"
             onClick={() =>
               actionWorkflow.runCommand({
                 label: "Run next step",
@@ -347,13 +348,9 @@ export function ChangeDetail({
           table={traceabilityTable}
           emptyMessage="No traceability data yet."
           headerClassName="traceability-head"
-          renderRow={(row) => (
+          renderRow={(row, renderCells) => (
             <div key={row.id} className="table-row traceability-row">
-              {row.getVisibleCells().map((cell) => (
-                <span key={cell.id}>
-                  {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </span>
-              ))}
+              {renderCells(row)}
             </div>
           )}
         />
@@ -364,7 +361,7 @@ export function ChangeDetail({
           table={runTable}
           emptyMessage="No runs yet."
           headerClassName="runs-head"
-          renderRow={(row) => (
+          renderRow={(row, renderCells) => (
             <PlatformPrimitives.Button
               key={row.id}
               type="button"
@@ -372,11 +369,7 @@ export function ChangeDetail({
               data-platform-foundation="base-ui-run-row"
               onClick={() => onSelectRun(row.original.id)}
             >
-              {row.getVisibleCells().map((cell) => (
-                <span key={cell.id}>
-                  {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </span>
-              ))}
+              {renderCells(row)}
             </PlatformPrimitives.Button>
           )}
         />
@@ -387,7 +380,7 @@ export function ChangeDetail({
           table={gapTable}
           emptyMessage="No open findings yet."
           headerClassName="gaps-head"
-          renderRow={(row) => (
+          renderRow={(row, renderCells) => (
             <div
               key={row.id}
               className="table-row gap-row"
@@ -395,11 +388,7 @@ export function ChangeDetail({
               role="row"
               tabIndex={0}
             >
-              {row.getVisibleCells().map((cell) => (
-                <span key={cell.id}>
-                  {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </span>
-              ))}
+              {renderCells(row)}
             </div>
           )}
         />
@@ -410,13 +399,9 @@ export function ChangeDetail({
           table={evidenceTable}
           emptyMessage="No evidence artifacts yet."
           headerClassName="evidence-head"
-          renderRow={(row) => (
+          renderRow={(row, renderCells) => (
             <div key={row.id} className="table-row evidence-row">
-              {row.getVisibleCells().map((cell) => (
-                <span key={cell.id}>
-                  {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </span>
-              ))}
+              {renderCells(row)}
             </div>
           )}
         />
@@ -492,12 +477,16 @@ export function ChangeDetail({
             <PlatformPrimitives.Input
               value={factTitle}
               data-platform-foundation="base-ui-chief-input"
+              aria-label="Fact title"
+              name="fact-title"
               onChange={(event) => setFactTitle(event.target.value)}
               placeholder="Fact title"
             />
             <PlatformTextArea
               value={factBody}
               data-platform-foundation="platform-chief-textarea"
+              aria-label="Fact rationale"
+              name="fact-rationale"
               onChange={(event) => setFactBody(event.target.value)}
               placeholder="Why this fact should enter tenant memory"
             />

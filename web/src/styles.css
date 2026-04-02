@@ -228,6 +228,10 @@ textarea {
   align-items: start;
 }
 
+.detail-stage-shell {
+  display: contents;
+}
+
 .detail-stage-backdrop,
 .detail-stage-header {
   display: none;
@@ -441,6 +445,19 @@ textarea {
   cursor: pointer;
 }
 
+.responsive-field {
+  min-width: 0;
+}
+
+.responsive-field-label {
+  display: none;
+}
+
+.responsive-field-value,
+.responsive-field-value > * {
+  min-width: 0;
+}
+
 .queue-row strong,
 .table-row strong {
   display: block;
@@ -607,6 +624,11 @@ textarea {
   padding: 10px 14px;
   background: #f2ede3;
   color: #5b491f;
+}
+
+.header-secondary-action {
+  background: rgba(242, 237, 227, 0.82);
+  color: #6a7683;
 }
 
 .primary-button {
@@ -779,31 +801,24 @@ button:disabled {
 }
 
 @media (max-width: 1080px) {
-  .detail-stage {
+  .detail-stage-viewport {
     position: fixed;
     inset: 0;
     z-index: 40;
+    display: grid;
+    align-items: end;
     pointer-events: none;
-  }
-
-  .detail-stage[data-platform-open="false"] {
-    display: none;
-  }
-
-  .detail-stage[data-platform-open="true"] {
-    pointer-events: auto;
   }
 
   .detail-stage-backdrop {
     display: block;
-    position: absolute;
+    position: fixed;
     inset: 0;
-    border: 0;
     background: rgba(20, 32, 51, 0.34);
   }
 
   .detail-stage-panel {
-    position: absolute;
+    position: relative;
     left: 14px;
     right: 14px;
     bottom: 14px;
@@ -815,6 +830,7 @@ button:disabled {
     backdrop-filter: blur(10px);
     box-shadow: 0 28px 80px rgba(20, 32, 51, 0.2);
     overflow-y: auto;
+    pointer-events: auto;
   }
 
   .detail-stage-header {
@@ -835,11 +851,7 @@ button:disabled {
   .key-value-grid,
   .queue-context-grid,
   .status-bar,
-  .tab-list,
-  .queue-table-head,
-  .queue-row,
-  .table-head,
-  .table-row {
+  .tab-list {
     grid-template-columns: 1fr;
   }
 
@@ -861,5 +873,45 @@ button:disabled {
 
   .detail-stage-header {
     align-items: start;
+  }
+
+  .queue-table-head,
+  .table-head {
+    display: none;
+  }
+
+  .queue-row,
+  .table-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+    padding: 14px 12px;
+  }
+
+  .responsive-field {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(20, 32, 51, 0.08);
+  }
+
+  .responsive-field:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .responsive-field-label {
+    display: block;
+    color: #6a7683;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .responsive-field-value {
+    display: grid;
+    gap: 4px;
   }
 }

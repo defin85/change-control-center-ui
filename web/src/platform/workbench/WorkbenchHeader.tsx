@@ -5,6 +5,7 @@ import { useAsyncWorkflowCommandMachine } from "../workflow";
 type WorkbenchHeaderProps = {
   activeTenantId: string;
   canRunNext: boolean;
+  isChangeFocused: boolean;
   realtimeNotice: string | null;
   searchQuery: string;
   tenants: BootstrapResponse["tenants"];
@@ -17,6 +18,7 @@ type WorkbenchHeaderProps = {
 export function WorkbenchHeader({
   activeTenantId,
   canRunNext,
+  isChangeFocused,
   realtimeNotice,
   searchQuery,
   tenants,
@@ -26,6 +28,7 @@ export function WorkbenchHeader({
   onTenantChange,
 }: WorkbenchHeaderProps) {
   const globalWorkflow = useAsyncWorkflowCommandMachine();
+  const runNextClassName = isChangeFocused ? "ghost-button header-secondary-action" : "primary-button";
   const toolbarItems = tenants.map((tenant) => ({
     label: tenant.name,
     value: tenant.id,
@@ -45,6 +48,7 @@ export function WorkbenchHeader({
             <PlatformPrimitives.Toolbar.Input
               aria-label="Search"
               className="toolbar-input"
+              name="search"
               value={searchQuery}
               onChange={(event) => onSearchQueryChange(event.target.value)}
               placeholder="change, requirement, blocker"
@@ -67,10 +71,17 @@ export function WorkbenchHeader({
           </PlatformPrimitives.Toolbar.Button>
           <PlatformPrimitives.Toolbar.Button
             type="button"
-            className="primary-button"
+            className={runNextClassName}
             data-platform-action="run-next-step"
+            data-platform-hierarchy={isChangeFocused ? "secondary" : "primary"}
             disabled={!canRunNext || globalWorkflow.isPending}
-            title={canRunNext ? undefined : "Select a change before running the next backend-owned step."}
+            title={
+              !canRunNext
+                ? "Select a change before running the next backend-owned step."
+                : isChangeFocused
+                  ? "Use the selected change workspace for the primary next step."
+                  : undefined
+            }
             onClick={() =>
               globalWorkflow.runCommand({
                 label: "Run next step",
@@ -85,6 +96,7 @@ export function WorkbenchHeader({
           <span>Tenant</span>
           <PlatformPrimitives.Select.Root
             items={toolbarItems}
+            name="tenant"
             value={activeTenantId}
             onValueChange={(tenantId) => {
               if (typeof tenantId === "string") {

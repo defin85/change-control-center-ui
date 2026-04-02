@@ -154,13 +154,25 @@ export function QueuePanel({
                 type="button"
                 className={`queue-row ${selectedChangeId === row.original.id ? "active" : ""}`}
                 data-platform-foundation="base-ui-queue-row"
+                data-change-id={row.original.id}
+                aria-pressed={selectedChangeId === row.original.id}
                 onClick={() => onSelectChange(row.original.id)}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <span key={cell.id}>
-                    {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </span>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  const header = cell.column.columnDef.header;
+                  const compactLabel = typeof header === "string" ? header : cell.column.id;
+
+                  return (
+                    <span key={cell.id} className="responsive-field" data-platform-compact-field={cell.column.id}>
+                      <span className="responsive-field-label" data-platform-compact-label>
+                        {compactLabel}
+                      </span>
+                      <span className="responsive-field-value" data-platform-compact-value>
+                        {PlatformTable.flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </span>
+                    </span>
+                  );
+                })}
               </PlatformPrimitives.Button>
             ))
           )}

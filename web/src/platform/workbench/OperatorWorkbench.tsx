@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import { ChangeDetail } from "../../components/ChangeDetail";
 import { InspectorPanel } from "../../components/InspectorPanel";
 import { OperatorRail } from "../../components/OperatorRail";
@@ -112,10 +114,36 @@ export function OperatorWorkbench({
   onPromoteFact,
   onApprovalDecision,
 }: OperatorWorkbenchProps) {
+  const [isCompactViewport, setIsCompactViewport] = useState(() => window.matchMedia("(max-width: 1080px)").matches);
+  const [dismissedChangeId, setDismissedChangeId] = useState<string | null>(null);
   const activeViewLabel = bootstrap.views.find((view) => view.id === activeViewId)?.label ?? "Inbox";
   const activeViewHint = describeView(activeViewId);
   const activeFilter = describeFilter(activeFilterId);
   const selectedRun = detail?.runs.find((run) => run.id === selectedRunId) ?? null;
+  const isChangeFocused = Boolean(selectedChangeId);
+  const isDetailWorkspaceOpen = Boolean(selectedChangeId) && dismissedChangeId !== selectedChangeId;
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1080px)");
+    const handleChange = (event: MediaQueryListEvent) => setIsCompactViewport(event.matches);
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  function handleWorkspaceSelection(changeId: string | null) {
+    setDismissedChangeId(null);
+    onSelectChange(changeId);
+  }
+
+  function handleCloseWorkspace() {
+    setDismissedChangeId(selectedChangeId);
+  }
+
+  function handleClearWorkspaceSelection() {
+    setDismissedChangeId(null);
+    onClearSelection();
+  }
 
   return (
     <WorkspacePageShell
@@ -123,6 +151,7 @@ export function OperatorWorkbench({
         <WorkbenchHeader
           activeTenantId={activeTenantId}
           canRunNext={Boolean(selectedChangeId)}
+          isChangeFocused={isChangeFocused}
           realtimeNotice={realtimeNotice ?? null}
           searchQuery={searchQuery}
           tenants={bootstrap.tenants}
@@ -164,14 +193,14 @@ export function OperatorWorkbench({
                 activeFilterLabel={activeFilter.label}
                 activeFilterHint={activeFilter.hint}
                 searchQuery={searchQuery}
-                onSelectChange={onSelectChange}
+                onSelectChange={handleWorkspaceSelection}
               />
             }
             inspector={
               <InspectorPanel
                 detail={detail}
                 selectedChangeId={selectedChangeId}
-                onClearSelection={onClearSelection}
+                onClearSelection={handleClearWorkspaceSelection}
               />
             }
           />
@@ -179,8 +208,10 @@ export function OperatorWorkbench({
       }
       detailWorkspace={
         <DetailWorkspaceShell
-          isOpen={Boolean(selectedChangeId)}
-          onClose={onClearSelection}
+          isCompactViewport={isCompactViewport}
+          isOpen={isCompactViewport ? isDetailWorkspaceOpen && Boolean(selectedChangeId) : Boolean(selectedChangeId)}
+          selectedChangeId={selectedChangeId}
+          onClose={handleCloseWorkspace}
           detail={
             <ChangeDetail
               activeTab={activeTabId}

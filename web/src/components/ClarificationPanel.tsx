@@ -182,7 +182,9 @@ function ActiveClarificationRound({
             <PlatformTextArea
               value={notes[question.id] ?? ""}
               data-platform-foundation="platform-clarification-textarea"
-              placeholder="Дополнительный комментарий"
+              aria-label={`Additional clarification note: ${question.label}`}
+              name={`clarification-note-${question.id}`}
+              placeholder="Add supporting note"
               onChange={(event) =>
                 setNotes((current) => ({
                   ...current,
