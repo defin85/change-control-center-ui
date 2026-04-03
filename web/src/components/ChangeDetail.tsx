@@ -13,6 +13,7 @@ import type { ColumnDef } from "../platform/foundation/table";
 type ChangeDetailProps = {
   activeTab: ChangeDetailTabId;
   detail: ChangeDetailResponse | null;
+  selectedRunId: string | null;
   onRunNext: () => Promise<void>;
   onOpenRunStudio: () => void;
   onEscalate: () => Promise<void>;
@@ -135,6 +136,7 @@ const EVIDENCE_COLUMNS: ColumnDef<EvidenceRow>[] = [
 export function ChangeDetail({
   activeTab,
   detail,
+  selectedRunId,
   onRunNext,
   onOpenRunStudio,
   onEscalate,
@@ -185,6 +187,7 @@ export function ChangeDetail({
   }
 
   const { change, runs, clarificationRounds, focusGraph, tenantMemory } = detail;
+  const selectedRun = runs.find((run) => run.id === selectedRunId) ?? null;
   const normalizedFactTitle = factTitle.trim();
   const normalizedFactBody = factBody.trim();
   const canPromoteFact = normalizedFactTitle.length > 0 && normalizedFactBody.length > 0;
@@ -334,6 +337,41 @@ export function ChangeDetail({
         <StatusBadge status={change.state} label={formatStateLabel(change.state)} />
         <span>{change.nextAction}</span>
         <span>{change.blocker}</span>
+      </div>
+      <div className="workspace-summary-grid">
+        <article className="metric-card">
+          <p className="metric-label">Traceability</p>
+          <strong>{change.traceability.length} linked entries</strong>
+          <p className="muted">{change.gaps.filter((gap) => gap.mandatory && gap.status !== "closed").length} mandatory gaps still open</p>
+        </article>
+        <article className="metric-card">
+          <p className="metric-label">Run context</p>
+          <strong>{selectedRun ? selectedRun.id : runs.length > 0 ? `${runs.length} runs ready` : "No run selected"}</strong>
+          <p className="muted">
+            {selectedRun
+              ? `${selectedRun.kind} via ${selectedRun.transport}`
+              : runs.length > 0
+                ? "Open run studio when you need lineage, approvals, and runtime events."
+                : "Run the next step before opening run studio."}
+          </p>
+        </article>
+        <article className="mini-card">
+          <p className="block-label">Chief policy</p>
+          <div className="mini-card-list">
+            <div>
+              <strong>{change.policy?.maxAutoCycles ?? 3} auto cycles</strong>
+              <span className="muted">before escalation</span>
+            </div>
+            <div>
+              <strong>{change.policy?.escalationRule ?? "Recurring fingerprint ×2"}</strong>
+              <span className="muted">recurrence threshold</span>
+            </div>
+            <div>
+              <strong>{change.policy?.acceptanceGate ?? "Req -> Code -> Test must be green"}</strong>
+              <span className="muted">delivery gate</span>
+            </div>
+          </div>
+        </article>
       </div>
 
       <PlatformPrimitives.Tabs.Root

@@ -62,4 +62,4 @@
     - `clarification-rounds`
   - Presentational state that should stay outside the workflow layer:
     - queue slice/search/filter context
-    - selected detail tab and inspector visibility
+    - selected detail tab and contextual workspace visibility

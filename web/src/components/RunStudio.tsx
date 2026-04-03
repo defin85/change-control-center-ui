@@ -8,9 +8,10 @@ type RunStudioProps = {
   events: RuntimeEvent[];
   approvals: ApprovalRecord[];
   onApprovalDecision: (approvalId: string, decision: "accept" | "decline") => Promise<void>;
+  onClose: () => void;
 };
 
-export function RunStudio({ run, events, approvals, onApprovalDecision }: RunStudioProps) {
+export function RunStudio({ run, events, approvals, onApprovalDecision, onClose }: RunStudioProps) {
   const approvalWorkflow = useAsyncWorkflowCommandMachine();
 
   if (!run) {
@@ -22,7 +23,16 @@ export function RunStudio({ run, events, approvals, onApprovalDecision }: RunStu
   }
 
   return (
-    <RunInspectionShell id="run-studio" eyebrow="Run Studio" title={run.id}>
+    <RunInspectionShell
+      id="run-studio"
+      eyebrow="Run Studio"
+      title={run.id}
+      actions={
+        <PlatformPrimitives.Button type="button" className="ghost-button" onClick={onClose}>
+          Back to change detail
+        </PlatformPrimitives.Button>
+      }
+    >
       <div className="stack">
         <div className="key-value-grid">
           <div>

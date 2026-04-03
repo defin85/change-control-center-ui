@@ -14,6 +14,7 @@ type QueuePanelProps = {
   activeFilterLabel: string;
   activeFilterHint: string;
   searchQuery: string;
+  onClearSelection: () => void;
   onSelectChange: (changeId: string) => void;
 };
 
@@ -26,6 +27,7 @@ export function QueuePanel({
   activeFilterLabel,
   activeFilterHint,
   searchQuery,
+  onClearSelection,
   onSelectChange,
 }: QueuePanelProps) {
   const normalizedQuery = searchQuery.trim();
@@ -88,6 +90,16 @@ export function QueuePanel({
           <p className="subtitle">{activeViewCount} active changes in the current slice</p>
         </div>
         <div className="panel-head-actions">
+          <PlatformPrimitives.Button
+            type="button"
+            className="ghost-button"
+            data-platform-foundation="base-ui-queue-actions"
+            data-platform-action="clear-selection"
+            onClick={onClearSelection}
+            disabled={!selectedChangeId}
+          >
+            Clear selection
+          </PlatformPrimitives.Button>
           <PlatformPrimitives.Button
             type="button"
             className="ghost-button"

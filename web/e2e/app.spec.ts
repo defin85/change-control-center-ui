@@ -21,7 +21,7 @@ async function createIsolatedChange(page: Page, prefix: string) {
 }
 
 async function waitForDetailPanel(page: Page, title: string) {
-  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await expect(detailPanel.getByRole("heading", { name: title })).toBeVisible();
   return detailPanel;
 }
@@ -71,7 +71,7 @@ test("shows a normalized HTTP failure when bootstrap request fails @platform", a
 
 test("renders the operator console surfaces and mandatory detail tabs @smoke @platform", async ({ page }) => {
   await page.goto("/");
-  const detailActions = page.locator(".detail-stage .detail-panel").first();
+  const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
 
   await expect(page.locator('[data-platform-shell="workspace-page"]')).toBeVisible();
   await expect(page.locator('[data-platform-shell="master-detail"]')).toBeVisible();
@@ -81,7 +81,7 @@ test("renders the operator console surfaces and mandatory detail tabs @smoke @pl
   await expect(page.locator('[data-platform-surface="queue-context"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="control-queue"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]')).toBeVisible();
-  await expect(page.locator('[data-platform-surface="inspector-surface"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="selected-change-workspace"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="signal-summary-card"]')).toHaveCount(4);
 
   await page.getByRole("button", { name: /ch-146/i }).click();
@@ -91,7 +91,6 @@ test("renders the operator console surfaces and mandatory detail tabs @smoke @pl
   await expect(page.locator(".operator-rail").getByText("Views", { exact: true })).toBeVisible();
   await expect(page.locator(".operator-rail").getByText("Filters", { exact: true })).toBeVisible();
   await expect(page.locator(".operator-rail").getByText("Chief policy", { exact: true })).toBeVisible();
-  await expect(page.locator(".inspector-panel").getByText("Inspector", { exact: true })).toBeVisible();
   await expect(page.locator(".operator-rail").getByText("Saved slices", { exact: true })).toBeVisible();
   await expect(page.locator(".queue-panel").getByText("Control Queue", { exact: true })).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Active slice")).toBeVisible();
@@ -195,7 +194,7 @@ test("aligns document language and form semantics on the backend-served shell @p
 test("creates a run and shows runtime lineage in run studio @platform", async ({ page }) => {
   await page.goto("/");
 
-  const detailActions = page.locator(".detail-stage .detail-panel").first();
+  const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
   const runStudio = page.locator("#run-studio");
 
   await page.getByRole("button", { name: /ch-142/i }).click();
@@ -424,7 +423,7 @@ test("fails closed on the global run action when no change is selected @platform
   await page.getByRole("button", { name: "Close workspace" }).click();
   await expect(page).toHaveURL(/change=ch-142/);
   await expect(headerRunAction).toBeEnabled();
-  await page.getByRole("button", { name: "Clear selection" }).click();
+  await page.locator('.queue-panel [data-platform-action="clear-selection"]').click();
 
   await expect(headerRunAction).toBeDisabled();
 });
@@ -438,7 +437,7 @@ test("demotes the global next-step action while a change workspace is focused @p
   await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "primary");
 
   await page.getByRole("button", { name: /ch-142/i }).click();
-  const detailPanel = page.getByRole("dialog", { name: "Selected change context" }).locator(".detail-panel").first();
+  const detailPanel = page.getByRole("dialog", { name: "Selected change context" }).locator('[data-platform-shell="detail-panel"]').first();
   const detailRunAction = detailPanel.getByRole("button", { name: "Run next step" });
 
   await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "secondary");
@@ -504,7 +503,7 @@ test("surfaces normalized failures for global header mutations @platform", async
 test("fails closed on run studio entry until a backend-owned run exists @platform", async ({ page }) => {
   await openIsolatedChange(page, "Run studio gate");
 
-  const detailActions = page.locator(".detail-stage .detail-panel").first();
+  const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
   const openRunStudio = detailActions.getByRole("button", { name: "Open run studio" });
 
   await expect(openRunStudio).toBeDisabled();
@@ -519,7 +518,7 @@ test("deletes the selected change through an explicit confirmation flow @platfor
   const change = await openIsolatedChange(page, "Delete flow");
 
   await page.getByLabel("Search").fill(change.title);
-  const detailActions = page.locator(".detail-stage .detail-panel").first();
+  const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
   await detailActions.getByRole("button", { name: "Delete change" }).click();
 
   const dialog = page.getByRole("alertdialog", { name: new RegExp(`Delete ${change.id}`, "i") });
@@ -593,7 +592,7 @@ test("fails closed on fact promotion until required inputs are present @platform
   await page.goto("/");
 
   await page.getByRole("button", { name: /ch-142/i }).click();
-  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await detailPanel.getByRole("tab", { name: "Chief" }).click();
 
   const promoteFact = detailPanel.getByRole("button", { name: "Promote fact" });
@@ -631,7 +630,7 @@ test("promotes durable facts through the canonical backend flow @platform", asyn
 
 test("preserves the selected run when opening run studio from change detail @platform", async ({ page }) => {
   await openIsolatedChange(page, "Run studio selection proof");
-  const detailActions = page.locator(".detail-stage .detail-panel").first();
+  const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
   const runStudio = page.locator("#run-studio");
 
   await detailActions.getByRole("button", { name: "Run next step" }).click();
@@ -892,7 +891,7 @@ test("surfaces normalized contract failures for change command mutations @platfo
   await page.goto("/");
 
   await page.getByRole("button", { name: /ch-142/i }).click();
-  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await detailPanel.getByRole("button", { name: "Escalate" }).click();
 
   await expect(detailPanel.getByText(/Change command failed\./i)).toBeVisible();
@@ -957,7 +956,7 @@ test("keeps follow-up refresh failures inside the local change workflow boundary
 
   await page.goto("/");
   await page.getByRole("button", { name: /ch-142/i }).click();
-  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
 
   await detailPanel.getByRole("button", { name: "Escalate" }).click();
 
@@ -980,7 +979,7 @@ test("surfaces normalized contract failures for fact promotion mutations @platfo
   await page.goto("/");
 
   await page.getByRole("button", { name: /ch-142/i }).click();
-  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await detailPanel.getByRole("tab", { name: "Chief" }).click();
 
   await page.getByLabel("Fact title").fill("Operator policy");
@@ -1002,7 +1001,7 @@ test("keeps gap inspection non-mutating until an explicit action is invoked @pla
 
   await page.goto("/?change=ch-142&tab=gaps");
 
-  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await expect(detailPanel.locator('[data-platform-foundation="base-ui-gap-row"]').first()).toBeVisible();
   await detailPanel.locator('[data-platform-foundation="base-ui-gap-row"]').first().click();
 
@@ -1016,15 +1015,15 @@ test("uses approved platform foundations across required operator surfaces @plat
 
   await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-view-action"]')).toHaveCount(5);
   await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-filter-action"]')).toHaveCount(3);
-  await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(2);
+  await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(3);
 
   await page.getByLabel("Search").fill("ch-142");
   await page.getByRole("button", { name: /ch-142/i }).click();
 
   await expect(page.locator('[data-platform-foundation="base-ui-queue-row"]')).toHaveCount(1);
-  await expect(page.locator('[data-platform-foundation="base-ui-inspector-actions"]')).toHaveCount(1);
+  await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(3);
 
-  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await detailPanel.getByRole("tab", { name: "Runs" }).click();
   await expect(page.getByRole("button", { name: /run-30/i })).toHaveAttribute("data-platform-foundation", "base-ui-run-row");
 

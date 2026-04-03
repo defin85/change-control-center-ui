@@ -56,7 +56,7 @@ export function buildViewCounts(views: BootstrapResponse["views"], changes: Chan
 export function matchesView(change: ChangeSummary, viewId: string) {
   switch (viewId) {
     case "ready":
-      return ["approved", "ready_for_acceptance"].includes(change.state) || change.mandatoryGapCount <= 1;
+      return ["approved", "ready_for_acceptance"].includes(change.state);
     case "review":
       return ["review_pending", "gap_fixing"].includes(change.state);
     case "blocked":

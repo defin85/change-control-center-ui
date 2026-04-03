@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
 import { ChangeDetail } from "../../components/ChangeDetail";
-import { InspectorPanel } from "../../components/InspectorPanel";
 import { OperatorRail } from "../../components/OperatorRail";
 import { QueuePanel } from "../../components/QueuePanel";
 import { RunStudio } from "../../components/RunStudio";
@@ -14,7 +13,7 @@ import type {
   ClarificationAnswer,
   RuntimeEvent,
 } from "../../types";
-import { describeFilter, describeView } from "../server-state";
+import { buildViewCounts, describeFilter, describeView } from "../server-state";
 import { DetailWorkspaceShell } from "../shells/DetailWorkspaceShell";
 import { MasterDetailShell } from "../shells/MasterDetailShell";
 import { WorkspacePageShell } from "../shells/WorkspacePageShell";
@@ -49,6 +48,7 @@ export type OperatorWorkbenchProps = {
   onSelectFilter: (filterId: string) => void;
   onSelectChange: (changeId: string | null) => void;
   onClearSelection: () => void;
+  onClearSelectedRun: () => void;
   onOpenRunStudio: () => void;
   onEscalate: () => Promise<void>;
   onBlockBySpec: () => Promise<void>;
@@ -107,6 +107,7 @@ export function OperatorWorkbench({
   onSelectFilter,
   onSelectChange,
   onClearSelection,
+  onClearSelectedRun,
   onOpenRunStudio,
   onEscalate,
   onBlockBySpec,
@@ -143,11 +144,7 @@ export function OperatorWorkbench({
   function handleCloseWorkspace() {
     setDismissedChangeId(selectedChangeId);
   }
-
-  function handleClearWorkspaceSelection() {
-    setDismissedChangeId(null);
-    onClearSelection();
-  }
+  const showRunStudio = Boolean(selectedRun);
 
   return (
     <WorkspacePageShell
@@ -198,75 +195,90 @@ export function OperatorWorkbench({
                 activeFilterLabel={activeFilter.label}
                 activeFilterHint={activeFilter.hint}
                 searchQuery={searchQuery}
+                onClearSelection={onClearSelection}
                 onSelectChange={handleWorkspaceSelection}
               />
             }
-            inspector={
-              <InspectorPanel
-                detail={detail}
-                selectedChangeId={selectedChangeId}
-                onClearSelection={handleClearWorkspaceSelection}
-              />
+            workspace={
+              !isCompactViewport ? (
+                <DetailWorkspaceShell
+                  isCompactViewport={false}
+                  isOpen={Boolean(selectedChangeId)}
+                  selectedChangeId={selectedChangeId}
+                  onClose={handleCloseWorkspace}
+                  detail={
+                    <ChangeDetail
+                      activeTab={activeTabId}
+                      detail={detail}
+                      selectedRunId={selectedRunId}
+                      onRunNext={onRunNext}
+                      onOpenRunStudio={onOpenRunStudio}
+                      onEscalate={onEscalate}
+                      onBlockBySpec={onBlockBySpec}
+                      onDeleteChange={onDeleteChange}
+                      onCreateClarificationRound={onCreateClarificationRound}
+                      onAnswerClarificationRound={onAnswerClarificationRound}
+                      onSelectRun={onSelectRun}
+                      onSelectTab={onSelectTab}
+                      onPromoteFact={onPromoteFact}
+                    />
+                  }
+                  runInspection={
+                    showRunStudio ? (
+                      <RunStudio
+                        run={selectedRun}
+                        events={selectedRunEvents}
+                        approvals={selectedRunApprovals}
+                        onApprovalDecision={onApprovalDecision}
+                        onClose={onClearSelectedRun}
+                      />
+                    ) : null
+                  }
+                />
+              ) : null
             }
           />
         </div>
       }
       detailWorkspace={
-        <DetailWorkspaceShell
-          isCompactViewport={isCompactViewport}
-          isOpen={isCompactViewport ? isDetailWorkspaceOpen && Boolean(selectedChangeId) : Boolean(selectedChangeId)}
-          selectedChangeId={selectedChangeId}
-          onClose={handleCloseWorkspace}
-          detail={
-            <ChangeDetail
-              activeTab={activeTabId}
-              detail={detail}
-              onRunNext={onRunNext}
-              onOpenRunStudio={onOpenRunStudio}
-              onEscalate={onEscalate}
-              onBlockBySpec={onBlockBySpec}
-              onDeleteChange={onDeleteChange}
-              onCreateClarificationRound={onCreateClarificationRound}
-              onAnswerClarificationRound={onAnswerClarificationRound}
-              onSelectRun={onSelectRun}
-              onSelectTab={onSelectTab}
-              onPromoteFact={onPromoteFact}
-            />
-          }
-          runInspection={
-            <RunStudio
-              run={selectedRun}
-              events={selectedRunEvents}
-              approvals={selectedRunApprovals}
-              onApprovalDecision={onApprovalDecision}
-            />
-          }
-        />
+        isCompactViewport ? (
+          <DetailWorkspaceShell
+            isCompactViewport
+            isOpen={isDetailWorkspaceOpen && Boolean(selectedChangeId)}
+            selectedChangeId={selectedChangeId}
+            onClose={handleCloseWorkspace}
+            detail={
+              <ChangeDetail
+                activeTab={activeTabId}
+                detail={detail}
+                selectedRunId={selectedRunId}
+                onRunNext={onRunNext}
+                onOpenRunStudio={onOpenRunStudio}
+                onEscalate={onEscalate}
+                onBlockBySpec={onBlockBySpec}
+                onDeleteChange={onDeleteChange}
+                onCreateClarificationRound={onCreateClarificationRound}
+                onAnswerClarificationRound={onAnswerClarificationRound}
+                onSelectRun={onSelectRun}
+                onSelectTab={onSelectTab}
+                onPromoteFact={onPromoteFact}
+              />
+            }
+            runInspection={
+              showRunStudio ? (
+                <RunStudio
+                  run={selectedRun}
+                  events={selectedRunEvents}
+                  approvals={selectedRunApprovals}
+                  onApprovalDecision={onApprovalDecision}
+                  onClose={onClearSelectedRun}
+                />
+              ) : null
+            }
+          />
+        ) : null
       }
       toast={toast ? <div className="toast">{toast}</div> : null}
     />
   );
-}
-
-function buildViewCounts(views: BootstrapResponse["views"], changes: ChangeSummary[]) {
-  const counts: Record<string, number> = {};
-  for (const view of views) {
-    counts[view.id] = changes.filter((change) => matchesView(change, view.id)).length;
-  }
-  return counts;
-}
-
-function matchesView(change: ChangeSummary, viewId: string) {
-  switch (viewId) {
-    case "ready":
-      return ["approved", "ready_for_acceptance"].includes(change.state) || change.mandatoryGapCount <= 1;
-    case "review":
-      return ["review_pending", "gap_fixing"].includes(change.state);
-    case "blocked":
-      return ["blocked_by_spec", "escalated"].includes(change.state);
-    case "done":
-      return change.state === "done";
-    default:
-      return true;
-  }
 }

@@ -35,12 +35,11 @@ test("keeps workflow-heavy operator commands behind an explicit pending boundary
   const change = await createIsolatedChange(page, "Workflow boundary");
   await page.goto(`/?change=${change.id}`);
 
-  const detailPanel = page.locator(".detail-stage .detail-panel").first();
+  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   const runStudio = page.locator('[data-platform-shell="run-inspection"]');
 
   await expect(page.getByRole("heading", { name: change.title })).toBeVisible();
-  await expect(runStudio.getByRole("heading", { name: "No Run Selected" })).toBeVisible();
-  await expect(runStudio.getByText("Choose a run from the detail view to inspect its lineage and curated memory packet.")).toBeVisible();
+  await expect(runStudio).toHaveCount(0);
 
   let runNextRequest: Promise<void> | null = null;
   await page.route(`**/api/tenants/tenant-demo/changes/${change.id}/actions/run-next`, async (route) => {
@@ -53,7 +52,7 @@ test("keeps workflow-heavy operator commands behind an explicit pending boundary
   await expect(detailPanel.getByRole("button", { name: "Run next step" })).toBeDisabled();
   await expect(detailPanel.getByRole("button", { name: "Escalate" })).toBeDisabled();
   await expect(detailPanel.locator(".empty-state").filter({ hasText: "Run next step" })).toBeVisible();
-  await expect(runStudio.getByRole("heading", { name: "No Run Selected" })).toBeVisible();
+  await expect(runStudio).toHaveCount(0);
 
   await expect.poll(() => runNextRequest !== null).toBe(true);
   await runNextRequest;

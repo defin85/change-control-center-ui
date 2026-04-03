@@ -851,6 +851,13 @@ export function useOperatorServerState(): OperatorServerStateResult {
     setDetail(null);
   }
 
+  function handleClearSelectedRun() {
+    beginRunRequest();
+    historyModeRef.current = "replace";
+    selectedRunRef.current = null;
+    setSelectedRunId(null);
+  }
+
   function handleSelectRun(runId: string) {
     beginRunRequest();
     historyModeRef.current = "replace";
@@ -901,6 +908,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       onSelectFilter: handleSelectFilter,
       onSelectChange: handleSelectChange,
       onClearSelection: handleClearSelection,
+      onClearSelectedRun: handleClearSelectedRun,
       onOpenRunStudio: handleOpenRunStudio,
       onEscalate: handleEscalate,
       onBlockBySpec: handleBlockBySpec,

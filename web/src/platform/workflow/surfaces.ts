@@ -67,8 +67,8 @@ export const PRESENTATIONAL_STATE_SURFACES = [
     reason: "These values shape navigation context and filtering, but they do not encode multi-step workflow transitions.",
   },
   {
-    label: "Selected change tab and inspector visibility",
-    currentEntrypoints: ["web/src/components/ChangeDetail.tsx", "web/src/components/InspectorPanel.tsx"],
+    label: "Selected change tab and contextual workspace visibility",
+    currentEntrypoints: ["web/src/components/ChangeDetail.tsx", "web/src/platform/workbench/OperatorWorkbench.tsx"],
     reason: "These are presentational workspace controls and should stay out of the workflow machine layer.",
   },
 ] as const;
