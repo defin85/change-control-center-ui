@@ -67,20 +67,23 @@ The system SHALL expose a workflow-oriented operator workbench shell with the pr
 - **WHEN** the operator opens the main application entrypoint on a desktop viewport
 - **THEN** the shell shows search and global actions
 - **AND** the shell shows queue and signal summaries together with queue and filter context
-- **AND** the shell shows a control queue, an inspector surface, and a detail workspace in one operator workbench
+- **AND** the shell shows a control queue and a contextual selected-change workspace in one operator workbench
+- **AND** the selected-change workspace is the primary action surface for the active change instead of a separate standalone inspector plus detached lower detail stage
 - **AND** all visible product data comes from backend-owned state rather than static client-only mock state
 
 #### Scenario: Operator inspects a selected change
 - **WHEN** a change is selected in the control queue
-- **THEN** the detail workspace provides tabs for `Overview`, `Traceability`, `Runs`, `Gaps`, `Evidence`, `Git`, `Chief`, and `Clarifications`
-- **AND** the detail header exposes actions for `Run next step`, `Open run studio`, `Escalate`, and `Mark blocked by spec`
+- **THEN** the contextual workspace provides tabs for `Overview`, `Traceability`, `Runs`, `Gaps`, `Evidence`, `Git`, `Chief`, and `Clarifications`
+- **AND** the contextual workspace header exposes actions for `Run next step`, `Open run studio`, `Escalate`, and `Mark blocked by spec`
+- **AND** selected-change summary signals needed for decision-making remain visible without requiring a separate competing inspector surface
 - **AND** those actions operate through backend-owned commands and normalized state transitions
 
 #### Scenario: Operator opens run studio from change detail
-- **WHEN** the operator opens run studio from the selected change context
-- **THEN** the shell enters a dedicated run-inspection surface linked to the selected run
-- **AND** the operator can return to change detail without losing the selected change context
+- **WHEN** the operator opens run studio from the selected change context or selects a run from the `Runs` tab
+- **THEN** the contextual workspace reveals a dedicated run-inspection surface linked to the selected run
+- **AND** the operator can return focus to change detail without losing the selected change context
 - **AND** run lineage, approvals, evidence, and clarification context remain available from backend-owned data
+- **AND** run studio does not remain a permanently emphasized competing panel while no run is selected
 
 ### Requirement: Governed Operator Authoring and Responsive Detail Flows
 The system SHALL provide canonical platform-approved entry points for operator authoring and responsive detail workflows.
@@ -192,4 +195,76 @@ The system SHALL keep the backend-served default operator shell semantically con
 - **THEN** the document language, default shell copy, and baseline form-field semantics align to the same configured locale
 - **AND** mixed-language placeholders, labels, and metadata are not presented in the default shell unless they originate from backend-owned domain data
 - **AND** basic interactive fields expose the metadata needed for browser and assistive-technology tooling to identify them reliably
+
+### Requirement: Focused Operator Shell Hierarchy
+The system SHALL keep route-level operator context visible without letting summary chrome compete visually with the selected-change workspace.
+
+#### Scenario: Operator opens the main shell with a selected change on desktop
+- **WHEN** the operator opens the default desktop shell while a change is selected
+- **THEN** repository, slice, and queue context remain visible in a quieter supporting layer
+- **AND** the selected-change workspace reads as the obvious primary working surface
+- **AND** shell-level summaries do not repeat the same selected-change state through multiple equally prominent blocks
+
+### Requirement: Scan-Optimized Queue Worklist
+The system SHALL present the control queue as a scan-optimized worklist that highlights the few signals most useful for choosing the next change.
+
+#### Scenario: Operator scans a repetitive draft-heavy queue slice
+- **WHEN** many visible queue rows share similar draft or low-signal state
+- **THEN** each row still exposes state, blocker, and next-step context
+- **AND** those signals are consolidated into a small number of readable row regions instead of forcing every summary field into its own equally weighted column
+- **AND** repetitive rows remain distinguishable without requiring the operator to read long repeated phrases across every column
+
+### Requirement: Focused Compact Detail Overview
+The system SHALL adapt the compact selected-change workspace into a focused operator sheet with progressive disclosure for lower-priority overview detail.
+
+#### Scenario: Operator opens selected change context on a narrow viewport
+- **WHEN** the operator opens the selected-change workspace on a compact viewport
+- **THEN** the drawer foregrounds the current state, next action, and immediate actions first
+- **AND** lower-priority overview detail such as extended contract, memory, or focus-graph sections is available through explicit disclosure rather than always rendered at full height
+- **AND** the resulting compact workspace avoids turning the default overview into a single long audit document
+
+### Requirement: Operator-Facing Governance Copy
+The system SHALL keep unavailable and guarded operator actions fail-closed without exposing internal repository-governance phrasing as the default product voice.
+
+#### Scenario: Operator encounters an unavailable action or prerequisite
+- **WHEN** the shell disables or gates an action because required context or product support is missing
+- **THEN** the UI describes the immediate operator-facing prerequisite or unavailable state in product language
+- **AND** the shell does not rely on default copy that explains internal OpenSpec, repository-governance, or implementation-contract mechanics to the operator
+
+### Requirement: Editorial Operator Visual Hierarchy
+The system SHALL present the default operator workbench through a restrained editorial visual hierarchy that keeps supporting context quiet and the selected-change workspace dominant.
+
+#### Scenario: Operator opens the main shell on desktop
+- **WHEN** the operator opens the main desktop shell
+- **THEN** the selected-change workspace reads as the primary action surface
+- **AND** summary strips, queue context, and navigation support the workflow without competing visually as equal dashboard surfaces
+- **AND** the shell does not rely on repeated ornamental card treatments to distinguish every section
+
+#### Scenario: Operator scans the control queue
+- **WHEN** the operator scans the queue for the next change to inspect
+- **THEN** queue rows read as a disciplined worklist optimized for scanning state, blocker, and next action
+- **AND** queue context remains visible without repeating the same information through multiple equally prominent summary blocks
+
+#### Scenario: Operator drills into run inspection
+- **WHEN** the operator opens run studio from the selected change context
+- **THEN** the run-inspection surface remains available without overtaking the selected-change workspace as a second competing dashboard
+- **AND** raw runtime payloads are visually demoted behind higher-signal operational context
+
+### Requirement: Governed Project Authoring Entry Point
+The system SHALL provide a governed header-level authoring flow for creating a new tenant/project from the operator shell.
+
+#### Scenario: Operator creates a new project from the header
+- **WHEN** the operator invokes `New project` from the workbench header
+- **THEN** the shell presents an explicit authoring flow with pending and error boundaries
+- **AND** a successful submission updates tenant selection through the shared server-state orchestration path
+- **AND** the shell does not rely on browser prompt dialogs or client-only mock state
+
+### Requirement: Explicit Confirmed Change Deletion Flow
+The system SHALL provide an explicit destructive-action flow for deleting the selected change from the detail workspace.
+
+#### Scenario: Operator deletes the selected change
+- **WHEN** the operator invokes `Delete change` from the selected change workspace and confirms the action
+- **THEN** the shell routes the deletion through a backend-owned command with explicit pending and error state
+- **AND** the queue, selected change context, and selected run context reconcile through the shared orchestration boundary after deletion
+- **AND** the shell does not leave route or workspace state pointing at a deleted change
 

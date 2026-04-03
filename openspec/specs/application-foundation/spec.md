@@ -159,3 +159,33 @@ The system SHALL keep answered clarification rounds as historical records and ac
 - **AND** those answered rounds are not presented as editable or submittable operator forms
 - **AND** a later open clarification round starts with a clean draft state rather than silently inheriting answers from an earlier round
 
+### Requirement: Backend-Owned Tenant Creation
+The system SHALL allow operators to create a new tenant/project entry through a backend-owned API rather than requiring seed data or direct store edits.
+
+#### Scenario: Operator creates a new project workspace
+- **WHEN** the operator submits a valid new project entry
+- **THEN** the backend persists and returns the canonical tenant record with its tenant id, name, repo path, and description
+- **AND** the new tenant becomes available through the same bootstrap and tenant-selection contracts as seeded tenants
+
+### Requirement: Backend-Owned Change Deletion
+The system SHALL allow operators to remove a change through a backend-owned API that also cleans up backend-owned child records for that change.
+
+#### Scenario: Operator deletes an existing change
+- **WHEN** the operator confirms deletion of an existing change
+- **THEN** the backend removes the change and its associated runs, approvals, clarification rounds, run events, and evidence records
+- **AND** subsequent queue or detail reads do not return orphaned backend-owned records for that deleted change
+
+### Requirement: Repo-Owned Local Runtime Launcher
+The system SHALL provide one repo-owned launcher for local stack build and runtime lifecycle management across explicit `dev`, `served`, and deterministic `e2e` profiles.
+
+#### Scenario: Contributor starts a supported local stack profile
+- **WHEN** a contributor starts the local stack through the repository launcher
+- **THEN** the launcher starts the processes required for the selected profile using the documented ports and health checks
+- **AND** the launcher fails closed instead of silently reusing an unrelated process that already occupies a required port
+- **AND** the documented local runbook points to the launcher rather than duplicating raw lifecycle commands
+
+#### Scenario: Contributor manages the stack lifecycle after startup
+- **WHEN** a contributor runs repo-owned lifecycle commands such as `stop`, `restart`, `status`, or `logs`
+- **THEN** the launcher manages only repository-owned processes recorded in its runtime state directory
+- **AND** the contributor can inspect process state and logs without manually finding PIDs or reconstructing command lines
+
