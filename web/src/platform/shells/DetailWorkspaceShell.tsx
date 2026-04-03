@@ -44,18 +44,18 @@ export function DetailWorkspaceShell({
                 <div className="detail-stage-header">
                   <div>
                     <p className="block-label">Detail workspace</p>
-                    <PlatformPrimitives.Drawer.Title>Selected change context</PlatformPrimitives.Drawer.Title>
+                    <PlatformPrimitives.Drawer.Title>Selected change</PlatformPrimitives.Drawer.Title>
                     <PlatformPrimitives.Drawer.Description className="subtitle">
-                      Review the selected change and run studio without losing the queue context.
+                      Review this change while keeping your queue place.
                     </PlatformPrimitives.Drawer.Description>
                   </div>
                   <PlatformPrimitives.Drawer.Close
                     ref={closeButtonRef}
                     type="button"
                     className="ghost-button"
-                    aria-label="Close workspace"
+                    aria-label="Back to queue"
                   >
-                    Close workspace
+                    Back to queue
                   </PlatformPrimitives.Drawer.Close>
                 </div>
                 <div className="detail-stage-content">

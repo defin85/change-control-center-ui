@@ -193,7 +193,7 @@ export function WorkbenchHeader({
             disabled={!canRunNext || globalWorkflow.isPending}
             title={
               !canRunNext
-                ? "Select a change before running the next backend-owned step."
+                ? "Select a change to continue."
                 : hasVisibleContextualPrimaryAction
                   ? "Use the selected change workspace for the primary next step."
                   : undefined
@@ -246,7 +246,7 @@ export function WorkbenchHeader({
         </div>
         {!canRunNext ? (
           <p className="governance-note" data-platform-governance="run-next-selection-required">
-            Select a change before running the next backend-owned step.
+            Select a change to run the next step.
           </p>
         ) : null}
         {globalWorkflow.error ? (

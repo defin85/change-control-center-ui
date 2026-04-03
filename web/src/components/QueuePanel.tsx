@@ -38,8 +38,8 @@ export function QueuePanel({
         cell: (context) => <span className="queue-id">{context.getValue()}</span>,
       }),
       queueColumnHelper.display({
-        id: "title",
-        header: "Title",
+        id: "change",
+        header: "Change",
         cell: (context) => (
           <span className="queue-title">
             <strong>{context.row.original.title}</strong>
@@ -51,25 +51,22 @@ export function QueuePanel({
         header: "State",
         cell: (context) => <StatusBadge status={context.getValue()} label={formatStateLabel(context.getValue())} />,
       }),
-      queueColumnHelper.accessor("mandatoryGapCount", {
-        header: "Gaps",
-        cell: (context) => (
-          <span>
-            <strong>{context.getValue()}</strong>
-          </span>
-        ),
-      }),
-      queueColumnHelper.accessor("loopCount", {
-        header: "Loops",
-      }),
-      queueColumnHelper.accessor("lastRunAgo", {
-        header: "Last run",
-      }),
       queueColumnHelper.accessor("blocker", {
         header: "Blocker",
+        cell: (context) => <span className="queue-blocker">{context.getValue()}</span>,
       }),
-      queueColumnHelper.accessor("nextAction", {
-        header: "Next action",
+      queueColumnHelper.display({
+        id: "next-step",
+        header: "Next step",
+        cell: (context) => (
+          <span className="queue-next-step">
+            <strong>{context.row.original.nextAction}</strong>
+            <span>
+              {context.row.original.mandatoryGapCount} gaps · {context.row.original.loopCount} loops ·{" "}
+              {context.row.original.lastRunAgo}
+            </span>
+          </span>
+        ),
       }),
     ],
     [],
@@ -100,37 +97,17 @@ export function QueuePanel({
           >
             Clear selection
           </PlatformPrimitives.Button>
-          <PlatformPrimitives.Button
-            type="button"
-            className="ghost-button"
-            data-platform-foundation="base-ui-queue-actions"
-            data-platform-action="saved-filters"
-            title="Requires an approved OpenSpec change before it can become a product action."
-            disabled
-          >
-            Saved filters
-          </PlatformPrimitives.Button>
-          <PlatformPrimitives.Button
-            type="button"
-            className="ghost-button"
-            data-platform-foundation="base-ui-queue-actions"
-            data-platform-action="export-report"
-            title="Requires an approved OpenSpec change before it can become a product action."
-            disabled
-          >
-            Export report
-          </PlatformPrimitives.Button>
         </div>
       </div>
 
       <div className="queue-context-grid" data-platform-surface="queue-filter-context">
         <article className="context-chip">
-          <span>Active slice</span>
+          <span>Slice</span>
           <strong>{activeViewLabel}</strong>
           <small>{activeViewHint}</small>
         </article>
         <article className="context-chip">
-          <span>Queue filter</span>
+          <span>Filter</span>
           <strong>{activeFilterLabel}</strong>
           <small>{activeFilterHint}</small>
         </article>
@@ -142,7 +119,7 @@ export function QueuePanel({
       </div>
 
       <p className="governance-note" data-platform-governance="queue-actions-closed">
-        Saved filters and report export stay unavailable until an approved OpenSpec change defines their backend contract.
+        Additional queue tools are unavailable in this workspace.
       </p>
 
       <div className="queue-table" data-platform-foundation="tanstack-table">

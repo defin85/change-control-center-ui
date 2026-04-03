@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { ClarificationPanel } from "./ClarificationPanel";
 import { DetailTabularSection } from "./DetailTabularSection";
@@ -14,6 +14,7 @@ type ChangeDetailProps = {
   activeTab: ChangeDetailTabId;
   detail: ChangeDetailResponse | null;
   selectedRunId: string | null;
+  compactViewport?: boolean;
   onRunNext: () => Promise<void>;
   onOpenRunStudio: () => void;
   onEscalate: () => Promise<void>;
@@ -137,6 +138,7 @@ export function ChangeDetail({
   activeTab,
   detail,
   selectedRunId,
+  compactViewport = false,
   onRunNext,
   onOpenRunStudio,
   onEscalate,
@@ -330,7 +332,7 @@ export function ChangeDetail({
       {actionWorkflow.isPending ? <div className="empty-state">{actionWorkflow.activeLabel ?? "Operator command in progress."}</div> : null}
       {!canOpenRunStudio ? (
         <p className="governance-note" data-platform-governance="run-studio-run-required">
-          Generate or select a backend-owned run before opening the run-inspection shell.
+          Run the change once before opening runtime details.
         </p>
       ) : null}
       <div className="status-bar">
@@ -338,7 +340,9 @@ export function ChangeDetail({
         <span>{change.nextAction}</span>
         <span>{change.blocker}</span>
       </div>
-      <div className="workspace-summary-grid detail-summary-grid">
+      <div
+        className={`workspace-summary-grid detail-summary-grid${compactViewport ? " compact-detail-summary" : ""}`}
+      >
         <article className="metric-card">
           <p className="metric-label">Traceability</p>
           <strong>{change.traceability.length} linked entries</strong>
@@ -352,26 +356,28 @@ export function ChangeDetail({
               ? `${selectedRun.kind} via ${selectedRun.transport}`
               : runs.length > 0
                 ? "Open run studio when you need lineage, approvals, and runtime events."
-                : "Run the next step before opening run studio."}
+              : "Run the next step before opening run studio."}
           </p>
         </article>
-        <article className="mini-card">
-          <p className="block-label">Chief policy</p>
-          <div className="mini-card-list">
-            <div>
-              <strong>{change.policy?.maxAutoCycles ?? 3} auto cycles</strong>
-              <span className="muted">before escalation</span>
+        {!compactViewport ? (
+          <article className="mini-card">
+            <p className="block-label">Chief policy</p>
+            <div className="mini-card-list">
+              <div>
+                <strong>{change.policy?.maxAutoCycles ?? 3} auto cycles</strong>
+                <span className="muted">before escalation</span>
+              </div>
+              <div>
+                <strong>{change.policy?.escalationRule ?? "Recurring fingerprint ×2"}</strong>
+                <span className="muted">recurrence threshold</span>
+              </div>
+              <div>
+                <strong>{change.policy?.acceptanceGate ?? "Req -> Code -> Test must be green"}</strong>
+                <span className="muted">delivery gate</span>
+              </div>
             </div>
-            <div>
-              <strong>{change.policy?.escalationRule ?? "Recurring fingerprint ×2"}</strong>
-              <span className="muted">recurrence threshold</span>
-            </div>
-            <div>
-              <strong>{change.policy?.acceptanceGate ?? "Req -> Code -> Test must be green"}</strong>
-              <span className="muted">delivery gate</span>
-            </div>
-          </div>
-        </article>
+          </article>
+        ) : null}
       </div>
 
       <PlatformPrimitives.Tabs.Root
@@ -416,36 +422,84 @@ export function ChangeDetail({
             <p className="eyebrow">Summary</p>
             <p>{change.summary}</p>
           </div>
-          <div className="grid-two">
-            <div className="card">
-              <p className="eyebrow">Contract</p>
-              <strong>{change.contract.goal}</strong>
-              <ul>
-                {change.contract.acceptanceCriteria.map((criterion) => (
-                  <li key={criterion}>{criterion}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="card">
-              <p className="eyebrow">Working Memory</p>
-              <p>{change.memory.summary}</p>
-              <ul>
-                {change.memory.activeFocus.map((focus) => (
-                  <li key={focus}>{focus}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <div className="card">
-            <p className="eyebrow">Focus Graph</p>
-            <ul>
-              {focusGraph.items.map((item) => (
-                <li key={item.id}>
-                  <strong>{item.kind}</strong>: {item.title} ({item.status ?? "unknown"})
-                </li>
-              ))}
-            </ul>
-          </div>
+          {compactViewport ? (
+            <>
+              <OverviewDisclosure
+                title="Chief policy"
+                summary={`${change.policy?.maxAutoCycles ?? 3} auto cycles before escalation`}
+              >
+                <div className="stack">
+                  <p className="muted">{change.policy?.escalationRule ?? "Recurring fingerprint ×2"}</p>
+                  <p className="muted">{change.policy?.acceptanceGate ?? "Req -> Code -> Test must be green"}</p>
+                </div>
+              </OverviewDisclosure>
+              <OverviewDisclosure title="Contract" summary={change.contract.goal}>
+                <ul>
+                  {change.contract.acceptanceCriteria.map((criterion) => (
+                    <li key={criterion}>{criterion}</li>
+                  ))}
+                </ul>
+              </OverviewDisclosure>
+              <OverviewDisclosure title="Working memory" summary={change.memory.summary}>
+                <ul>
+                  {change.memory.activeFocus.map((focus) => (
+                    <li key={focus}>{focus}</li>
+                  ))}
+                </ul>
+              </OverviewDisclosure>
+              <OverviewDisclosure
+                title="Focus graph"
+                summary={
+                  focusGraph.items.length > 0 ? `${focusGraph.items.length} active focus item${focusGraph.items.length === 1 ? "" : "s"}` : "No active focus items"
+                }
+              >
+                {focusGraph.items.length > 0 ? (
+                  <ul>
+                    {focusGraph.items.map((item) => (
+                      <li key={item.id}>
+                        <strong>{item.kind}</strong>: {item.title} ({item.status ?? "unknown"})
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="muted">No active focus items.</p>
+                )}
+              </OverviewDisclosure>
+            </>
+          ) : (
+            <>
+              <div className="grid-two">
+                <div className="card">
+                  <p className="eyebrow">Contract</p>
+                  <strong>{change.contract.goal}</strong>
+                  <ul>
+                    {change.contract.acceptanceCriteria.map((criterion) => (
+                      <li key={criterion}>{criterion}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="card">
+                  <p className="eyebrow">Working Memory</p>
+                  <p>{change.memory.summary}</p>
+                  <ul>
+                    {change.memory.activeFocus.map((focus) => (
+                      <li key={focus}>{focus}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="card">
+                <p className="eyebrow">Focus Graph</p>
+                <ul>
+                  {focusGraph.items.map((item) => (
+                    <li key={item.id}>
+                      <strong>{item.kind}</strong>: {item.title} ({item.status ?? "unknown"})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -644,5 +698,23 @@ export function ChangeDetail({
         />
       )}
     </DetailPanelShell>
+  );
+}
+
+type OverviewDisclosureProps = {
+  title: string;
+  summary: string;
+  children: ReactNode;
+};
+
+function OverviewDisclosure({ title, summary, children }: OverviewDisclosureProps) {
+  return (
+    <details className="overview-disclosure">
+      <summary>
+        <span>{title}</span>
+        <small>{summary}</small>
+      </summary>
+      <div className="card overview-disclosure-card">{children}</div>
+    </details>
   );
 }

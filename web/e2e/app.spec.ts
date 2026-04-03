@@ -85,7 +85,7 @@ test("renders the operator console surfaces and mandatory detail tabs @smoke @pl
   await expect(page.locator('[data-platform-surface="control-queue"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="selected-change-workspace"]')).toBeVisible();
-  await expect(page.locator('[data-platform-surface="signal-summary-card"]')).toHaveCount(4);
+  await expect(page.locator('[data-platform-surface="signal-summary-card"]')).toHaveCount(1);
 
   await page.getByRole("button", { name: /ch-146/i }).click();
   await expect(page.locator("header").getByRole("button", { name: "New change" })).toBeVisible();
@@ -96,11 +96,9 @@ test("renders the operator console surfaces and mandatory detail tabs @smoke @pl
   await expect(page.locator(".operator-rail").getByText("Chief policy", { exact: true })).toBeVisible();
   await expect(page.locator(".operator-rail").getByText("Saved slices", { exact: true })).toBeVisible();
   await expect(page.locator(".queue-panel").getByText("Control Queue", { exact: true })).toBeVisible();
-  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Active slice")).toBeVisible();
-  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Queue filter")).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Slice", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Filter", { exact: true })).toBeVisible();
   await expect(page.locator('[data-platform-governance="queue-actions-closed"]')).toBeVisible();
-  await expect(page.locator('[data-platform-action="saved-filters"]')).toBeDisabled();
-  await expect(page.locator('[data-platform-action="export-report"]')).toBeDisabled();
   await expect(page.locator("header").getByRole("button", { name: "Run next step" })).toBeVisible();
   await expect(detailActions.getByRole("button", { name: "Open run studio" })).toHaveAttribute("aria-controls", "run-studio");
   await expect(detailActions.getByRole("button", { name: "Escalate" })).toBeVisible();
@@ -391,12 +389,13 @@ test("uses a drawer-style detail workspace on narrow viewports @platform", async
   await expect(detailWorkspace).toHaveAttribute("data-platform-open", "false");
   await selectedQueueRow.click();
   await expect(detailWorkspace).toHaveAttribute("data-platform-open", "true");
-  const dialog = page.getByRole("dialog", { name: "Selected change context" });
-  const closeWorkspace = page.getByRole("button", { name: "Close workspace" });
+  const dialog = page.getByRole("dialog", { name: "Selected change" });
+  const closeWorkspace = page.getByRole("button", { name: "Back to queue" });
 
   await expect(dialog).toBeVisible();
   await expect(closeWorkspace).toBeVisible();
   await expect(closeWorkspace).toBeFocused();
+  await expect(dialog.locator(".overview-disclosure")).toHaveCount(4);
 
   await page.keyboard.press("Tab");
   await expect.poll(() => activeElementInsideDialog(page)).toBe(true);
@@ -423,7 +422,7 @@ test("fails closed on the global run action when no change is selected @platform
   await expect(page.locator('[data-platform-governance="run-next-selection-required"]')).toBeVisible();
 
   await page.getByRole("button", { name: /ch-142/i }).click();
-  await page.getByRole("button", { name: "Close workspace" }).click();
+  await page.getByRole("button", { name: "Back to queue" }).click();
   await expect(page).toHaveURL(/change=ch-142/);
   await expect(headerRunAction).toBeEnabled();
   await page.locator('.queue-panel [data-platform-action="clear-selection"]').click();
@@ -440,12 +439,12 @@ test("demotes the global next-step action while a change workspace is focused @p
   await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "primary");
 
   await page.getByRole("button", { name: /ch-142/i }).click();
-  const detailPanel = page.getByRole("dialog", { name: "Selected change context" }).locator('[data-platform-shell="detail-panel"]').first();
+  const detailPanel = page.getByRole("dialog", { name: "Selected change" }).locator('[data-platform-shell="detail-panel"]').first();
   const detailRunAction = detailPanel.getByRole("button", { name: "Run next step" });
 
   await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "secondary");
   await expect(detailRunAction).toHaveAttribute("data-platform-hierarchy", "primary");
-  await page.getByRole("button", { name: "Close workspace" }).click();
+  await page.getByRole("button", { name: "Back to queue" }).click();
   await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "primary");
 });
 
@@ -1018,13 +1017,13 @@ test("uses approved platform foundations across required operator surfaces @plat
 
   await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-view-action"]')).toHaveCount(5);
   await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-filter-action"]')).toHaveCount(3);
-  await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(3);
+  await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(1);
 
   await page.getByLabel("Search").fill("ch-142");
   await page.getByRole("button", { name: /ch-142/i }).click();
 
   await expect(page.locator('[data-platform-foundation="base-ui-queue-row"]')).toHaveCount(1);
-  await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(3);
+  await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(1);
 
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await detailPanel.getByRole("tab", { name: "Runs" }).click();

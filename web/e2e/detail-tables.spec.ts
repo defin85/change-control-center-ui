@@ -240,8 +240,8 @@ test("renders labeled compact queue and detail rows on narrow viewports @platfor
 
   const idLabel = queueRow.locator('[data-platform-compact-label]').filter({ hasText: "ID" });
   await expect(idLabel).toBeVisible();
-  await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Title" })).toBeVisible();
-  await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Next action" })).toBeVisible();
+  await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Change" })).toBeVisible();
+  await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Next step" })).toBeVisible();
 
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').filter({ hasText: "Foundation proof change" }).first();
   await expect(page.getByRole("heading", { name: "Foundation proof change" })).toBeVisible();

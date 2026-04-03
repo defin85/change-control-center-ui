@@ -209,6 +209,7 @@ export function OperatorWorkbench({
                   detail={
                     <ChangeDetail
                       activeTab={activeTabId}
+                      compactViewport={false}
                       detail={detail}
                       selectedRunId={selectedRunId}
                       onRunNext={onRunNext}
@@ -250,6 +251,7 @@ export function OperatorWorkbench({
             detail={
               <ChangeDetail
                 activeTab={activeTabId}
+                compactViewport
                 detail={detail}
                 selectedRunId={selectedRunId}
                 onRunNext={onRunNext}
