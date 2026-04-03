@@ -10,7 +10,7 @@ type RunInspectionShellProps = {
 
 export function RunInspectionShell({ id, eyebrow, title, actions, children }: RunInspectionShellProps) {
   return (
-    <section id={id} className="panel detail-panel" data-platform-shell="run-inspection">
+    <section id={id} className="panel detail-panel run-inspection-panel" data-platform-shell="run-inspection">
       <div className="panel-header">
         <div>
           <p className="eyebrow">{eyebrow}</p>

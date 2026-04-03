@@ -21,8 +21,11 @@ async function createIsolatedChange(page: Page, prefix: string) {
 }
 
 async function waitForDetailPanel(page: Page, title: string) {
-  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
-  await expect(detailPanel.getByRole("heading", { name: title })).toBeVisible();
+  const detailPanel = page
+    .locator('[data-platform-shell="detail-panel"]')
+    .filter({ has: page.getByRole("heading", { name: title }) })
+    .first();
+  await expect(detailPanel).toBeVisible();
   return detailPanel;
 }
 

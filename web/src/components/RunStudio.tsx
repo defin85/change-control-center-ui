@@ -34,7 +34,7 @@ export function RunStudio({ run, events, approvals, onApprovalDecision, onClose 
       }
     >
       <div className="stack">
-        <div className="key-value-grid">
+        <div className="key-value-grid run-facts-grid">
           <div>
             <span>Kind</span>
             <strong>{run.kind}</strong>
@@ -52,14 +52,18 @@ export function RunStudio({ run, events, approvals, onApprovalDecision, onClose 
             <strong>{run.turnId ?? "n/a"}</strong>
           </div>
         </div>
-        <div className="card">
-          <p className="eyebrow">Prompt</p>
-          <pre>{run.prompt}</pre>
-        </div>
-        <div className="card">
-          <p className="eyebrow">Memory Packet</p>
-          <pre>{JSON.stringify(run.memoryPacket, null, 2)}</pre>
-        </div>
+        <details className="artifact-disclosure">
+          <summary>Prompt</summary>
+          <div className="card run-artifact-card">
+            <pre className="run-studio-code">{run.prompt}</pre>
+          </div>
+        </details>
+        <details className="artifact-disclosure">
+          <summary>Memory packet</summary>
+          <div className="card run-artifact-card">
+            <pre className="run-studio-code">{JSON.stringify(run.memoryPacket, null, 2)}</pre>
+          </div>
+        </details>
         <div className="card">
           <p className="eyebrow">Runtime Events</p>
           {events.length === 0 ? (

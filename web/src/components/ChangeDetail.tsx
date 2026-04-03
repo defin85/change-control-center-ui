@@ -338,7 +338,7 @@ export function ChangeDetail({
         <span>{change.nextAction}</span>
         <span>{change.blocker}</span>
       </div>
-      <div className="workspace-summary-grid">
+      <div className="workspace-summary-grid detail-summary-grid">
         <article className="metric-card">
           <p className="metric-label">Traceability</p>
           <strong>{change.traceability.length} linked entries</strong>
@@ -395,7 +395,7 @@ export function ChangeDetail({
 
       {activeTab === "overview" && (
         <div className="stack">
-          <div className="overview-grid">
+          <div className="overview-grid detail-overview-grid">
             <div className="card">
               <p className="eyebrow">Current state</p>
               <strong>{formatStateLabel(change.state)}</strong>

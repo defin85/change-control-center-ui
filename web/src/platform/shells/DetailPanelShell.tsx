@@ -10,7 +10,7 @@ type DetailPanelShellProps = {
 
 export function DetailPanelShell({ eyebrow, title, subtitle, actions, children }: DetailPanelShellProps) {
   return (
-    <section className="panel detail-panel" data-platform-shell="detail-panel">
+    <section className="panel detail-panel detail-surface-panel" data-platform-shell="detail-panel">
       <div className="panel-header">
         <div>
           <p className="eyebrow">{eyebrow}</p>
