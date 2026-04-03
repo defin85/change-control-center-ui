@@ -11,6 +11,8 @@
 - влияет на backend/frontend integration path, который использует browser smoke;
 - меняет команды, скрипты или инструкции, связанные с UI build и verification.
 
+Для выбора и автоматического применения подходящих UI-скиллов используйте [docs/agent/ui-skills.md](/home/egor/code/change-control-center-ui/docs/agent/ui-skills.md). Этот документ задаёт repo-owned routing для `critique`, `dogfood`, `frontend-design`, `adapt`, `harden`, `polish` и связанных UI-скиллов.
+
 ## Default Smoke Path
 
 Это минимальное доказательство того, что backend-served operator UI остаётся рабочим.

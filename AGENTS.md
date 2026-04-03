@@ -112,6 +112,22 @@ For more details, see README.md and docs/agent/verification.md.
 - `npm run test:e2e` must not reuse an already running backend-served stack; default smoke path должен владеть backend lifecycle или падать fail-closed.
 - Repo-owned local lifecycle для `dev`, `served` и Playwright `e2e` path должен идти через `bash ./scripts/ccc`, а не через новые inline shell fragments в docs или automation.
 
+## UI skill routing
+
+- Для UI-affecting запросов агент MUST proactively use matching UI-focused skills без отдельного понукания со стороны пользователя, если запрос явно соответствует профилю скилла.
+- Каноническая матрица и порядок применения UI-скиллов живут в [docs/agent/ui-skills.md](/home/egor/code/change-control-center-ui/docs/agent/ui-skills.md).
+- Базовая маршрутизация по умолчанию:
+  - review, critique, "что не так", visual audit -> `critique`
+  - живой прогон интерфейса в браузере, баг-хант, UX smoke -> `dogfood`
+  - реализация нового UI или заметный редизайн -> `frontend-design`
+  - слишком шумный, аляповатый или перегруженный интерфейс -> `quieter` и/или `distill`
+  - responsive, compact-view, mobile, cross-viewport behavior -> `adapt`
+  - overflow, empty/error states, i18n, edge-case resilience -> `harden`
+  - финальный visual cleanup перед ship -> `polish`
+  - более широкий standards/accessibility/performance review -> `audit` и/или `web-design-guidelines`
+- Для существенных UI-изменений default sequence такой: `critique` -> `dogfood` -> `frontend-design` -> `adapt` -> `harden` -> `polish`; `audit` добавляется, когда нужен release-style quality pass.
+- Если пользователь явно называет конкретный скилл, это имеет приоритет над дефолтной маршрутизацией.
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
