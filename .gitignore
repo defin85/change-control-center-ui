@@ -7,3 +7,8 @@ web/dist/
 test-results/
 playwright-report/
 .run/
+.data/*.db
+.data/*.db-shm
+.data/*.db-wal
+web/*.tsbuildinfo
+dogfood-output/
