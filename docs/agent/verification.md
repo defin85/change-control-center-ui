@@ -58,6 +58,8 @@ npm run test:e2e:platform
 
 - `npm run build` создаёт текущий backend-served artifact в `web/dist/`.
 - `npm run test:e2e` запускает минимальный Playwright smoke suite через backend entrypoint `http://127.0.0.1:8000`, а не через frontend-only dev server.
+- `npm run test:e2e` must not reuse an already running backend-served stack on `127.0.0.1:8000`; smoke path должен сам поднять свежий backend + artifact lifecycle или завершиться fail-closed.
+- Repo-owned backend lifecycle для smoke path живёт в `bash ./scripts/ccc`, а не в inline shell fragments внутри helper automation.
 - `npm run lint` и `npm run test:e2e:platform` обязательны дополнительно, когда change трогает operator UI platform contract.
 - Browser smoke дополнительно rebuild-ит web artifact перед стартом backend stack, чтобы smoke path не зависел от старого `web/dist`.
 - Расширенные operator-contract доказательства, такие как route-addressable context across history, platform foundation conformance, run lineage, и broader workbench scenarios, живут в `npm run test:e2e:platform` или `npm run test:e2e:full`, а не в минимальном smoke suite.
@@ -79,30 +81,28 @@ npm run test:e2e:platform
 
 ### Manual Backend-Served Check
 
-1. Запустить sidecar:
+1. Собрать текущий web artifact:
 
 ```bash
 cd /home/egor/code/change-control-center-ui
-export CCC_RUNTIME_TRANSPORT=stdio
-uv run uvicorn backend.sidecar.main:create_app --factory --reload --host 127.0.0.1 --port 8010
+bash ./scripts/ccc build web
 ```
 
-2. Собрать текущий web artifact:
-
-```bash
-cd /home/egor/code/change-control-center-ui/web
-npm run build
-```
-
-3. Запустить backend product entrypoint:
+2. Запустить backend-served stack:
 
 ```bash
 cd /home/egor/code/change-control-center-ui
-export CCC_RUNTIME_SIDECAR_URL=http://127.0.0.1:8010
-uv run uvicorn backend.app.main:create_app --factory --reload
+bash ./scripts/ccc start served
 ```
 
-4. Открыть `http://127.0.0.1:8000` и пройти нужный сценарий вручную.
+3. Открыть `http://127.0.0.1:8000` и пройти нужный сценарий вручную.
+
+4. Остановить stack:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+bash ./scripts/ccc stop served
+```
 
 ### Extended Browser Coverage
 
@@ -118,16 +118,18 @@ npm run test:e2e:full
 Этот путь годится для локальной разработки, но не считается smoke evidence для backend-served UI health.
 
 ```bash
-cd /home/egor/code/change-control-center-ui/web
-npm run dev
+cd /home/egor/code/change-control-center-ui
+bash ./scripts/ccc start dev
 ```
 
-Используйте его только вместе с backend development mode из [README.md](/home/egor/code/change-control-center-ui/README.md), когда нужна быстрая итерация, а не release-style verification.
+Используйте его только вместе с launcher lifecycle из [README.md](/home/egor/code/change-control-center-ui/README.md), когда нужна быстрая итерация, а не release-style verification. Остановить stack можно через `bash ./scripts/ccc stop dev`, а логи смотреть через `bash ./scripts/ccc logs dev backend -f` или `bash ./scripts/ccc logs dev vite -f`.
 
 ## Запрещённые подмены
 
 - Нельзя считать `npm run dev` эквивалентом backend-served smoke.
 - Нельзя считать один только `npm run build` достаточной проверкой UI health.
+- Нельзя считать уже поднятый вручную backend/sidecar на `127.0.0.1:8000` или `127.0.0.1:8010` допустимой заменой smoke path: `npm run test:e2e` must not reuse an already running backend-served stack.
+- Нельзя дублировать backend-served smoke lifecycle в новых inline shell fragments, если тот же path уже управляется через `bash ./scripts/ccc`.
 - Нельзя заменять этот workflow ad hoc командами без обновления этого документа, `README.md` и репозиторных инструкций.
 
 ## Readiness Gate

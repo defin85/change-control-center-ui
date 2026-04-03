@@ -109,6 +109,8 @@ For more details, see README.md and docs/agent/verification.md.
 - Для UI-affecting и backend-served UI изменений используйте [docs/agent/verification.md](/home/egor/code/change-control-center-ui/docs/agent/verification.md) как канонический source of truth.
 - Не придумывайте ad hoc smoke commands: `README.md`, agent instructions и helper automation должны ссылаться на один и тот же workflow.
 - Frontend-only dev server не считается достаточным доказательством backend-served UI health.
+- `npm run test:e2e` must not reuse an already running backend-served stack; default smoke path должен владеть backend lifecycle или падать fail-closed.
+- Repo-owned local lifecycle для `dev`, `served` и Playwright `e2e` path должен идти через `bash ./scripts/ccc`, а не через новые inline shell fragments в docs или automation.
 
 ## Landing the Plane (Session Completion)
 

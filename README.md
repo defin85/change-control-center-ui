@@ -44,46 +44,38 @@ cd /home/egor/code/change-control-center-ui/web
 npm install
 ```
 
-3. Runtime sidecar:
+3. Fast development loop:
 
 ```bash
 cd /home/egor/code/change-control-center-ui
-export CCC_RUNTIME_TRANSPORT=stdio
-uv run uvicorn backend.sidecar.main:create_app --factory --reload --host 127.0.0.1 --port 8010
+bash ./scripts/ccc start dev
 ```
 
-Если `CCC_RUNTIME_COMMAND` не задан и transport = `stdio`, sidecar по умолчанию запускает `codex app-server --listen stdio://`.
+Это поднимает `sidecar:8010`, `backend --reload:8000` и `vite:4173`. Проверить состояние можно через `bash ./scripts/ccc status dev`, остановить через `bash ./scripts/ccc stop dev`.
 
-4. Backend development mode:
+4. Backend-served shell:
 
 ```bash
 cd /home/egor/code/change-control-center-ui
-export CCC_RUNTIME_SIDECAR_URL=http://127.0.0.1:8010
-uv run uvicorn backend.app.main:create_app --factory --reload
-```
-
-5. Frontend development mode:
-
-```bash
-cd /home/egor/code/change-control-center-ui/web
-npm run dev
-```
-
-6. Backend-served shell:
-
-```bash
-cd /home/egor/code/change-control-center-ui/web
-npm run build
-cd /home/egor/code/change-control-center-ui
-export CCC_RUNTIME_SIDECAR_URL=http://127.0.0.1:8010
-uv run uvicorn backend.app.main:create_app --factory
+bash ./scripts/ccc build web
+bash ./scripts/ccc start served
 ```
 
 После этого откройте `http://127.0.0.1:8000`.
 
 Для backend-served shell `web/dist/` считается обязательным build artifact, а канонический verification workflow зафиксирован в [docs/agent/verification.md](/home/egor/code/change-control-center-ui/docs/agent/verification.md).
 
-Для `websocket` режима sidecar запускается с `CCC_RUNTIME_TRANSPORT=websocket` и `CCC_RUNTIME_WS_URL=ws://...`; backend продолжает смотреть только в `CCC_RUNTIME_SIDECAR_URL`.
+Если `CCC_RUNTIME_COMMAND` не задан и transport = `stdio`, sidecar по умолчанию запускает `codex app-server --listen stdio://`. Для `websocket` режима экспортируйте `CCC_RUNTIME_TRANSPORT=websocket` и `CCC_RUNTIME_WS_URL=ws://...` перед `bash ./scripts/ccc start dev` или `bash ./scripts/ccc start served`; backend продолжает смотреть только в `CCC_RUNTIME_SIDECAR_URL`.
+
+Управление lifecycle остаётся у launcher:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+bash ./scripts/ccc status all
+bash ./scripts/ccc logs served backend -f
+bash ./scripts/ccc stop served
+bash ./scripts/ccc stop all
+```
 
 ## Что уже работает на shipped operator path
 
@@ -108,6 +100,8 @@ npm run test:e2e
 ```
 
 `npm run test:e2e` не должен заменяться frontend-only dev server path. Для manual backend-served проверки и fast dev loop используйте тот же runbook.
+`npm run test:e2e` must not reuse an already running backend-served stack на `127.0.0.1:8000`: smoke path должен сам поднять backend-served lifecycle или завершиться явной ошибкой.
+Playwright smoke lifecycle должен идти через repo-owned launcher `bash ./scripts/ccc`, а не через inline shell fragments или вручную поднятый stack.
 
 Default smoke path доказывает backend-served shell health и минимальный operator flow. Более глубокая проверка platform contract, route-addressable context, run lineage и расширенных browser scenarios живет в `npm run test:e2e:platform` и `npm run test:e2e:full`.
 

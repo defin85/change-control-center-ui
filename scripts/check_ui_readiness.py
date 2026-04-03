@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -15,16 +16,26 @@ README_PATH = ROOT / "README.md"
 AGENTS_PATH = ROOT / "AGENTS.md"
 PACKAGE_JSON_PATH = ROOT / "web/package.json"
 PLAYWRIGHT_CONFIG_PATH = ROOT / "web/playwright.config.ts"
+LAUNCHER_PATH = ROOT / "scripts/ccc"
+LAUNCHER_PROFILES_PATH = ROOT / "scripts/lib/ccc/profiles.sh"
 
 
-def _require_text(path: Path, snippets: list[str], errors: list[str]) -> None:
-    text = path.read_text(encoding="utf-8")
+def _require_text(label: str, text: str, snippets: list[str], errors: list[str]) -> None:
     for snippet in snippets:
         if snippet not in text:
-            errors.append(f"{path.relative_to(ROOT)} must contain: {snippet}")
+            errors.append(f"{label} must contain: {snippet}")
 
 
-def main() -> int:
+def collect_ui_readiness_errors(
+    *,
+    doc_text: str,
+    readme_text: str,
+    agents_text: str,
+    package_json_text: str,
+    playwright_config_text: str,
+    launcher_text: str,
+    launcher_profiles_text: str,
+) -> list[str]:
     errors: list[str] = []
 
     docs_snippets = [
@@ -37,10 +48,15 @@ def main() -> int:
         str(DEFAULT_WEB_DIST / INDEX_HTML_NAME),
         f"{DEFAULT_WEB_DIST / ASSETS_DIR_NAME}/*",
         "frontend-only dev server",
+        "must not reuse an already running backend-served stack",
+        "bash ./scripts/ccc",
+        "bash ./scripts/ccc start served",
+        "bash ./scripts/ccc start dev",
     ]
-    _require_text(DOC_PATH, docs_snippets, errors)
+    _require_text(str(DOC_PATH.relative_to(ROOT)), doc_text, docs_snippets, errors)
     _require_text(
-        README_PATH,
+        str(README_PATH.relative_to(ROOT)),
+        readme_text,
         [
             "docs/agent/verification.md",
             "uv run pytest backend/tests -q",
@@ -48,21 +64,29 @@ def main() -> int:
             "npm run build",
             "npm run test:e2e",
             "npm run test:e2e:platform",
+            "must not reuse an already running backend-served stack",
+            "bash ./scripts/ccc build web",
+            "bash ./scripts/ccc start served",
+            "bash ./scripts/ccc start dev",
+            "bash ./scripts/ccc stop all",
         ],
         errors,
     )
     _require_text(
-        AGENTS_PATH,
+        str(AGENTS_PATH.relative_to(ROOT)),
+        agents_text,
         [
             "docs/agent/verification.md",
             "default smoke path",
             "npm run lint",
             "npm run test:e2e:platform",
+            "must not reuse an already running backend-served stack",
+            "bash ./scripts/ccc",
         ],
         errors,
     )
 
-    package_json = json.loads(PACKAGE_JSON_PATH.read_text(encoding="utf-8"))
+    package_json = json.loads(package_json_text)
     scripts = package_json.get("scripts", {})
     expected_scripts = {
         "lint": "eslint src e2e vite.config.ts",
@@ -76,14 +100,108 @@ def main() -> int:
         if actual != expected:
             errors.append(f"web/package.json script {name!r} must equal {expected!r}, got {actual!r}")
 
-    playwright_config = PLAYWRIGHT_CONFIG_PATH.read_text(encoding="utf-8")
     for snippet in [
         'baseURL: "http://127.0.0.1:8000"',
         'url: "http://127.0.0.1:8000/healthz/ui-artifact"',
-        "cd web && npm run build && cd ..",
+        "bash ./scripts/ccc build web && bash ./scripts/ccc start e2e --foreground",
+        "reuseExistingServer: false",
     ]:
-        if snippet not in playwright_config:
+        if snippet not in playwright_config_text:
             errors.append(f"web/playwright.config.ts must contain: {snippet}")
+
+    if "reuseExistingServer: true" in playwright_config_text:
+        errors.append(
+            "web/playwright.config.ts must not set reuseExistingServer: true because backend-entrypoint smoke must fail closed instead of reusing an already running stack"
+        )
+
+    for snippet in [
+        "bash ./scripts/ccc build web",
+        "start <dev|served|e2e> [--foreground]",
+        "stop <dev|served|e2e|all>",
+        "restart <dev|served|e2e> [--foreground]",
+        "status [dev|served|e2e|all]",
+        "logs <dev|served|e2e> <sidecar|backend|vite> [-f]",
+    ]:
+        if snippet not in launcher_text:
+            errors.append(f"scripts/ccc must contain: {snippet}")
+
+    for snippet in [
+        "fake_stdio_app_server.py",
+        "CCC_RUNTIME_COMMAND=uv run python backend/tests/fake_stdio_app_server.py",
+        "CCC_PROFILE_COMPONENTS=(sidecar backend vite)",
+        "CCC_PROFILE_COMPONENTS=(sidecar backend)",
+    ]:
+        if snippet not in launcher_profiles_text:
+            errors.append(f"scripts/lib/ccc/profiles.sh must contain: {snippet}")
+
+    return errors
+
+
+def collect_ui_readiness_runtime_errors() -> list[str]:
+    errors: list[str] = []
+
+    syntax_check = subprocess.run(
+        [
+            "bash",
+            "-n",
+            str(LAUNCHER_PATH),
+            str(ROOT / "scripts/lib/ccc/common.sh"),
+            str(ROOT / "scripts/lib/ccc/process.sh"),
+            str(ROOT / "scripts/lib/ccc/profiles.sh"),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if syntax_check.returncode != 0:
+        stderr = syntax_check.stderr.strip() or syntax_check.stdout.strip() or "bash -n failed"
+        errors.append(f"launcher shell syntax check failed: {stderr}")
+
+    help_check = subprocess.run(
+        ["bash", str(LAUNCHER_PATH), "help"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if help_check.returncode != 0:
+        stderr = help_check.stderr.strip() or help_check.stdout.strip() or "launcher help failed"
+        errors.append(f"scripts/ccc help must succeed: {stderr}")
+    else:
+        for snippet in [
+            "bash ./scripts/ccc build web",
+            "start <dev|served|e2e> [--foreground]",
+            "stop <dev|served|e2e|all>",
+        ]:
+            if snippet not in help_check.stdout:
+                errors.append(f"scripts/ccc help output must contain: {snippet}")
+
+    status_check = subprocess.run(
+        ["bash", str(LAUNCHER_PATH), "status", "all"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if status_check.returncode != 0:
+        stderr = status_check.stderr.strip() or status_check.stdout.strip() or "launcher status failed"
+        errors.append(f"scripts/ccc status all must succeed: {stderr}")
+
+    return errors
+
+
+def main() -> int:
+    errors = collect_ui_readiness_errors(
+        doc_text=DOC_PATH.read_text(encoding="utf-8"),
+        readme_text=README_PATH.read_text(encoding="utf-8"),
+        agents_text=AGENTS_PATH.read_text(encoding="utf-8"),
+        package_json_text=PACKAGE_JSON_PATH.read_text(encoding="utf-8"),
+        playwright_config_text=PLAYWRIGHT_CONFIG_PATH.read_text(encoding="utf-8"),
+        launcher_text=LAUNCHER_PATH.read_text(encoding="utf-8"),
+        launcher_profiles_text=LAUNCHER_PROFILES_PATH.read_text(encoding="utf-8"),
+    )
+    errors.extend(collect_ui_readiness_runtime_errors())
 
     if errors:
         print("UI readiness check failed:", file=sys.stderr)

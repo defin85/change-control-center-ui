@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=scripts/lib/ccc/common.sh
+source "${SCRIPT_DIR}/lib/ccc/common.sh"
+# shellcheck source=scripts/lib/ccc/process.sh
+source "${SCRIPT_DIR}/lib/ccc/process.sh"
+# shellcheck source=scripts/lib/ccc/profiles.sh
+source "${SCRIPT_DIR}/lib/ccc/profiles.sh"
+
+ccc_usage() {
+  printf '%s\n' \
+    'Usage:' \
+    '  bash ./scripts/ccc build web' \
+    '  bash ./scripts/ccc start <dev|served|e2e> [--foreground]' \
+    '  bash ./scripts/ccc stop <dev|served|e2e|all>' \
+    '  bash ./scripts/ccc restart <dev|served|e2e> [--foreground]' \
+    '  bash ./scripts/ccc status [dev|served|e2e|all]' \
+    '  bash ./scripts/ccc logs <dev|served|e2e> <sidecar|backend|vite> [-f]'
+}
+
+ccc_build() {
+  local target="${1:-}"
+
+  case "$target" in
+    web)
+      (
+        cd "${CCC_REPO_ROOT}/web"
+        npm run build
+      )
+      ccc_assert_web_artifact_ready
+      ccc_note "web artifact ready at ${CCC_REPO_ROOT}/web/dist"
+      ;;
+    *)
+      ccc_die "unknown build target: ${target:-<missing>}"
+      ;;
+  esac
+}
+
+ccc_start_profile() {
+  local profile="$1"
+  local foreground="$2"
+  local component
+  local detach
+
+  ccc_load_profile_definition "$profile"
+  ccc_prepare_profile_start "$profile"
+
+  if [[ "$profile" == "served" || "$profile" == "e2e" ]]; then
+    ccc_assert_web_artifact_ready
+  fi
+
+  for component in "${CCC_PROFILE_COMPONENTS[@]}"; do
+    detach="1"
+    if [[ "$foreground" == "1" && "$component" == "$CCC_PROFILE_PRIMARY_COMPONENT" ]]; then
+      detach="0"
+    fi
+
+    ccc_load_component_definition "$profile" "$component"
+    ccc_start_component \
+      "$profile" \
+      "$component" \
+      "$CCC_COMPONENT_PORT" \
+      "$CCC_COMPONENT_HEALTH_URL" \
+      "$CCC_COMPONENT_TIMEOUT_SECONDS" \
+      "$CCC_COMPONENT_WORKDIR" \
+      "$detach" \
+      CCC_COMPONENT_ENV \
+      CCC_COMPONENT_CMD
+    ccc_note "started $profile/$component"
+  done
+
+  ccc_note "profile $profile is ready"
+
+  if [[ "$foreground" == "1" ]]; then
+    trap 'ccc_stop_profile "$profile"' EXIT INT TERM
+    ccc_wait_on_component "$profile" "$CCC_PROFILE_PRIMARY_COMPONENT"
+  fi
+}
+
+ccc_stop_profile() {
+  local profile="$1"
+  local i
+  local component
+
+  ccc_load_profile_definition "$profile"
+  for (( i=${#CCC_PROFILE_COMPONENTS[@]}-1; i>=0; i-=1 )); do
+    component="${CCC_PROFILE_COMPONENTS[i]}"
+    ccc_stop_component "$profile" "$component"
+  done
+}
+
+ccc_restart_profile() {
+  local profile="$1"
+  local foreground="$2"
+
+  ccc_stop_profile "$profile"
+  ccc_start_profile "$profile" "$foreground"
+}
+
+ccc_status_profile() {
+  local profile="$1"
+  local component
+
+  ccc_load_profile_definition "$profile"
+  printf '%s:\n' "$profile"
+  for component in "${CCC_PROFILE_COMPONENTS[@]}"; do
+    ccc_load_component_definition "$profile" "$component"
+    printf '  %s: %s\n' "$component" "$(ccc_component_status "$profile" "$component" "$CCC_COMPONENT_HEALTH_URL")"
+  done
+}
+
+ccc_logs() {
+  local profile="$1"
+  local component="$2"
+  local follow="${3:-0}"
+  local log_file
+
+  log_file="$(ccc_log_file "$profile" "$component")"
+  [[ -f "$log_file" ]] || ccc_die "log file not found: $log_file"
+
+  if [[ "$follow" == "1" ]]; then
+    tail -n 200 -f "$log_file"
+    return 0
+  fi
+
+  tail -n 200 "$log_file"
+}
+
+ccc_with_lock() {
+  ccc_acquire_lock
+  set +e
+  "$@"
+  local status=$?
+  set -e
+  ccc_release_lock
+  return "$status"
+}
+
+main() {
+  local command="${1:-help}"
+  local target="${2:-}"
+  local arg3="${3:-}"
+  local arg4="${4:-}"
+  local foreground="0"
+  local profile
+
+  ccc_require_tools
+  ccc_ensure_run_root
+
+  case "$command" in
+    build)
+      [[ -n "$target" ]] || ccc_die "build requires a target"
+      ccc_build "$target"
+      ;;
+    start)
+      [[ -n "$target" ]] || ccc_die "start requires a profile"
+      profile="$target"
+      [[ "$arg3" == "--foreground" ]] && foreground="1"
+      ccc_with_lock ccc_start_profile "$profile" "$foreground"
+      ;;
+    stop)
+      [[ -n "$target" ]] || ccc_die "stop requires a profile or all"
+      if [[ "$target" == "all" ]]; then
+        ccc_with_lock ccc_stop_profile dev
+        ccc_with_lock ccc_stop_profile served
+        ccc_with_lock ccc_stop_profile e2e
+      else
+        ccc_with_lock ccc_stop_profile "$target"
+      fi
+      ;;
+    restart)
+      [[ -n "$target" ]] || ccc_die "restart requires a profile"
+      profile="$target"
+      [[ "$arg3" == "--foreground" ]] && foreground="1"
+      ccc_with_lock ccc_restart_profile "$profile" "$foreground"
+      ;;
+    status)
+      if [[ -z "$target" || "$target" == "all" ]]; then
+        ccc_status_profile dev
+        ccc_status_profile served
+        ccc_status_profile e2e
+      else
+        ccc_status_profile "$target"
+      fi
+      ;;
+    logs)
+      [[ -n "$target" ]] || ccc_die "logs requires a profile"
+      [[ -n "$arg3" ]] || ccc_die "logs requires a component"
+      [[ "$arg4" == "-f" ]] && foreground="1"
+      ccc_logs "$target" "$arg3" "$foreground"
+      ;;
+    help|-h|--help)
+      ccc_usage
+      ;;
+    *)
+      ccc_usage >&2
+      ccc_die "unknown command: $command"
+      ;;
+  esac
+}
+
+main "$@"
