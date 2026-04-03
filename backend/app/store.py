@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import threading
@@ -11,6 +12,55 @@ from backend.app.seeds import build_seed_fixtures
 
 def _json_dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=True, sort_keys=True)
+
+
+def _canonicalize_fact_record(fact: dict[str, Any], tenant_id: str) -> dict[str, Any]:
+    canonical = dict(fact)
+    resolved_tenant_id = str(canonical.get("tenantId") or tenant_id)
+    title = canonical.get("title", "")
+    body = canonical.get("body", "")
+    status = canonical.get("status") or "approved"
+
+    canonical["tenantId"] = resolved_tenant_id
+    canonical["title"] = title if isinstance(title, str) else str(title)
+    canonical["body"] = body if isinstance(body, str) else str(body)
+    canonical["status"] = status if isinstance(status, str) else str(status)
+
+    if not canonical.get("id"):
+        digest = hashlib.sha1(
+            f"{canonical['tenantId']}\x1f{canonical['title']}\x1f{canonical['body']}".encode("utf-8")
+        ).hexdigest()[:12]
+        canonical["id"] = f"fact-legacy-{digest}"
+
+    return canonical
+
+
+def _canonicalize_fact_list(facts: Any, tenant_id: str) -> list[dict[str, Any]]:
+    if not isinstance(facts, list):
+        return []
+    return [_canonicalize_fact_record(fact, tenant_id) for fact in facts if isinstance(fact, dict)]
+
+
+def _canonicalize_change(change: dict[str, Any]) -> dict[str, Any]:
+    tenant_id = str(change.get("tenantId") or "")
+    memory = change.get("memory")
+    if isinstance(memory, dict):
+        memory["facts"] = _canonicalize_fact_list(memory.get("facts", []), tenant_id)
+    return change
+
+
+def _canonicalize_run(run: dict[str, Any]) -> dict[str, Any]:
+    tenant_id = str(run.get("tenantId") or "")
+    memory_packet = run.get("memoryPacket")
+    if isinstance(memory_packet, dict):
+        tenant_memory = memory_packet.get("tenantMemory")
+        if isinstance(tenant_memory, dict):
+            tenant_memory["facts"] = _canonicalize_fact_list(tenant_memory.get("facts", []), tenant_id)
+
+        change_memory = memory_packet.get("changeMemory")
+        if isinstance(change_memory, dict):
+            change_memory["facts"] = _canonicalize_fact_list(change_memory.get("facts", []), tenant_id)
+    return run
 
 
 class SQLiteStore:
@@ -150,9 +200,10 @@ class SQLiteStore:
             "select fact_json from tenant_memory where tenant_id = ? order by id",
             (tenant_id,),
         )
-        return [json.loads(row["fact_json"]) for row in rows]
+        return [_canonicalize_fact_record(json.loads(row["fact_json"]), tenant_id) for row in rows]
 
     def add_tenant_memory(self, fact: dict[str, Any]) -> None:
+        fact = _canonicalize_fact_record(fact, str(fact.get("tenantId") or ""))
         self._execute(
             "insert into tenant_memory(id, tenant_id, fact_json) values (?, ?, ?)",
             (fact["id"], fact["tenantId"], _json_dumps(fact)),
@@ -163,22 +214,24 @@ class SQLiteStore:
             "select change_json from changes where tenant_id = ? order by id",
             (tenant_id,),
         )
-        return [json.loads(row["change_json"]) for row in rows]
+        return [_canonicalize_change(json.loads(row["change_json"])) for row in rows]
 
     def get_change(self, tenant_id: str, change_id: str) -> dict[str, Any] | None:
         row = self._fetchone(
             "select change_json from changes where tenant_id = ? and id = ?",
             (tenant_id, change_id),
         )
-        return json.loads(row["change_json"]) if row else None
+        return _canonicalize_change(json.loads(row["change_json"])) if row else None
 
     def save_change(self, change: dict[str, Any]) -> None:
+        change = _canonicalize_change(change)
         self._execute(
             "update changes set change_json = ? where id = ? and tenant_id = ?",
             (_json_dumps(change), change["id"], change["tenantId"]),
         )
 
     def add_change(self, change: dict[str, Any]) -> None:
+        change = _canonicalize_change(change)
         self._execute(
             "insert into changes(id, tenant_id, change_json) values (?, ?, ?)",
             (change["id"], change["tenantId"], _json_dumps(change)),
@@ -189,16 +242,17 @@ class SQLiteStore:
             "select run_json from runs where tenant_id = ? and change_id = ? order by rowid desc",
             (tenant_id, change_id),
         )
-        return [json.loads(row["run_json"]) for row in rows]
+        return [_canonicalize_run(json.loads(row["run_json"])) for row in rows]
 
     def get_run(self, tenant_id: str, run_id: str) -> dict[str, Any] | None:
         row = self._fetchone(
             "select run_json from runs where tenant_id = ? and id = ?",
             (tenant_id, run_id),
         )
-        return json.loads(row["run_json"]) if row else None
+        return _canonicalize_run(json.loads(row["run_json"])) if row else None
 
     def create_run(self, run: dict[str, Any]) -> None:
+        run = _canonicalize_run(run)
         self._execute(
             """
             insert into runs(id, change_id, tenant_id, kind, status, transport, thread_id, turn_id, memory_packet_json, run_json)
@@ -219,6 +273,7 @@ class SQLiteStore:
         )
 
     def update_run(self, run: dict[str, Any]) -> None:
+        run = _canonicalize_run(run)
         self._execute(
             """
             update runs

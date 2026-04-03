@@ -325,6 +325,80 @@ def test_memory_promotion_updates_tenant_memory_and_future_run_packets(
     assert matching_fact["status"] == "approved"
 
 
+def test_change_detail_normalizes_legacy_run_memory_packet_fact_shape(
+    client: TestClient,
+    app_env: dict[str, str],
+) -> None:
+    store = SQLiteStore(Path(app_env["CCC_DB_PATH"]))
+    run = store.get_run("tenant-demo", "run-30")
+    assert run is not None
+
+    run["memoryPacket"]["tenantMemory"]["facts"] = [
+        {
+            "title": "Legacy tenant fact",
+            "body": "Legacy run payload stored before canonical fact records landed.",
+        }
+    ]
+    with store._lock:
+        store._connection.execute(
+            "update runs set memory_packet_json = ?, run_json = ? where id = ?",
+            (
+                json.dumps(run["memoryPacket"]),
+                json.dumps(run),
+                "run-30",
+            ),
+        )
+        store._connection.commit()
+
+    response = client.get("/api/tenants/tenant-demo/changes/ch-142")
+    assert response.status_code == 200
+
+    facts = response.json()["runs"][0]["memoryPacket"]["tenantMemory"]["facts"]
+    assert len(facts) == 1
+    assert facts[0]["id"].startswith("fact-legacy-")
+    assert facts[0]["tenantId"] == "tenant-demo"
+    assert facts[0]["status"] == "approved"
+
+
+def test_run_creation_normalizes_legacy_tenant_memory_fact_shape(
+    make_client,
+    app_env: dict[str, str],
+) -> None:
+    script_path = Path(__file__).with_name("fake_stdio_app_server.py")
+    app_env["CCC_RUNTIME_TRANSPORT"] = "stdio"
+    app_env["CCC_RUNTIME_COMMAND"] = f"{sys.executable} {script_path}"
+    os.environ.update(app_env)
+
+    with make_client() as client:
+        store = SQLiteStore(Path(app_env["CCC_DB_PATH"]))
+        with store._lock:
+            store._connection.execute(
+                "update tenant_memory set fact_json = ? where id = ?",
+                (
+                    json.dumps(
+                        {
+                            "title": "Legacy promoted fact",
+                            "body": "Stored before canonical fact metadata was added.",
+                        }
+                    ),
+                    "fact-001",
+                ),
+            )
+            store._connection.commit()
+
+        response = client.post(
+            "/api/tenants/tenant-demo/changes/ch-150/runs",
+            json={"kind": "design"},
+        )
+
+    assert response.status_code == 201
+    facts = response.json()["run"]["memoryPacket"]["tenantMemory"]["facts"]
+    assert facts
+    assert facts[0]["id"].startswith("fact-legacy-")
+    assert facts[0]["tenantId"] == "tenant-demo"
+    assert facts[0]["status"] == "approved"
+
+
 def test_fact_promotion_rejects_empty_title_or_body(client: TestClient) -> None:
     response = client.post(
         "/api/tenants/tenant-demo/changes/ch-150/promotions",
