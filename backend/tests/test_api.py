@@ -25,6 +25,46 @@ def test_bootstrap_returns_real_backend_state(client: TestClient) -> None:
     assert any(change["id"] == "ch-142" for change in payload["changes"])
 
 
+def test_tenant_creation_persists_backend_owned_project_entry(client: TestClient) -> None:
+    response = client.post(
+        "/api/tenants",
+        json={
+            "name": "workspace-created-from-ui",
+            "repoPath": "/tmp/workspace-created-from-ui",
+            "description": "Created through the operator shell contract.",
+        },
+    )
+
+    assert response.status_code == 201
+    tenant = response.json()["tenant"]
+    assert tenant["id"].startswith("tenant-")
+    assert tenant["name"] == "workspace-created-from-ui"
+    assert tenant["repoPath"] == "/tmp/workspace-created-from-ui"
+
+    bootstrap = client.get("/api/bootstrap")
+    assert bootstrap.status_code == 200
+    assert bootstrap.json()["activeTenantId"] == "tenant-demo"
+    assert any(item["id"] == tenant["id"] for item in bootstrap.json()["tenants"])
+
+    changes = client.get(f"/api/tenants/{tenant['id']}/changes")
+    assert changes.status_code == 200
+    assert changes.json()["changes"] == []
+
+
+def test_tenant_creation_rejects_duplicate_repo_path(client: TestClient) -> None:
+    response = client.post(
+        "/api/tenants",
+        json={
+            "name": "duplicate-repo-path",
+            "repoPath": "/home/egor/code/change-control-center-ui",
+            "description": "Should fail because tenant-demo already owns this repo path.",
+        },
+    )
+
+    assert response.status_code == 409
+    assert "already exists" in response.json()["detail"]
+
+
 def test_change_detail_restores_contract_memory_and_focus(client: TestClient) -> None:
     response = client.get("/api/tenants/tenant-demo/changes/ch-142")
 
@@ -426,3 +466,53 @@ def test_tenant_scoping_prevents_cross_tenant_leakage(client: TestClient) -> Non
     payload = sandbox_detail.json()
     assert payload["tenantMemory"] == []
     assert payload["clarificationRounds"] == []
+
+
+def test_change_deletion_cascades_backend_owned_records(
+    make_client,
+    app_env: dict[str, str],
+) -> None:
+    script_path = Path(__file__).with_name("fake_stdio_app_server.py")
+    app_env["CCC_RUNTIME_TRANSPORT"] = "stdio"
+    app_env["CCC_RUNTIME_COMMAND"] = f"{sys.executable} {script_path}"
+    os.environ.update(app_env)
+
+    with make_client() as client:
+        create_response = client.post(
+            "/api/tenants/tenant-demo/changes",
+            json={"title": "Delete me from the operator shell"},
+        )
+        assert create_response.status_code == 201
+        change_id = create_response.json()["change"]["id"]
+
+        clarification_response = client.post(f"/api/tenants/tenant-demo/changes/{change_id}/clarifications/auto")
+        assert clarification_response.status_code == 201
+
+        run_response = client.post(
+            f"/api/tenants/tenant-demo/changes/{change_id}/runs",
+            json={"kind": "design"},
+        )
+        assert run_response.status_code == 201
+        run_id = run_response.json()["run"]["id"]
+        assert run_response.json()["approvals"]
+
+        delete_response = client.delete(f"/api/tenants/tenant-demo/changes/{change_id}")
+        assert delete_response.status_code == 200
+        assert delete_response.json() == {"deletedChangeId": change_id}
+
+        detail_response = client.get(f"/api/tenants/tenant-demo/changes/{change_id}")
+        assert detail_response.status_code == 404
+
+        run_detail_response = client.get(f"/api/tenants/tenant-demo/runs/{run_id}")
+        assert run_detail_response.status_code == 404
+
+        remaining_changes = client.get("/api/tenants/tenant-demo/changes")
+        assert remaining_changes.status_code == 200
+        assert change_id not in {change["id"] for change in remaining_changes.json()["changes"]}
+
+    store = SQLiteStore(Path(app_env["CCC_DB_PATH"]))
+    assert store.list_runs("tenant-demo", change_id) == []
+    assert store.list_evidence(change_id) == []
+    assert store.list_clarification_rounds("tenant-demo", change_id) == []
+    assert store.list_run_events(run_id) == []
+    assert store.list_approvals(run_id) == []

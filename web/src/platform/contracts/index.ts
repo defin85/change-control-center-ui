@@ -6,6 +6,8 @@ export {
   changesResponseSchema,
   clarificationRoundResponseSchema,
   createChangeResponseSchema,
+  createTenantResponseSchema,
+  deleteChangeResponseSchema,
   promotedFactResponseSchema,
   runDetailResponseSchema,
   runMutationResponseSchema,

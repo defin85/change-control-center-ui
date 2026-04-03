@@ -8,6 +8,7 @@ import type {
   RuntimeEvent,
   RunDetailResponse,
   RunRecord,
+  Tenant,
 } from "./types";
 import {
   approvalDecisionResponseSchema,
@@ -16,6 +17,8 @@ import {
   changesResponseSchema,
   clarificationRoundResponseSchema,
   createChangeResponseSchema,
+  createTenantResponseSchema,
+  deleteChangeResponseSchema,
   promotedFactResponseSchema,
   requestControlApi,
   runDetailResponseSchema,
@@ -24,6 +27,21 @@ import {
 
 export function fetchBootstrap(): Promise<BootstrapResponse> {
   return requestControlApi("/api/bootstrap", bootstrapResponseSchema);
+}
+
+export function createTenant(
+  name: string,
+  repoPath: string,
+  description?: string,
+): Promise<{ tenant: Tenant }> {
+  return requestControlApi("/api/tenants", createTenantResponseSchema, {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      repoPath,
+      description: description ?? "",
+    }),
+  });
 }
 
 export function fetchChanges(tenantId: string): Promise<{ changes: BootstrapResponse["changes"] }> {
@@ -111,6 +129,15 @@ export function createChange(
   return requestControlApi(`/api/tenants/${tenantId}/changes`, createChangeResponseSchema, {
     method: "POST",
     body: JSON.stringify(title ? { title } : {}),
+  });
+}
+
+export function deleteChange(
+  tenantId: string,
+  changeId: string,
+): Promise<{ deletedChangeId: string }> {
+  return requestControlApi(`/api/tenants/${tenantId}/changes/${changeId}`, deleteChangeResponseSchema, {
+    method: "DELETE",
   });
 }
 

@@ -1,3 +1,6 @@
+import type { FormEvent } from "react";
+import { useState } from "react";
+
 import type { BootstrapResponse } from "../../types";
 import { PlatformPrimitives } from "../foundation";
 import { useAsyncWorkflowCommandMachine } from "../workflow";
@@ -10,6 +13,7 @@ type WorkbenchHeaderProps = {
   searchQuery: string;
   tenants: BootstrapResponse["tenants"];
   onSearchQueryChange: (value: string) => void;
+  onCreateTenant: (name: string, repoPath: string, description: string) => Promise<void>;
   onCreateChange: () => Promise<void>;
   onRunNext: () => Promise<void>;
   onTenantChange: (tenantId: string) => Promise<void>;
@@ -23,16 +27,42 @@ export function WorkbenchHeader({
   searchQuery,
   tenants,
   onSearchQueryChange,
+  onCreateTenant,
   onCreateChange,
   onRunNext,
   onTenantChange,
 }: WorkbenchHeaderProps) {
+  const [isCreateTenantDialogOpen, setIsCreateTenantDialogOpen] = useState(false);
+  const [projectName, setProjectName] = useState("");
+  const [projectRepoPath, setProjectRepoPath] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
   const globalWorkflow = useAsyncWorkflowCommandMachine();
   const runNextClassName = hasVisibleContextualPrimaryAction ? "ghost-button header-secondary-action" : "primary-button";
   const toolbarItems = tenants.map((tenant) => ({
     label: tenant.name,
     value: tenant.id,
   }));
+  const normalizedProjectName = projectName.trim();
+  const normalizedProjectRepoPath = projectRepoPath.trim();
+  const normalizedProjectDescription = projectDescription.trim();
+  const canCreateTenant = normalizedProjectName.length > 0 && normalizedProjectRepoPath.length > 0;
+
+  function handleCreateTenantSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canCreateTenant || globalWorkflow.isPending) {
+      return;
+    }
+    globalWorkflow.runCommand({
+      label: "Create project",
+      execute: async () => {
+        await onCreateTenant(normalizedProjectName, normalizedProjectRepoPath, normalizedProjectDescription);
+        setProjectName("");
+        setProjectRepoPath("");
+        setProjectDescription("");
+        setIsCreateTenantDialogOpen(false);
+      },
+    });
+  }
 
   return (
     <header className="topbar" data-platform-surface="workbench-header">
@@ -55,6 +85,92 @@ export function WorkbenchHeader({
               type="search"
             />
           </label>
+          <PlatformPrimitives.Dialog.Root
+            open={isCreateTenantDialogOpen}
+            onOpenChange={(open) => {
+              if (!globalWorkflow.isPending) {
+                setIsCreateTenantDialogOpen(open);
+              }
+            }}
+          >
+            <PlatformPrimitives.Dialog.Trigger
+              type="button"
+              className="ghost-button"
+              data-platform-action="new-project"
+              disabled={globalWorkflow.isPending}
+            >
+              New project
+            </PlatformPrimitives.Dialog.Trigger>
+            <PlatformPrimitives.Dialog.Portal>
+              <PlatformPrimitives.Dialog.Backdrop className="modal-backdrop" />
+              <PlatformPrimitives.Dialog.Viewport className="modal-viewport">
+                <PlatformPrimitives.Dialog.Popup className="modal-popup">
+                  <div className="dialog-stack">
+                    <div className="dialog-header">
+                      <div className="stack">
+                        <p className="eyebrow">Tenant Authoring</p>
+                        <PlatformPrimitives.Dialog.Title>New project</PlatformPrimitives.Dialog.Title>
+                        <PlatformPrimitives.Dialog.Description className="muted">
+                          Register a backend-owned tenant entry for a new workspace before creating changes inside it.
+                        </PlatformPrimitives.Dialog.Description>
+                      </div>
+                    </div>
+                    <form className="dialog-form" onSubmit={handleCreateTenantSubmit}>
+                      <label className="field-stack">
+                        <span>Project name</span>
+                        <input
+                          aria-label="Project name"
+                          name="project-name"
+                          value={projectName}
+                          onChange={(event) => setProjectName(event.target.value)}
+                          placeholder="change-control-center-ui"
+                          type="text"
+                        />
+                      </label>
+                      <label className="field-stack">
+                        <span>Repository path</span>
+                        <input
+                          aria-label="Repository path"
+                          name="project-repo-path"
+                          value={projectRepoPath}
+                          onChange={(event) => setProjectRepoPath(event.target.value)}
+                          placeholder="/home/egor/code/new-project"
+                          type="text"
+                        />
+                      </label>
+                      <label className="field-stack">
+                        <span>Description</span>
+                        <textarea
+                          aria-label="Project description"
+                          name="project-description"
+                          value={projectDescription}
+                          onChange={(event) => setProjectDescription(event.target.value)}
+                          placeholder="Short backend-owned description for this tenant workspace."
+                        />
+                      </label>
+                      {globalWorkflow.error ? (
+                        <p className="governance-note" data-platform-governance="create-project-error">
+                          <strong>Project creation failed.</strong> {globalWorkflow.error}
+                        </p>
+                      ) : null}
+                      <div className="dialog-actions">
+                        <PlatformPrimitives.Dialog.Close
+                          type="button"
+                          className="ghost-button"
+                          disabled={globalWorkflow.isPending}
+                        >
+                          Cancel
+                        </PlatformPrimitives.Dialog.Close>
+                        <button type="submit" className="primary-button" disabled={!canCreateTenant || globalWorkflow.isPending}>
+                          Create project
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </PlatformPrimitives.Dialog.Popup>
+              </PlatformPrimitives.Dialog.Viewport>
+            </PlatformPrimitives.Dialog.Portal>
+          </PlatformPrimitives.Dialog.Root>
           <PlatformPrimitives.Toolbar.Button
             type="button"
             className="ghost-button"
@@ -108,6 +224,7 @@ export function WorkbenchHeader({
               aria-label="Tenant"
               className="tenant-select-trigger"
               data-platform-foundation="base-ui-select"
+              disabled={globalWorkflow.isPending}
             >
               <PlatformPrimitives.Select.Value placeholder="Choose tenant" />
               <PlatformPrimitives.Select.Icon className="tenant-select-icon">▾</PlatformPrimitives.Select.Icon>

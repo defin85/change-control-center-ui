@@ -17,6 +17,7 @@ type ChangeDetailProps = {
   onOpenRunStudio: () => void;
   onEscalate: () => Promise<void>;
   onBlockBySpec: () => Promise<void>;
+  onDeleteChange: () => Promise<void>;
   onCreateClarificationRound: () => Promise<void>;
   onAnswerClarificationRound: (roundId: string, answers: ClarificationAnswer[]) => Promise<void>;
   onSelectRun: (runId: string) => void;
@@ -138,6 +139,7 @@ export function ChangeDetail({
   onOpenRunStudio,
   onEscalate,
   onBlockBySpec,
+  onDeleteChange,
   onCreateClarificationRound,
   onAnswerClarificationRound,
   onSelectRun,
@@ -146,6 +148,7 @@ export function ChangeDetail({
 }: ChangeDetailProps) {
   const [factTitle, setFactTitle] = useState("");
   const [factBody, setFactBody] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const actionWorkflow = useAsyncWorkflowCommandMachine();
   const factPromotionWorkflow = useAsyncWorkflowCommandMachine();
   const traceabilityTable = PlatformTable.useReactTable({
@@ -248,6 +251,71 @@ export function ChangeDetail({
           >
             Mark blocked by spec
           </PlatformPrimitives.Button>
+          <PlatformPrimitives.AlertDialog.Root
+            open={isDeleteDialogOpen}
+            onOpenChange={(open) => {
+              if (!actionWorkflow.isPending) {
+                setIsDeleteDialogOpen(open);
+              }
+            }}
+          >
+            <PlatformPrimitives.AlertDialog.Trigger
+              type="button"
+              className="destructive-button"
+              data-platform-action="delete-change"
+              disabled={actionWorkflow.isPending}
+            >
+              Delete change
+            </PlatformPrimitives.AlertDialog.Trigger>
+            <PlatformPrimitives.AlertDialog.Portal>
+              <PlatformPrimitives.AlertDialog.Backdrop className="modal-backdrop" />
+              <PlatformPrimitives.AlertDialog.Viewport className="modal-viewport">
+                <PlatformPrimitives.AlertDialog.Popup className="modal-popup">
+                  <div className="dialog-stack">
+                    <div className="dialog-header">
+                      <div className="stack">
+                        <p className="eyebrow">Destructive action</p>
+                        <PlatformPrimitives.AlertDialog.Title>Delete {change.id}</PlatformPrimitives.AlertDialog.Title>
+                        <PlatformPrimitives.AlertDialog.Description className="muted">
+                          Removing this change also removes its runs, approvals, evidence, and clarification rounds from
+                          backend-owned state.
+                        </PlatformPrimitives.AlertDialog.Description>
+                      </div>
+                    </div>
+                    <div className="stack">
+                      <p className="muted">This action cannot be undone from the operator shell.</p>
+                      <div className="dialog-actions">
+                        <PlatformPrimitives.AlertDialog.Close
+                          type="button"
+                          className="ghost-button"
+                          disabled={actionWorkflow.isPending}
+                        >
+                          Cancel
+                        </PlatformPrimitives.AlertDialog.Close>
+                        <button
+                          type="button"
+                          className="destructive-button"
+                          data-platform-action="confirm-delete-change"
+                          disabled={actionWorkflow.isPending}
+                          onClick={() =>
+                            actionWorkflow.runCommand({
+                              label: "Delete change",
+                              execute: async () => {
+                                await onDeleteChange();
+                                setIsDeleteDialogOpen(false);
+                              },
+                            })
+                          }
+                        >
+                          Delete change
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </PlatformPrimitives.AlertDialog.Popup>
+              </PlatformPrimitives.AlertDialog.Viewport>
+            </PlatformPrimitives.AlertDialog.Portal>
+          </PlatformPrimitives.AlertDialog.Root>
         </>
       }
     >

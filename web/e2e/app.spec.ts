@@ -151,6 +151,27 @@ test("wires the approved foundations on the default operator path @platform", as
   await expect(page.locator('[data-platform-foundation="platform-clarification-textarea"]')).toHaveCount(1);
 });
 
+test("creates a new project from the header and switches to its empty tenant workspace @platform", async ({ page }) => {
+  const projectName = uniqueTitle("Workspace seed");
+  const repoPath = `/tmp/${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
+  await page.goto("/");
+  await page.locator("header").getByRole("button", { name: "New project" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New project" });
+  await dialog.getByLabel("Project name").fill(projectName);
+  await dialog.getByLabel("Repository path").fill(repoPath);
+  await dialog.getByLabel("Project description").fill("Created from the operator header.");
+  await dialog.getByRole("button", { name: "Create project" }).click();
+
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByLabel("Tenant")).toContainText(projectName);
+  await expect(page.locator(".toast")).toContainText(`Created project ${projectName}.`);
+  await expect(page.locator(".queue-panel .empty-state")).toContainText("No changes match the current slice.");
+  await expect(page.locator(".hero-ribbon")).toContainText(repoPath);
+  await expect(page).toHaveURL(/tenant=tenant-/);
+});
+
 test("aligns document language and form semantics on the backend-served shell @platform", async ({ page }) => {
   const change = await createIsolatedChange(page, "Locale semantics proof");
   const createRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
@@ -447,11 +468,13 @@ test("keeps global header mutations behind an explicit workflow pending boundary
   const header = page.locator("header");
   const runNext = header.getByRole("button", { name: "Run next step" });
   const newChange = header.getByRole("button", { name: "New change" });
+  const newProject = header.getByRole("button", { name: "New project" });
 
   await runNext.click();
 
   await expect(runNext).toBeDisabled();
   await expect(newChange).toBeDisabled();
+  await expect(newProject).toBeDisabled();
   await expect(page.locator('[data-platform-governance="global-command-pending"]')).toContainText("Run next step");
   await expect.poll(() => delayedRunNext !== null).toBe(true);
   await delayedRunNext;
@@ -490,6 +513,24 @@ test("fails closed on run studio entry until a backend-owned run exists @platfor
   await page.getByRole("button", { name: /ch-142/i }).click();
 
   await expect(openRunStudio).toBeEnabled();
+});
+
+test("deletes the selected change through an explicit confirmation flow @platform", async ({ page }) => {
+  const change = await openIsolatedChange(page, "Delete flow");
+
+  await page.getByLabel("Search").fill(change.title);
+  const detailActions = page.locator(".detail-stage .detail-panel").first();
+  await detailActions.getByRole("button", { name: "Delete change" }).click();
+
+  const dialog = page.getByRole("alertdialog", { name: new RegExp(`Delete ${change.id}`, "i") });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete change" }).click();
+
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".toast")).toContainText(`Deleted ${change.id}.`);
+  await expect(page.locator(".queue-panel .empty-state")).toContainText("No changes match the current slice.");
+  await expect(page.locator(`[data-change-id="${change.id}"]`)).toHaveCount(0);
+  await expect(page).not.toHaveURL(new RegExp(`change=${change.id}`));
 });
 
 test("fails closed on clarification submission until an answer is selected @platform", async ({ page }) => {

@@ -23,6 +23,7 @@ from backend.app.domain import (
     create_change,
     create_auto_clarification_round,
     create_pending_run,
+    create_tenant,
     create_tenant_fact,
     curated_memory_packet,
     escalate_change,
@@ -41,6 +42,14 @@ class RunCreateRequest(BaseModel):
 
 class ChangeCreateRequest(BaseModel):
     title: str | None = None
+
+
+class TenantCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: str = Field(min_length=1)
+    repoPath: str = Field(min_length=1)
+    description: str = ""
 
 
 class ClarificationAnswerItem(BaseModel):
@@ -227,6 +236,15 @@ def create_app(
             raise HTTPException(status_code=503, detail=current_artifact.detail)
         return FileResponse(current_artifact.index_html)
 
+    @app.post("/api/tenants", status_code=201)
+    def create_tenant_entry(request: TenantCreateRequest) -> dict[str, Any]:
+        tenant = create_tenant(request.name, request.repoPath, request.description)
+        try:
+            store.add_tenant(tenant)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"tenant": tenant}
+
     @app.get("/api/bootstrap")
     def get_bootstrap() -> dict[str, Any]:
         tenants = store.list_tenants()
@@ -261,6 +279,18 @@ def create_app(
         store.add_change(change)
         await event_hub.broadcast(tenant_id, {"type": "change-created", "changeId": change["id"]})
         return {"change": change}
+
+    @app.delete("/api/tenants/{tenant_id}/changes/{change_id}")
+    async def delete_change_entry(tenant_id: str, change_id: str) -> dict[str, Any]:
+        tenant = store.get_tenant(tenant_id)
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        change = store.get_change(tenant_id, change_id)
+        if not change:
+            raise HTTPException(status_code=404, detail="Change not found")
+        store.delete_change(tenant_id, change_id)
+        await event_hub.broadcast(tenant_id, {"type": "change-deleted", "changeId": change_id})
+        return {"deletedChangeId": change_id}
 
     @app.get("/api/tenants/{tenant_id}/changes/{change_id}")
     def get_change_detail(tenant_id: str, change_id: str) -> dict[str, Any]:

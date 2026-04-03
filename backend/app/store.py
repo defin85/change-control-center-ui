@@ -188,12 +188,28 @@ class SQLiteStore:
             self._connection.commit()
 
     def list_tenants(self) -> list[dict[str, Any]]:
-        rows = self._fetchall("select tenant_json from tenants order by id")
+        rows = self._fetchall("select tenant_json from tenants order by rowid")
         return [json.loads(row["tenant_json"]) for row in rows]
 
     def get_tenant(self, tenant_id: str) -> dict[str, Any] | None:
         row = self._fetchone("select tenant_json from tenants where id = ?", (tenant_id,))
         return json.loads(row["tenant_json"]) if row else None
+
+    def add_tenant(self, tenant: dict[str, Any]) -> None:
+        with self._lock:
+            existing = self._connection.execute("select tenant_json from tenants").fetchall()
+            for row in existing:
+                current = json.loads(row["tenant_json"])
+                if current["id"] == tenant["id"]:
+                    raise ValueError(f"Tenant {tenant['id']} already exists")
+                if current["repoPath"] == tenant["repoPath"]:
+                    raise ValueError(f"Tenant repo path {tenant['repoPath']} already exists")
+
+            self._connection.execute(
+                "insert into tenants(id, tenant_json) values (?, ?)",
+                (tenant["id"], _json_dumps(tenant)),
+            )
+            self._connection.commit()
 
     def list_tenant_memory(self, tenant_id: str) -> list[dict[str, Any]]:
         rows = self._fetchall(
@@ -236,6 +252,50 @@ class SQLiteStore:
             "insert into changes(id, tenant_id, change_json) values (?, ?, ?)",
             (change["id"], change["tenantId"], _json_dumps(change)),
         )
+
+    def delete_change(self, tenant_id: str, change_id: str) -> bool:
+        with self._lock:
+            change = self._connection.execute(
+                "select id from changes where tenant_id = ? and id = ?",
+                (tenant_id, change_id),
+            ).fetchone()
+            if not change:
+                return False
+
+            run_rows = self._connection.execute(
+                "select id from runs where tenant_id = ? and change_id = ?",
+                (tenant_id, change_id),
+            ).fetchall()
+            run_ids = [row["id"] for row in run_rows]
+            if run_ids:
+                placeholders = ",".join("?" for _ in run_ids)
+                self._connection.execute(
+                    f"delete from approval_requests where run_id in ({placeholders})",
+                    tuple(run_ids),
+                )
+                self._connection.execute(
+                    f"delete from run_events where run_id in ({placeholders})",
+                    tuple(run_ids),
+                )
+
+            self._connection.execute(
+                "delete from evidence_artifacts where change_id = ?",
+                (change_id,),
+            )
+            self._connection.execute(
+                "delete from clarification_rounds where tenant_id = ? and change_id = ?",
+                (tenant_id, change_id),
+            )
+            self._connection.execute(
+                "delete from runs where tenant_id = ? and change_id = ?",
+                (tenant_id, change_id),
+            )
+            self._connection.execute(
+                "delete from changes where tenant_id = ? and id = ?",
+                (tenant_id, change_id),
+            )
+            self._connection.commit()
+            return True
 
     def list_runs(self, tenant_id: str, change_id: str) -> list[dict[str, Any]]:
         rows = self._fetchall(

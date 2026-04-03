@@ -273,6 +273,14 @@ export const createChangeResponseSchema = strictObject({
   change: changeDetailSchema,
 });
 
+export const createTenantResponseSchema = strictObject({
+  tenant: tenantSchema,
+});
+
+export const deleteChangeResponseSchema = strictObject({
+  deletedChangeId: z.string(),
+});
+
 export const approvalDecisionResponseSchema = strictObject({
   approval: approvalRecordSchema,
 });

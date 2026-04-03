@@ -451,6 +451,15 @@ def create_tenant_fact(tenant_id: str, payload: dict[str, Any]) -> dict[str, Any
     }
 
 
+def create_tenant(name: str, repo_path: str, description: str | None = None) -> dict[str, Any]:
+    return {
+        "id": f"tenant-{uuid.uuid4().hex[:8]}",
+        "name": name,
+        "repoPath": repo_path,
+        "description": description or "",
+    }
+
+
 def build_approval_record(tenant_id: str, run_id: str, event: dict[str, Any], index: int) -> dict[str, Any]:
     payload = event["payload"]
     return {

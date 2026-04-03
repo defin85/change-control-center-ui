@@ -5,7 +5,9 @@ import {
   blockChangeBySpec,
   createChange,
   createClarificationRound,
+  createTenant,
   decideApproval,
+  deleteChange,
   escalateChange,
   fetchBootstrap,
   fetchChangeDetail,
@@ -51,6 +53,7 @@ type OperatorServerStateResult =
 
 const QUEUE_REFRESH_EVENT_TYPES = new Set([
   "change-created",
+  "change-deleted",
   "change-escalated",
   "change-blocked-by-spec",
   "clarification-created",
@@ -62,6 +65,7 @@ const QUEUE_REFRESH_EVENT_TYPES = new Set([
 ]);
 
 const CHANGE_REFRESH_EVENT_TYPES = new Set([
+  "change-deleted",
   "change-escalated",
   "change-blocked-by-spec",
   "clarification-created",
@@ -80,6 +84,11 @@ const RUN_REFRESH_EVENT_TYPES = new Set([
 ]);
 
 type RefreshCurrentChangeFailureMode = "global" | "throw";
+type RefreshCurrentChangeOptions = {
+  preferredRunId?: string | null;
+  onFailure?: RefreshCurrentChangeFailureMode;
+  missingSelectionToast?: string | null;
+};
 
 export function useOperatorServerState(): OperatorServerStateResult {
   const [initialRouteState] = useState(() => readOperatorRouteState(window.location.search));
@@ -123,6 +132,10 @@ export function useOperatorServerState(): OperatorServerStateResult {
       activeTenantRef.current === tenantId &&
       (changeId === undefined || selectedChangeRef.current === changeId)
     );
+  }
+
+  function isActiveTenantOrchestration(version: number, tenantId: string) {
+    return orchestrationVersionRef.current === version && activeTenantRef.current === tenantId;
   }
 
   function resolveOperatorError(reason: unknown) {
@@ -181,27 +194,27 @@ export function useOperatorServerState(): OperatorServerStateResult {
   async function refreshCurrentChange(
     tenantId: string,
     changeId: string,
-    options?: {
-      preferredRunId?: string | null;
-      onFailure?: RefreshCurrentChangeFailureMode;
-    },
+    options?: RefreshCurrentChangeOptions,
   ) {
     const flowVersion = beginOrchestration();
     const preferredRunId = options?.preferredRunId;
     const onFailure = options?.onFailure ?? "global";
+    const missingSelectionToast =
+      options?.missingSelectionToast === undefined
+        ? `Selected change ${changeId} is no longer visible in the active queue context.`
+        : options.missingSelectionToast;
+    let queueSnapshot: BootstrapResponse["changes"] | null = null;
 
     try {
-      const [changesPayload, detailPayload] = await Promise.all([
-        fetchChanges(tenantId),
-        fetchChangeDetail(tenantId, changeId),
-      ]);
-      if (!isActiveOrchestration(flowVersion, tenantId, changeId)) {
+      const changesPayload = await fetchChanges(tenantId);
+      queueSnapshot = changesPayload.changes;
+      if (!isActiveTenantOrchestration(flowVersion, tenantId)) {
         return;
       }
 
-      setChanges(changesPayload.changes);
+      setChanges(queueSnapshot);
       const nextSelectedChangeId = resolveVisibleChangeSelection(
-        changesPayload.changes,
+        queueSnapshot,
         {
           activeViewId,
           activeFilterId,
@@ -212,20 +225,38 @@ export function useOperatorServerState(): OperatorServerStateResult {
       );
       if (nextSelectedChangeId !== changeId) {
         selectChange(nextSelectedChangeId);
-        if (!nextSelectedChangeId) {
-          setToast(`Selected change ${changeId} is no longer visible in the active queue context.`);
+        if (missingSelectionToast) {
+          setToast(missingSelectionToast);
         }
         return;
       }
 
-      applyDetailPayload(detailPayload, preferredRunId ?? null);
-    } catch (reason) {
+      const detailPayload = await fetchChangeDetail(tenantId, changeId);
       if (!isActiveOrchestration(flowVersion, tenantId, changeId)) {
         return;
       }
+      applyDetailPayload(detailPayload, preferredRunId ?? null);
+    } catch (reason) {
+      if (!isActiveTenantOrchestration(flowVersion, tenantId)) {
+        return;
+      }
       if (isMissingSelectedChange(reason)) {
-        selectChange(null);
-        setToast(`Selected change ${changeId} is no longer available for this tenant.`);
+        const fallbackChangeId = queueSnapshot
+          ? resolveVisibleChangeSelection(
+              queueSnapshot,
+              {
+                activeViewId,
+                activeFilterId,
+                searchQuery,
+              },
+              null,
+              shouldAutoSelectChange,
+            )
+          : null;
+        selectChange(fallbackChangeId);
+        if (missingSelectionToast) {
+          setToast(missingSelectionToast);
+        }
         return;
       }
       if (onFailure === "throw") {
@@ -479,46 +510,33 @@ export function useOperatorServerState(): OperatorServerStateResult {
         setRealtimeNotice(null);
         return;
       }
-      const flowVersion =
-        shouldRefreshSelectedChange || shouldRefreshSelectedRun ? beginOrchestration() : orchestrationVersionRef.current;
 
       try {
-        const [queuePayload, detailPayload] = await Promise.all([
-          shouldRefreshQueue ? fetchChanges(targetTenantId) : Promise.resolve(null),
-          shouldRefreshSelectedChange && targetChangeId
-            ? fetchChangeDetail(targetTenantId, targetChangeId)
-            : Promise.resolve(null),
-        ]);
-        if (!isActiveOrchestration(flowVersion, targetTenantId, targetChangeId)) {
-          return;
-        }
+        if (shouldRefreshSelectedChange && targetChangeId) {
+          await refreshCurrentChange(targetTenantId, targetChangeId, {
+            preferredRunId: targetRunId ?? null,
+            onFailure: "throw",
+          });
+          const nextRunId = selectedRunRef.current;
+          if (shouldRefreshSelectedRun && nextRunId) {
+            await refreshRunDetail(targetTenantId, nextRunId);
+          }
+        } else {
+          if (shouldRefreshQueue) {
+            const queuePayload = await fetchChanges(targetTenantId);
+            if (activeTenantRef.current !== targetTenantId) {
+              return;
+            }
+            setChanges(queuePayload.changes);
+          }
 
-        setRealtimeNotice(null);
-        if (queuePayload) {
-          setChanges(queuePayload.changes);
-        }
-
-        if (!detailPayload || !targetChangeId) {
           if (shouldRefreshSelectedRun && targetRunId) {
             await refreshRunDetail(targetTenantId, targetRunId);
           }
-          return;
         }
-
-        const preferredRunId = detailPayload.runs.some((run) => run.id === targetRunId)
-          ? targetRunId
-          : detailPayload.runs[0]?.id ?? null;
-        applyDetailPayload(detailPayload, preferredRunId);
-        if (preferredRunId && shouldRefreshSelectedRun) {
-          await refreshRunDetail(targetTenantId, preferredRunId);
-        }
+        setRealtimeNotice(null);
       } catch (reason) {
-        if (!isActiveOrchestration(flowVersion, targetTenantId, targetChangeId)) {
-          return;
-        }
-        if (targetChangeId && isMissingSelectedChange(reason)) {
-          selectChange(null);
-          setToast(`Selected change ${targetChangeId} is no longer available for this tenant.`);
+        if (activeTenantRef.current !== targetTenantId) {
           return;
         }
         throw reason;
@@ -598,6 +616,16 @@ export function useOperatorServerState(): OperatorServerStateResult {
       ...current,
       [runCacheKey]: payload.events,
     }));
+    setDetail((current) => {
+      if (!current || current.change.id !== targetChangeId) {
+        return current;
+      }
+      return {
+        ...current,
+        change: payload.change,
+        runs: [payload.run, ...current.runs.filter((run) => run.id !== payload.run.id)],
+      };
+    });
     await refreshCurrentChange(targetTenantId, targetChangeId, {
       preferredRunId: payload.run.id,
       onFailure: refreshFailureMode,
@@ -656,6 +684,37 @@ export function useOperatorServerState(): OperatorServerStateResult {
     setToast(`Created ${payload.change.id}.`);
   }
 
+  async function handleCreateTenant(name: string, repoPath: string, description: string) {
+    const flowVersion = beginOrchestration();
+    historyModeRef.current = "push";
+    setRealtimeNotice(null);
+    setError(null);
+
+    const payload = await createTenant(name, repoPath, description);
+    const [bootstrapPayload, changesPayload] = await Promise.all([
+      fetchBootstrap(),
+      fetchChanges(payload.tenant.id),
+    ]);
+    if (orchestrationVersionRef.current !== flowVersion) {
+      return;
+    }
+
+    setBootstrap(bootstrapPayload);
+    setActiveTenantId(payload.tenant.id);
+    activeTenantRef.current = payload.tenant.id;
+    setChanges(changesPayload.changes);
+    setActiveViewId(DEFAULT_OPERATOR_VIEW_ID);
+    setActiveFilterId(DEFAULT_OPERATOR_FILTER_ID);
+    setSearchQuery("");
+    setActiveTabId(DEFAULT_OPERATOR_TAB_ID);
+    selectChange(resolveVisibleChangeSelection(changesPayload.changes, {
+      activeViewId: DEFAULT_OPERATOR_VIEW_ID,
+      activeFilterId: DEFAULT_OPERATOR_FILTER_ID,
+      searchQuery: "",
+    }, null, shouldAutoSelectChange));
+    setToast(`Created project ${payload.tenant.name}.`);
+  }
+
   async function handleEscalate() {
     if (!activeTenantId || !activeSelectedChangeId) {
       return;
@@ -676,6 +735,20 @@ export function useOperatorServerState(): OperatorServerStateResult {
     await blockChangeBySpec(targetTenantId, targetChangeId);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
     setToast(`Blocked ${targetChangeId} by spec.`);
+  }
+
+  async function handleDeleteChange() {
+    if (!activeTenantId || !activeSelectedChangeId) {
+      return;
+    }
+    const targetTenantId = activeTenantId;
+    const targetChangeId = activeSelectedChangeId;
+    await deleteChange(targetTenantId, targetChangeId);
+    await refreshCurrentChange(targetTenantId, targetChangeId, {
+      onFailure: "throw",
+      missingSelectionToast: null,
+    });
+    setToast(`Deleted ${targetChangeId}.`);
   }
 
   async function handleCreateClarificationRound() {
@@ -819,6 +892,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       realtimeNotice,
       toast,
       onSearchQueryChange: handleSearchQueryChange,
+      onCreateTenant: handleCreateTenant,
       onCreateChange: handleCreateChange,
       onGlobalRunNext: handleGlobalRunNext,
       onRunNext: handleDetailRunNext,
@@ -830,6 +904,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       onOpenRunStudio: handleOpenRunStudio,
       onEscalate: handleEscalate,
       onBlockBySpec: handleBlockBySpec,
+      onDeleteChange: handleDeleteChange,
       onCreateClarificationRound: handleCreateClarificationRound,
       onAnswerClarificationRound: handleAnswerClarificationRound,
       onSelectRun: handleSelectRun,

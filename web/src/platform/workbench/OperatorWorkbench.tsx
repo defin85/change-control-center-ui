@@ -40,6 +40,7 @@ export type OperatorWorkbenchProps = {
   realtimeNotice?: string | null;
   toast?: string | null;
   onSearchQueryChange: (value: string) => void;
+  onCreateTenant: (name: string, repoPath: string, description: string) => Promise<void>;
   onCreateChange: () => Promise<void>;
   onGlobalRunNext: () => Promise<void>;
   onRunNext: () => Promise<void>;
@@ -51,6 +52,7 @@ export type OperatorWorkbenchProps = {
   onOpenRunStudio: () => void;
   onEscalate: () => Promise<void>;
   onBlockBySpec: () => Promise<void>;
+  onDeleteChange: () => Promise<void>;
   onCreateClarificationRound: () => Promise<void>;
   onAnswerClarificationRound: (roundId: string, answers: ClarificationAnswer[]) => Promise<void>;
   onSelectRun: (runId: string) => void;
@@ -96,6 +98,7 @@ export function OperatorWorkbench({
   realtimeNotice,
   toast,
   onSearchQueryChange,
+  onCreateTenant,
   onCreateChange,
   onGlobalRunNext,
   onRunNext,
@@ -107,6 +110,7 @@ export function OperatorWorkbench({
   onOpenRunStudio,
   onEscalate,
   onBlockBySpec,
+  onDeleteChange,
   onCreateClarificationRound,
   onAnswerClarificationRound,
   onSelectRun,
@@ -156,6 +160,7 @@ export function OperatorWorkbench({
           searchQuery={searchQuery}
           tenants={bootstrap.tenants}
           onSearchQueryChange={onSearchQueryChange}
+          onCreateTenant={onCreateTenant}
           onCreateChange={onCreateChange}
           onRunNext={onGlobalRunNext}
           onTenantChange={onTenantChange}
@@ -220,6 +225,7 @@ export function OperatorWorkbench({
               onOpenRunStudio={onOpenRunStudio}
               onEscalate={onEscalate}
               onBlockBySpec={onBlockBySpec}
+              onDeleteChange={onDeleteChange}
               onCreateClarificationRound={onCreateClarificationRound}
               onAnswerClarificationRound={onAnswerClarificationRound}
               onSelectRun={onSelectRun}
