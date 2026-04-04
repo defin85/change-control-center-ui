@@ -104,6 +104,35 @@ For more details, see README.md and docs/agent/verification.md.
 
 <!-- END BEADS INTEGRATION -->
 
+## Search Playbook
+
+Search order:
+
+1. `mcp__claude_context__search_code`, if available in the current environment
+2. `rg`
+3. `rg --files`
+4. Targeted file reads
+
+Optional sidecar: `rlm-tools`
+
+- Use `rlm-tools` only for low-context exploration when broad grep or file reads would dump too much raw text into the conversation.
+- Treat `rlm-tools` output as exploratory evidence, not final proof. Confirm final facts with direct file evidence.
+- Close exploration sessions with `rlm_end(session_id)` when finished.
+
+Checklist:
+
+1. Formulate the first query as `component + action + context`.
+2. Keep the first pass narrow: `limit: 6-10` or equivalent scope.
+3. Set `extensionFilter` early when semantic search is available:
+   - Python backend and repo scripts: `.py`, `.sh`
+   - Web app and Playwright coverage: `.ts`, `.tsx`, `.css`
+   - Agent docs, specs, and runbooks: `.md`
+4. Narrow scope early to `backend/`, `web/`, `scripts/`, `docs/agent/`, `openspec/`, `README.md`, and `AGENTS.md`.
+5. Use the canonical repo root `/home/egor/code/change-control-center-ui/` for semantic indexing tools.
+6. Confirm important implementation facts in at least two sources: code + test/spec/docs.
+7. Do not treat plans, TODO/checklists, issue status, or OpenSpec task state as proof that behavior is implemented.
+8. For OpenSpec-driven work, use [openspec/AGENTS.md](/home/egor/code/change-control-center-ui/openspec/AGENTS.md) as the authority and treat full-text search as fallback.
+
 ## UI verification contract
 
 - Для UI-affecting и backend-served UI изменений используйте [docs/agent/verification.md](/home/egor/code/change-control-center-ui/docs/agent/verification.md) как канонический source of truth.
