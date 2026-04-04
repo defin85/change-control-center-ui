@@ -95,7 +95,10 @@ bd automatically syncs with git:
 - ✅ Use bd for ALL task tracking
 - ✅ Always use `--json` flag for programmatic use
 - ✅ Link discovered work with `discovered-from` dependencies
+- ✅ Use `bd vc status` / `bd vc commit` for Beads VC in this repository
 - ✅ Check `bd ready` before asking "what should I work on?"
+- ❌ Do NOT use `bd sync` as a sync step; it is deprecated
+- ❌ Do NOT use `bd dolt pull/push` in this repository; `.beads/metadata.json` declares `dolt_mode: "server"`
 - ❌ Do NOT create markdown TODO lists
 - ❌ Do NOT use external issue trackers
 - ❌ Do NOT duplicate tracking systems
@@ -171,7 +174,8 @@ Checklist:
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync
+   bd vc status
+   bd vc commit -m "Describe beads changes"  # if `bd vc status` shows pending VC changes
    git push
    git status  # MUST show "up to date with origin"
    ```
