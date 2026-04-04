@@ -44,7 +44,7 @@ The current goal of the repository is to replace the legacy static prototype wit
   - `backend/sidecar/*` owns transport-specific communication with `codex app-server`
 - The backend talks to the runtime sidecar over an internal HTTP contract. The UI never connects directly to Codex transport endpoints.
 - The sidecar must support both `stdio` and `websocket` transports without changing product-facing backend contracts.
-- The legacy static prototype in `index.html`, `styles.css`, and `app.js` is a reference artifact only, not the primary application path.
+- Legacy prototype artifacts live under `legacy/prototype/` or in git history and are reference-only, not the primary application path.
 
 ### Testing Strategy
 - For behavior changes in backend APIs or runtime integration, prefer test-first where practical.
@@ -58,8 +58,7 @@ The current goal of the repository is to replace the legacy static prototype wit
 - Frontend browser coverage lives in `web/e2e/` and should exercise critical operator flows against the real backend entrypoint.
 - Minimum relevant verification for changes in this repo:
   - `uv run pytest backend/tests -q`
-  - `npm run build` in `web/`
-  - `npm run test:e2e` in `web/` when UI behavior or integration paths change
+  - `bash ./scripts/ccc verify ui-smoke` when UI behavior or integration paths change
 
 ### Git Workflow
 - Use OpenSpec as the planning gate for new features, architectural changes, breaking API changes, and new capabilities.
@@ -94,4 +93,4 @@ The current goal of the repository is to replace the legacy static prototype wit
 - OpenSpec is the source of truth for planned changes and capability deltas.
 - SQLite is the current persistence layer for the application foundation stage.
 - Playwright is the primary browser-level acceptance test tool.
-- The legacy prototype remains in-repo for reference during migration but should not be treated as the active product architecture.
+- Legacy prototype references remain under `legacy/prototype/` or in git history and should not be treated as the active product architecture.

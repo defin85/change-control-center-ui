@@ -45,11 +45,20 @@ def test_ui_readiness_contract_rejects_reused_backend_server() -> None:
 
 def test_ui_readiness_contract_rejects_missing_launcher_entrypoint() -> None:
     inputs = _current_inputs()
-    inputs["playwright_config_text"] = inputs["playwright_config_text"].replace(
-        "bash ./scripts/ccc build web && bash ./scripts/ccc start e2e --foreground",
-        "npm run build && npm run test:e2e",
+    inputs["launcher_text"] = inputs["launcher_text"].replace(
+        "verify <ui-smoke|ui-platform|ui-full>",
+        "verify <ui-smoke|ui-platform>",
     )
 
     errors = collect_ui_readiness_errors(**inputs)
 
-    assert any("bash ./scripts/ccc build web && bash ./scripts/ccc start e2e --foreground" in error for error in errors)
+    assert any("verify <ui-smoke|ui-platform|ui-full>" in error for error in errors)
+
+
+def test_ui_readiness_contract_requires_repo_owned_verify_entrypoint_in_docs() -> None:
+    inputs = _current_inputs()
+    inputs["doc_text"] = inputs["doc_text"].replace("bash ./scripts/ccc verify ui-smoke", "npm run test:e2e")
+
+    errors = collect_ui_readiness_errors(**inputs)
+
+    assert any("bash ./scripts/ccc verify ui-smoke" in error for error in errors)

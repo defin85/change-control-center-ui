@@ -12,6 +12,8 @@ if str(ROOT) not in sys.path:
 from backend.app.ui_delivery import ASSETS_DIR_NAME, BUILD_COMMAND, DEFAULT_WEB_DIST, INDEX_HTML_NAME
 
 DOC_PATH = ROOT / "docs/agent/verification.md"
+DOC_INDEX_PATH = ROOT / "docs/agent/index.md"
+ARCHITECTURE_DOC_PATH = ROOT / "docs/architecture/overview.md"
 README_PATH = ROOT / "README.md"
 AGENTS_PATH = ROOT / "AGENTS.md"
 PACKAGE_JSON_PATH = ROOT / "web/package.json"
@@ -39,6 +41,9 @@ def collect_ui_readiness_errors(
     errors: list[str] = []
 
     docs_snippets = [
+        "bash ./scripts/ccc verify ui-smoke",
+        "bash ./scripts/ccc verify ui-platform",
+        "bash ./scripts/ccc verify ui-full",
         "uv run pytest backend/tests -q",
         "npm run lint",
         "npm run build",
@@ -59,16 +64,14 @@ def collect_ui_readiness_errors(
         readme_text,
         [
             "docs/agent/verification.md",
+            "docs/agent/index.md",
+            "docs/architecture/overview.md",
+            "bash ./scripts/ccc verify ui-smoke",
+            "bash ./scripts/ccc verify ui-platform",
+            "bash ./scripts/ccc verify ui-full",
             "uv run pytest backend/tests -q",
-            "npm run lint",
-            "npm run build",
-            "npm run test:e2e",
-            "npm run test:e2e:platform",
-            "must not reuse an already running backend-served stack",
-            "bash ./scripts/ccc build web",
-            "bash ./scripts/ccc start served",
-            "bash ./scripts/ccc start dev",
-            "bash ./scripts/ccc stop all",
+            "uv run python scripts/check_ui_readiness.py",
+            "legacy/prototype/README.md",
         ],
         errors,
     )
@@ -76,15 +79,22 @@ def collect_ui_readiness_errors(
         str(AGENTS_PATH.relative_to(ROOT)),
         agents_text,
         [
+            "docs/agent/index.md",
             "docs/agent/verification.md",
-            "default smoke path",
-            "npm run lint",
-            "npm run test:e2e:platform",
-            "must not reuse an already running backend-served stack",
-            "bash ./scripts/ccc",
+            "docs/agent/search.md",
+            "docs/agent/session-completion.md",
+            "backend/AGENTS.md",
+            "web/AGENTS.md",
+            "scripts/AGENTS.md",
+            "legacy/AGENTS.md",
+            "bash ./scripts/ccc verify ui-smoke",
         ],
         errors,
     )
+
+    for doc_path in [DOC_INDEX_PATH, ARCHITECTURE_DOC_PATH]:
+        if not doc_path.exists():
+            errors.append(f"required onboarding document missing: {doc_path.relative_to(ROOT)}")
 
     package_json = json.loads(package_json_text)
     scripts = package_json.get("scripts", {})
@@ -121,6 +131,11 @@ def collect_ui_readiness_errors(
         "restart <dev|served|e2e> [--foreground]",
         "status [dev|served|e2e|all]",
         "logs <dev|served|e2e> <sidecar|backend|vite> [-f]",
+        "verify <ui-smoke|ui-platform|ui-full>",
+        "uv run pytest backend/tests -q",
+        "npm run test:e2e",
+        "npm run test:e2e:platform",
+        "npm run test:e2e:full",
     ]:
         if snippet not in launcher_text:
             errors.append(f"scripts/ccc must contain: {snippet}")
@@ -173,6 +188,7 @@ def collect_ui_readiness_runtime_errors() -> list[str]:
             "bash ./scripts/ccc build web",
             "start <dev|served|e2e> [--foreground]",
             "stop <dev|served|e2e|all>",
+            "verify <ui-smoke|ui-platform|ui-full>",
         ]:
             if snippet not in help_check.stdout:
                 errors.append(f"scripts/ccc help output must contain: {snippet}")

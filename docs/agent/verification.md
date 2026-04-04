@@ -17,6 +17,15 @@
 
 Это минимальное доказательство того, что backend-served operator UI остаётся рабочим.
 
+Канонический repo-owned entrypoint:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+bash ./scripts/ccc verify ui-smoke
+```
+
+Этот entrypoint последовательно запускает три шага ниже.
+
 1. Backend contracts:
 
 ```bash
@@ -42,6 +51,13 @@ npm run test:e2e
 
 Если изменение затрагивает `add-operator-ui-platform-contract` или другой evolution этого же operator UI platform contract, поверх default smoke path обязательны ещё две проверки:
 
+Канонический repo-owned entrypoint:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+bash ./scripts/ccc verify ui-platform
+```
+
 1. Platform governance lint:
 
 ```bash
@@ -62,6 +78,7 @@ npm run test:e2e:platform
 - `npm run test:e2e` запускает минимальный Playwright smoke suite через backend entrypoint `http://127.0.0.1:8000`, а не через frontend-only dev server.
 - `npm run test:e2e` must not reuse an already running backend-served stack on `127.0.0.1:8000`; smoke path должен сам поднять свежий backend + artifact lifecycle или завершиться fail-closed.
 - Repo-owned backend lifecycle для smoke path живёт в `bash ./scripts/ccc`, а не в inline shell fragments внутри helper automation.
+- Предпочитайте repo-owned verification entrypoints `bash ./scripts/ccc verify ui-smoke`, `bash ./scripts/ccc verify ui-platform` и `bash ./scripts/ccc verify ui-full` вместо ручного воспроизведения команды по памяти.
 - `npm run lint` и `npm run test:e2e:platform` обязательны дополнительно, когда change трогает operator UI platform contract.
 - Browser smoke дополнительно rebuild-ит web artifact перед стартом backend stack, чтобы smoke path не зависел от старого `web/dist`.
 - Расширенные operator-contract доказательства, такие как route-addressable context across history, platform foundation conformance, run lineage, и broader workbench scenarios, живут в `npm run test:e2e:platform` или `npm run test:e2e:full`, а не в минимальном smoke suite.
@@ -111,8 +128,8 @@ bash ./scripts/ccc stop served
 Если нужен более широкий browser pass поверх default smoke path и platform gate, запускайте полный Playwright suite отдельно:
 
 ```bash
-cd /home/egor/code/change-control-center-ui/web
-npm run test:e2e:full
+cd /home/egor/code/change-control-center-ui
+bash ./scripts/ccc verify ui-full
 ```
 
 ### Fast Development Loop
@@ -132,6 +149,7 @@ bash ./scripts/ccc start dev
 - Нельзя считать один только `npm run build` достаточной проверкой UI health.
 - Нельзя считать уже поднятый вручную backend/sidecar на `127.0.0.1:8000` или `127.0.0.1:8010` допустимой заменой smoke path: `npm run test:e2e` must not reuse an already running backend-served stack.
 - Нельзя дублировать backend-served smoke lifecycle в новых inline shell fragments, если тот же path уже управляется через `bash ./scripts/ccc`.
+- Нельзя объявлять другой канонический verification entrypoint без синхронного обновления `scripts/ccc`, этого документа, `README.md` и readiness gate.
 - Нельзя заменять этот workflow ad hoc командами без обновления этого документа, `README.md` и репозиторных инструкций.
 
 ## Readiness Gate

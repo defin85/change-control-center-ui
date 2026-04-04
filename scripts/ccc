@@ -18,7 +18,8 @@ ccc_usage() {
     '  bash ./scripts/ccc stop <dev|served|e2e|all>' \
     '  bash ./scripts/ccc restart <dev|served|e2e> [--foreground]' \
     '  bash ./scripts/ccc status [dev|served|e2e|all]' \
-    '  bash ./scripts/ccc logs <dev|served|e2e> <sidecar|backend|vite> [-f]'
+    '  bash ./scripts/ccc logs <dev|served|e2e> <sidecar|backend|vite> [-f]' \
+    '  bash ./scripts/ccc verify <ui-smoke|ui-platform|ui-full>'
 }
 
 ccc_build() {
@@ -129,6 +130,40 @@ ccc_logs() {
   tail -n 200 "$log_file"
 }
 
+ccc_run_in_dir() {
+  local workdir="$1"
+  shift
+
+  (
+    cd "$workdir"
+    "$@"
+  )
+}
+
+ccc_verify() {
+  local suite="$1"
+
+  case "$suite" in
+    ui-smoke)
+      ccc_run_in_dir "$CCC_REPO_ROOT" uv run pytest backend/tests -q
+      ccc_run_in_dir "${CCC_REPO_ROOT}/web" npm run build
+      ccc_run_in_dir "${CCC_REPO_ROOT}/web" npm run test:e2e
+      ;;
+    ui-platform)
+      ccc_verify ui-smoke
+      ccc_run_in_dir "${CCC_REPO_ROOT}/web" npm run lint
+      ccc_run_in_dir "${CCC_REPO_ROOT}/web" npm run test:e2e:platform
+      ;;
+    ui-full)
+      ccc_verify ui-platform
+      ccc_run_in_dir "${CCC_REPO_ROOT}/web" npm run test:e2e:full
+      ;;
+    *)
+      ccc_die "unknown verify suite: ${suite:-<missing>}"
+      ;;
+  esac
+}
+
 ccc_with_lock() {
   ccc_acquire_lock
   set +e
@@ -191,6 +226,10 @@ main() {
       [[ -n "$arg3" ]] || ccc_die "logs requires a component"
       [[ "$arg4" == "-f" ]] && foreground="1"
       ccc_logs "$target" "$arg3" "$foreground"
+      ;;
+    verify)
+      [[ -n "$target" ]] || ccc_die "verify requires a suite"
+      ccc_verify "$target"
       ;;
     help|-h|--help)
       ccc_usage

@@ -7,7 +7,12 @@
 - `React/Vite` operator shell поверх backend-only contracts
 - persistent state в `sqlite`
 
-Legacy prototype на [index.html](/home/egor/code/change-control-center-ui/index.html), [styles.css](/home/egor/code/change-control-center-ui/styles.css) и [app.js](/home/egor/code/change-control-center-ui/app.js) оставлен как reference artifact, но больше не является основным entrypoint.
+Быстрый doc map для агентов и новых контрибьюторов:
+
+- [docs/agent/index.md](/home/egor/code/change-control-center-ui/docs/agent/index.md) — authoritative map по docs, scoped instructions и repo-owned skills
+- [docs/architecture/overview.md](/home/egor/code/change-control-center-ui/docs/architecture/overview.md) — короткая карта runtime, entrypoints и verification contours
+
+Legacy prototype вынесен в [legacy/prototype/README.md](/home/egor/code/change-control-center-ui/legacy/prototype/README.md). Оставшиеся reference artifacts больше не лежат в корне и не являются основным entrypoint.
 
 ## UI platform baseline
 
@@ -89,28 +94,27 @@ bash ./scripts/ccc stop all
 
 Канонический source of truth для UI verification находится в [docs/agent/verification.md](/home/egor/code/change-control-center-ui/docs/agent/verification.md).
 
-Default smoke path для UI-affecting и backend-served UI изменений:
+Default smoke gate для UI-affecting и backend-served UI изменений:
 
 ```bash
 cd /home/egor/code/change-control-center-ui
-uv run pytest backend/tests -q
-cd /home/egor/code/change-control-center-ui/web
-npm run build
-npm run test:e2e
+bash ./scripts/ccc verify ui-smoke
 ```
 
-`npm run test:e2e` не должен заменяться frontend-only dev server path. Для manual backend-served проверки и fast dev loop используйте тот же runbook.
-`npm run test:e2e` must not reuse an already running backend-served stack на `127.0.0.1:8000`: smoke path должен сам поднять backend-served lifecycle или завершиться явной ошибкой.
-Playwright smoke lifecycle должен идти через repo-owned launcher `bash ./scripts/ccc`, а не через inline shell fragments или вручную поднятый stack.
+Этот entrypoint прогоняет `uv run pytest backend/tests -q`, затем `npm run build`, затем `npm run test:e2e`. `npm run test:e2e` не должен заменяться frontend-only dev server path и не должен reuse already running backend-served stack на `127.0.0.1:8000`.
 
-Default smoke path доказывает backend-served shell health и минимальный operator flow. Более глубокая проверка platform contract, route-addressable context, run lineage и расширенных browser scenarios живет в `npm run test:e2e:platform` и `npm run test:e2e:full`.
-
-Если изменение затрагивает operator UI platform contract, поверх default smoke path дополнительно запускайте:
+Для operator UI platform contract поверх smoke gate используйте:
 
 ```bash
-cd /home/egor/code/change-control-center-ui/web
-npm run lint
-npm run test:e2e:platform
+cd /home/egor/code/change-control-center-ui
+bash ./scripts/ccc verify ui-platform
 ```
 
-Для расширенного browser pass поверх default smoke path используйте `npm run test:e2e:full`. Machine-checkable readiness gate запускается через `uv run python scripts/check_ui_readiness.py`.
+Для расширенного browser pass используйте:
+
+```bash
+cd /home/egor/code/change-control-center-ui
+bash ./scripts/ccc verify ui-full
+```
+
+Machine-checkable readiness gate запускается через `uv run python scripts/check_ui_readiness.py`.
