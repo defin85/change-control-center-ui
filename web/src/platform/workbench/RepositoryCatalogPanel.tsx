@@ -7,6 +7,9 @@ type RepositoryCatalogPanelProps = {
   entries: RepositoryCatalogEntry[];
   selectedTenantId: string | null;
   activeFilterId: RepositoryCatalogFilterId;
+  isSelectionPending: boolean;
+  selectionPendingLabel: string | null;
+  selectionError: string | null;
   searchQuery: string;
   onSelectTenant: (tenantId: string) => void;
   onOpenCreateTenant: () => void;
@@ -16,6 +19,9 @@ export function RepositoryCatalogPanel({
   entries,
   selectedTenantId,
   activeFilterId,
+  isSelectionPending,
+  selectionPendingLabel,
+  selectionError,
   searchQuery,
   onSelectTenant,
   onOpenCreateTenant,
@@ -62,6 +68,16 @@ export function RepositoryCatalogPanel({
       </div>
 
       <div className="queue-list repository-catalog-list">
+        {selectionError ? (
+          <p className="governance-note" data-platform-governance="catalog-selection-error">
+            <strong>Repository selection failed.</strong> {selectionError}
+          </p>
+        ) : null}
+        {isSelectionPending ? (
+          <p className="governance-note" data-platform-governance="catalog-selection-pending">
+            {selectionPendingLabel ?? "Opening repository workspace..."}
+          </p>
+        ) : null}
         {entries.length === 0 ? (
           <div className="empty-state">
             No repositories match the current slice. Clear search or register a new repository.
@@ -80,6 +96,7 @@ export function RepositoryCatalogPanel({
               data-platform-foundation="base-ui-repository-row"
               data-tenant-id={entry.tenantId}
               aria-pressed={selectedTenantId === entry.tenantId}
+              disabled={isSelectionPending}
               onClick={() => onSelectTenant(entry.tenantId)}
             >
               <span className="responsive-field" data-platform-compact-field="repository">
@@ -113,6 +130,19 @@ export function RepositoryCatalogPanel({
                   <strong>{entry.changeCount} changes</strong>
                   <span>
                     {entry.activeChangeCount} active · {entry.readyChangeCount} ready · {entry.blockedChangeCount} blocked
+                  </span>
+                </span>
+              </span>
+              <span className="responsive-field" data-platform-compact-field="activity">
+                <span className="responsive-field-label" data-platform-compact-label>
+                  Recent
+                </span>
+                <span className="responsive-field-value repository-activity">
+                  <strong>{entry.lastActivity}</strong>
+                  <span>
+                    {entry.featuredChange
+                      ? `Latest backend-owned activity across ${entry.featuredChange.id}.`
+                      : "No recorded repository activity yet."}
                   </span>
                 </span>
               </span>

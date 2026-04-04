@@ -21,6 +21,7 @@ import { RepositoryCatalogWorkspaceShell } from "../shells/RepositoryCatalogWork
 import { DetailWorkspaceShell } from "../shells/DetailWorkspaceShell";
 import { MasterDetailShell } from "../shells/MasterDetailShell";
 import { WorkspacePageShell } from "../shells/WorkspacePageShell";
+import { useAsyncWorkflowCommandMachine } from "../workflow";
 import { RepositoryAuthoringDialog } from "./RepositoryAuthoringDialog";
 import { RepositoryCatalogPanel } from "./RepositoryCatalogPanel";
 import { RepositoryCatalogProfile } from "./RepositoryCatalogProfile";
@@ -141,6 +142,7 @@ export function OperatorWorkbench({
   const [isCreateTenantDialogOpen, setIsCreateTenantDialogOpen] = useState(false);
   const [activeRepositoryCatalogFilterId, setActiveRepositoryCatalogFilterId] =
     useState<RepositoryCatalogFilterId>("all");
+  const catalogSelectionWorkflow = useAsyncWorkflowCommandMachine();
   const activeViewLabel = bootstrap.views.find((view) => view.id === activeViewId)?.label ?? "Inbox";
   const activeViewHint = describeView(activeViewId);
   const activeFilter = describeFilter(activeFilterId);
@@ -168,8 +170,18 @@ export function OperatorWorkbench({
   }
 
   function handleCatalogSelection(tenantId: string) {
-    setOpenedCatalogTenantId(tenantId);
-    void onSelectCatalogTenant(tenantId);
+    if (tenantId === activeTenantId) {
+      catalogSelectionWorkflow.clearError();
+      setOpenedCatalogTenantId(tenantId);
+      return;
+    }
+    catalogSelectionWorkflow.runCommand({
+      label: `Open repository ${repositoryCatalog.find((entry) => entry.tenantId === tenantId)?.name ?? tenantId}`,
+      execute: async () => {
+        await onSelectCatalogTenant(tenantId);
+        setOpenedCatalogTenantId(tenantId);
+      },
+    });
   }
 
   function handleCloseWorkspace() {
@@ -177,11 +189,13 @@ export function OperatorWorkbench({
   }
 
   function handleCloseCatalogWorkspace() {
+    catalogSelectionWorkflow.clearError();
     setOpenedCatalogTenantId(null);
   }
 
   function handleWorkspaceModeChange(workspaceMode: OperatorWorkspaceMode) {
     if (workspaceMode !== "catalog") {
+      catalogSelectionWorkflow.clearError();
       setOpenedCatalogTenantId(null);
     }
     onWorkspaceModeChange(workspaceMode);
@@ -208,6 +222,9 @@ export function OperatorWorkbench({
               entries={filteredRepositoryCatalog}
               selectedTenantId={activeTenantId}
               activeFilterId={activeRepositoryCatalogFilterId}
+              isSelectionPending={catalogSelectionWorkflow.isPending}
+              selectionPendingLabel={catalogSelectionWorkflow.activeLabel}
+              selectionError={catalogSelectionWorkflow.error}
               searchQuery={searchQuery}
               onSelectTenant={handleCatalogSelection}
               onOpenCreateTenant={() => setIsCreateTenantDialogOpen(true)}

@@ -89,6 +89,7 @@ def build_repository_catalog_entry(tenant: dict[str, Any], changes: list[dict[st
     done_change_count = sum(1 for change in changes if change["state"] == "done")
     active_change_count = change_count - blocked_change_count - ready_change_count - done_change_count
     featured_change = _pick_repository_catalog_focus_change(changes)
+    latest_activity_change = _pick_repository_catalog_latest_activity_change(changes)
 
     return {
         "tenantId": tenant["id"],
@@ -100,7 +101,7 @@ def build_repository_catalog_entry(tenant: dict[str, Any], changes: list[dict[st
         "readyChangeCount": ready_change_count,
         "activeChangeCount": active_change_count,
         "attentionState": _repository_attention_state(change_count, blocked_change_count, ready_change_count, active_change_count),
-        "lastActivity": featured_change["lastRunAgo"] if featured_change else "No activity yet",
+        "lastActivity": latest_activity_change["lastRunAgo"] if latest_activity_change else "No activity yet",
         "nextRecommendedAction": _repository_next_action(
             change_count,
             blocked_change_count,
@@ -160,6 +161,13 @@ def _pick_repository_catalog_focus_change(changes: list[dict[str, Any]]) -> dict
         changes,
         key=lambda change: (_repository_focus_priority(change["state"]), change.get("updatedAt", "")),
     )
+
+
+def _pick_repository_catalog_latest_activity_change(changes: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not changes:
+        return None
+
+    return max(changes, key=lambda change: change.get("updatedAt", ""))
 
 
 def _repository_focus_priority(state: str) -> int:

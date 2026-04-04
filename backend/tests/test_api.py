@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.app.domain import build_repository_catalog_entry
 from backend.app.store import SQLiteStore
 
 
@@ -71,6 +72,38 @@ def test_tenant_creation_rejects_duplicate_repo_path(client: TestClient) -> None
 
     assert response.status_code == 409
     assert "already exists" in response.json()["detail"]
+
+
+def test_repository_catalog_entry_uses_latest_activity_even_when_featured_change_is_priority_selected() -> None:
+    entry = build_repository_catalog_entry(
+        {
+            "id": "tenant-review",
+            "name": "review-repo",
+            "repoPath": "/tmp/review-repo",
+            "description": "Review fixture",
+        },
+        [
+            {
+                "id": "ch-blocked",
+                "title": "Blocked but older",
+                "state": "blocked_by_spec",
+                "updatedAt": "2026-03-28T10:00:00Z",
+                "lastRunAgo": "3d ago",
+                "nextAction": "Review blocked work",
+            },
+            {
+                "id": "ch-active",
+                "title": "Active and newer",
+                "state": "draft",
+                "updatedAt": "2026-03-28T15:45:00Z",
+                "lastRunAgo": "5m ago",
+                "nextAction": "Continue planning",
+            },
+        ],
+    )
+
+    assert entry["featuredChange"]["id"] == "ch-blocked"
+    assert entry["lastActivity"] == "5m ago"
 
 
 def test_change_detail_restores_contract_memory_and_focus(client: TestClient) -> None:

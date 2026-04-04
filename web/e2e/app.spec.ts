@@ -182,6 +182,7 @@ test("enters repository catalog mode, selects a repository, and returns to the q
   await expect(page).toHaveURL(/workspace=catalog/);
 
   const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
+  await expect(sandboxRow).toContainText("not started");
   await sandboxRow.click();
 
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
@@ -215,6 +216,7 @@ test("renders compact repository catalog rows and drawer profile on narrow viewp
 
   const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
   await expect(sandboxRow.locator('[data-platform-compact-label]').filter({ hasText: "Repository" })).toBeVisible();
+  await expect(sandboxRow.locator('[data-platform-compact-label]').filter({ hasText: "Recent" })).toBeVisible();
   await expect(sandboxRow.locator('[data-platform-compact-label]').filter({ hasText: "Next" })).toBeVisible();
 
   await sandboxRow.click();
@@ -225,6 +227,46 @@ test("renders compact repository catalog rows and drawer profile on narrow viewp
 
   await page.getByRole("button", { name: "Back to repositories" }).click();
   await expect(page.getByRole("button", { name: "Back to repositories" })).toHaveCount(0);
+});
+
+test("surfaces pending and error boundaries for repository selection in catalog mode @platform", async ({ page }) => {
+  let continueSelection: (() => void) | null = null;
+  const selectionRelease = new Promise<void>((resolve) => {
+    continueSelection = resolve;
+  });
+
+  await page.route("**/api/tenants/tenant-sandbox/changes", async (route) => {
+    await selectionRelease;
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "catalog selection unavailable" }),
+    });
+  });
+
+  await page.goto("/?workspace=catalog");
+
+  const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
+  await sandboxRow.click();
+
+  await expect(page.locator('[data-platform-governance="catalog-selection-pending"]')).toContainText("Open repository sandbox-repo");
+  await expect(sandboxRow).toBeDisabled();
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("change-control-center-ui");
+
+  continueSelection?.();
+
+  await expect(page.locator('[data-platform-governance="catalog-selection-pending"]')).toHaveCount(0);
+  await expect(page.locator('[data-platform-governance="catalog-selection-error"]')).toContainText(
+    "Repository selection failed.",
+  );
+  await expect(page.locator('[data-platform-governance="catalog-selection-error"]')).toContainText(
+    /Control API request failed \(HTTP 503\)/i,
+  );
+  await expect(page.locator('[data-platform-governance="catalog-selection-error"]')).toContainText(
+    /catalog selection unavailable/i,
+  );
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("change-control-center-ui");
+  await expect(page).toHaveURL(/tenant=tenant-demo/);
 });
 
 test("aligns document language and form semantics on the backend-served shell @platform", async ({ page }) => {

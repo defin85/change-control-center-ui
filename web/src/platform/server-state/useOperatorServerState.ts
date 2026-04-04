@@ -864,19 +864,17 @@ export function useOperatorServerState(): OperatorServerStateResult {
     historyModeRef.current = "push";
     setRealtimeNotice(null);
     setError(null);
+    const payload = await fetchChanges(tenantId);
+    if (orchestrationVersionRef.current !== flowVersion) {
+      return;
+    }
     setActiveWorkspaceMode("catalog");
-    setChanges([]);
+    setActiveTenantId(tenantId);
+    activeTenantRef.current = tenantId;
+    setChanges(payload.changes);
     setActiveViewId(DEFAULT_OPERATOR_VIEW_ID);
     setActiveFilterId(DEFAULT_OPERATOR_FILTER_ID);
     setActiveTabId(DEFAULT_OPERATOR_TAB_ID);
-    selectChange(null);
-    setActiveTenantId(tenantId);
-    activeTenantRef.current = tenantId;
-    const payload = await fetchChanges(tenantId);
-    if (orchestrationVersionRef.current !== flowVersion || activeTenantRef.current !== tenantId) {
-      return;
-    }
-    setChanges(payload.changes);
     selectChange(shouldAutoSelectChange ? payload.changes[0]?.id ?? null : null);
   }
 
