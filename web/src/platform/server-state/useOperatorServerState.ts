@@ -29,8 +29,10 @@ import {
   DEFAULT_OPERATOR_FILTER_ID,
   DEFAULT_OPERATOR_TAB_ID,
   DEFAULT_OPERATOR_VIEW_ID,
+  DEFAULT_OPERATOR_WORKSPACE_MODE,
   readOperatorRouteState,
   type OperatorRouteState,
+  type OperatorWorkspaceMode,
 } from "../navigation";
 import { ControlApiError } from "../contracts";
 import { useTenantRealtimeBoundary, type TenantRealtimeEvent } from "../realtime";
@@ -94,6 +96,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
   const [initialRouteState] = useState(() => readOperatorRouteState(window.location.search));
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
   const [changes, setChanges] = useState<BootstrapResponse["changes"]>([]);
+  const [activeWorkspaceMode, setActiveWorkspaceMode] = useState<OperatorWorkspaceMode>(
+    initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE,
+  );
   const [activeTenantId, setActiveTenantId] = useState<string | null>(initialRouteState.tenantId ?? null);
   const [activeViewId, setActiveViewId] = useState(initialRouteState.viewId ?? DEFAULT_OPERATOR_VIEW_ID);
   const [activeFilterId, setActiveFilterId] = useState(initialRouteState.filterId ?? DEFAULT_OPERATOR_FILTER_ID);
@@ -148,6 +153,27 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
   function isMissingSelectedChange(reason: unknown) {
     return reason instanceof ControlApiError && reason.kind === "http" && reason.status === 404;
+  }
+
+  function selectionContext(
+    workspaceMode: OperatorWorkspaceMode,
+    viewId: string,
+    filterId: string,
+    currentSearchQuery: string,
+  ) {
+    return {
+      activeViewId: viewId,
+      activeFilterId: filterId,
+      searchQuery: workspaceMode === "catalog" ? "" : currentSearchQuery,
+    };
+  }
+
+  async function refreshBootstrapSnapshot(targetTenantId?: string) {
+    const payload = await fetchBootstrap();
+    if (targetTenantId && activeTenantRef.current !== targetTenantId) {
+      return;
+    }
+    setBootstrap(payload);
   }
 
   function selectChange(changeId: string | null) {
@@ -215,11 +241,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       setChanges(queueSnapshot);
       const nextSelectedChangeId = resolveVisibleChangeSelection(
         queueSnapshot,
-        {
-          activeViewId,
-          activeFilterId,
-          searchQuery,
-        },
+        selectionContext(activeWorkspaceMode, activeViewId, activeFilterId, searchQuery),
         changeId,
         shouldAutoSelectChange,
       );
@@ -244,11 +266,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
         const fallbackChangeId = queueSnapshot
           ? resolveVisibleChangeSelection(
               queueSnapshot,
-              {
-                activeViewId,
-                activeFilterId,
-                searchQuery,
-              },
+              selectionContext(activeWorkspaceMode, activeViewId, activeFilterId, searchQuery),
               null,
               shouldAutoSelectChange,
             )
@@ -277,6 +295,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
     try {
       const nextTenantId = resolveTenantId(bootstrap, routeState.tenantId ?? activeTenantRef.current ?? bootstrap.activeTenantId);
+      const nextWorkspaceMode = routeState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE;
       const nextViewId = resolveViewId(bootstrap, routeState.viewId ?? DEFAULT_OPERATOR_VIEW_ID, DEFAULT_OPERATOR_VIEW_ID);
       const nextFilterId = routeState.filterId ?? DEFAULT_OPERATOR_FILTER_ID;
       const nextSearchQuery = routeState.searchQuery ?? "";
@@ -286,15 +305,12 @@ export function useOperatorServerState(): OperatorServerStateResult {
       }
       const nextSelectedChangeId = resolveVisibleChangeSelection(
         queueSnapshot,
-        {
-          activeViewId: nextViewId,
-          activeFilterId: nextFilterId,
-          searchQuery: nextSearchQuery,
-        },
+        selectionContext(nextWorkspaceMode, nextViewId, nextFilterId, nextSearchQuery),
         routeState.changeId,
         shouldAutoSelectChange,
       );
 
+      setActiveWorkspaceMode(nextWorkspaceMode);
       setActiveTenantId(nextTenantId);
       activeTenantRef.current = nextTenantId;
       setChanges(queueSnapshot);
@@ -342,14 +358,19 @@ export function useOperatorServerState(): OperatorServerStateResult {
   );
 
   const activeSelectedChangeId = useMemo(() => {
-    if (selectedChangeId && filteredChanges.some((change) => change.id === selectedChangeId)) {
+    const visibleChanges = filterChanges(
+      changes,
+      selectionContext(activeWorkspaceMode, activeViewId, activeFilterId, searchQuery),
+    );
+
+    if (selectedChangeId && visibleChanges.some((change) => change.id === selectedChangeId)) {
       return selectedChangeId;
     }
     if (!shouldAutoSelectChange) {
       return null;
     }
-    return filteredChanges[0]?.id ?? null;
-  }, [filteredChanges, selectedChangeId, shouldAutoSelectChange]);
+    return visibleChanges[0]?.id ?? null;
+  }, [activeFilterId, activeViewId, activeWorkspaceMode, changes, searchQuery, selectedChangeId, shouldAutoSelectChange]);
 
   const activeDetail = useMemo(() => {
     if (!activeSelectedChangeId) {
@@ -394,17 +415,19 @@ export function useOperatorServerState(): OperatorServerStateResult {
         }
 
         setBootstrap(payload);
+        setActiveWorkspaceMode(initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE);
         setActiveTenantId(initialTenantId);
         activeTenantRef.current = initialTenantId;
         setChanges(initialChanges);
         selectChangeEvent(
           resolveVisibleChangeSelection(
             initialChanges,
-            {
-              activeViewId: initialViewId,
-              activeFilterId: initialFilterId,
-              searchQuery: initialSearchQuery,
-            },
+            selectionContext(
+              initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE,
+              initialViewId,
+              initialFilterId,
+              initialSearchQuery,
+            ),
             initialRouteState.changeId,
             shouldAutoSelectChange,
           ),
@@ -471,6 +494,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     }
 
     const nextHref = buildOperatorRouteHref(window.location.pathname, {
+      workspaceMode: activeWorkspaceMode,
       tenantId: activeTenantId,
       viewId: activeViewId,
       filterId: activeFilterId,
@@ -490,7 +514,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     }
     historyInitializedRef.current = true;
     historyModeRef.current = "replace";
-  }, [activeFilterId, activeSelectedChangeId, activeSelectedRunId, activeTabId, activeTenantId, activeViewId, bootstrap, searchQuery]);
+  }, [activeFilterId, activeSelectedChangeId, activeSelectedRunId, activeTabId, activeTenantId, activeViewId, activeWorkspaceMode, bootstrap, searchQuery]);
 
   useTenantRealtimeBoundary({
     tenantId: activeTenantId,
@@ -533,6 +557,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
           if (shouldRefreshSelectedRun && targetRunId) {
             await refreshRunDetail(targetTenantId, targetRunId);
           }
+        }
+        if (shouldRefreshQueue || shouldRefreshSelectedChange) {
+          await refreshBootstrapSnapshot(targetTenantId);
         }
         setRealtimeNotice(null);
       } catch (reason) {
@@ -630,6 +657,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       preferredRunId: payload.run.id,
       onFailure: refreshFailureMode,
     });
+    await refreshBootstrapSnapshot(targetTenantId);
     historyModeRef.current = "replace";
     selectedRunRef.current = payload.run.id;
     setSelectedRunId(payload.run.id);
@@ -669,10 +697,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetTenantId = activeTenantId;
     const flowVersion = beginOrchestration();
     const payload = await createChange(targetTenantId);
-    const changesPayload = await fetchChanges(targetTenantId);
+    const [changesPayload, bootstrapPayload] = await Promise.all([
+      fetchChanges(targetTenantId),
+      fetchBootstrap(),
+    ]);
     if (orchestrationVersionRef.current !== flowVersion || activeTenantRef.current !== targetTenantId) {
       return;
     }
+    setBootstrap(bootstrapPayload);
     setChanges(changesPayload.changes);
     historyModeRef.current = "push";
     selectChange(payload.change.id);
@@ -700,6 +732,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     }
 
     setBootstrap(bootstrapPayload);
+    setActiveWorkspaceMode("catalog");
     setActiveTenantId(payload.tenant.id);
     activeTenantRef.current = payload.tenant.id;
     setChanges(changesPayload.changes);
@@ -712,7 +745,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       activeFilterId: DEFAULT_OPERATOR_FILTER_ID,
       searchQuery: "",
     }, null, shouldAutoSelectChange));
-    setToast(`Created project ${payload.tenant.name}.`);
+    setToast(`Created repository ${payload.tenant.name}.`);
   }
 
   async function handleEscalate() {
@@ -723,6 +756,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetChangeId = activeSelectedChangeId;
     await escalateChange(targetTenantId, targetChangeId);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
+    await refreshBootstrapSnapshot(targetTenantId);
     setToast(`Escalated ${targetChangeId}.`);
   }
 
@@ -734,6 +768,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetChangeId = activeSelectedChangeId;
     await blockChangeBySpec(targetTenantId, targetChangeId);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
+    await refreshBootstrapSnapshot(targetTenantId);
     setToast(`Blocked ${targetChangeId} by spec.`);
   }
 
@@ -748,6 +783,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       onFailure: "throw",
       missingSelectionToast: null,
     });
+    await refreshBootstrapSnapshot(targetTenantId);
     setToast(`Deleted ${targetChangeId}.`);
   }
 
@@ -759,6 +795,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetChangeId = activeSelectedChangeId;
     await createClarificationRound(targetTenantId, targetChangeId);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
+    await refreshBootstrapSnapshot(targetTenantId);
   }
 
   async function handleAnswerClarificationRound(roundId: string, answers: ClarificationAnswer[]) {
@@ -769,6 +806,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetChangeId = activeSelectedChangeId;
     await answerClarificationRound(targetTenantId, roundId, answers);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
+    await refreshBootstrapSnapshot(targetTenantId);
   }
 
   async function handlePromoteFact(title: string, body: string) {
@@ -779,6 +817,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     const targetChangeId = activeSelectedChangeId;
     await promoteFact(targetTenantId, targetChangeId, title, body);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
+    await refreshBootstrapSnapshot(targetTenantId);
   }
 
   async function handleApprovalDecision(approvalId: string, decision: "accept" | "decline") {
@@ -820,10 +859,38 @@ export function useOperatorServerState(): OperatorServerStateResult {
     selectChange(shouldAutoSelectChange ? payload.changes[0]?.id ?? null : null);
   }
 
+  async function handleSelectCatalogTenant(tenantId: string) {
+    const flowVersion = beginOrchestration();
+    historyModeRef.current = "push";
+    setRealtimeNotice(null);
+    setError(null);
+    setActiveWorkspaceMode("catalog");
+    setChanges([]);
+    setActiveViewId(DEFAULT_OPERATOR_VIEW_ID);
+    setActiveFilterId(DEFAULT_OPERATOR_FILTER_ID);
+    setActiveTabId(DEFAULT_OPERATOR_TAB_ID);
+    selectChange(null);
+    setActiveTenantId(tenantId);
+    activeTenantRef.current = tenantId;
+    const payload = await fetchChanges(tenantId);
+    if (orchestrationVersionRef.current !== flowVersion || activeTenantRef.current !== tenantId) {
+      return;
+    }
+    setChanges(payload.changes);
+    selectChange(shouldAutoSelectChange ? payload.changes[0]?.id ?? null : null);
+  }
+
   function handleSearchQueryChange(value: string) {
     beginOrchestration();
     historyModeRef.current = "push";
     setSearchQuery(value);
+  }
+
+  function handleWorkspaceModeChange(workspaceMode: OperatorWorkspaceMode) {
+    beginOrchestration();
+    historyModeRef.current = "push";
+    setActiveWorkspaceMode(workspaceMode);
+    setSearchQuery("");
   }
 
   function handleSelectView(viewId: string) {
@@ -882,11 +949,13 @@ export function useOperatorServerState(): OperatorServerStateResult {
     state: "ready",
     workbenchProps: {
       bootstrap,
+      activeWorkspaceMode,
       activeTenantId: activeTenant.id,
       activeViewId,
       activeFilterId,
       activeViewCount: filteredChanges.length,
       activeTenantRepoPath: activeTenant.repoPath,
+      repositoryCatalog: bootstrap.repositoryCatalog,
       searchQuery,
       activeTabId,
       selectedChangeId: activeSelectedChangeId,
@@ -899,11 +968,13 @@ export function useOperatorServerState(): OperatorServerStateResult {
       realtimeNotice,
       toast,
       onSearchQueryChange: handleSearchQueryChange,
+      onWorkspaceModeChange: handleWorkspaceModeChange,
       onCreateTenant: handleCreateTenant,
       onCreateChange: handleCreateChange,
       onGlobalRunNext: handleGlobalRunNext,
       onRunNext: handleDetailRunNext,
       onTenantChange: handleTenantChange,
+      onSelectCatalogTenant: handleSelectCatalogTenant,
       onSelectView: handleSelectView,
       onSelectFilter: handleSelectFilter,
       onSelectChange: handleSelectChange,

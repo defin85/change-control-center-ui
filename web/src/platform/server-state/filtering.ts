@@ -1,8 +1,13 @@
-import type { BootstrapResponse, ChangeSummary } from "../../types";
+import type { BootstrapResponse, ChangeSummary, RepositoryCatalogEntry } from "../../types";
 
 export type OperatorFilterContext = {
   activeViewId: string;
   activeFilterId: string;
+  searchQuery: string;
+};
+
+export type RepositoryCatalogFilterContext = {
+  activeFilterId: RepositoryCatalogFilterId;
   searchQuery: string;
 };
 
@@ -19,6 +24,16 @@ export const OPERATOR_VIEW_HINTS: Record<string, string> = {
   blocked: "Blocked or escalated",
   done: "Completed and landed",
 };
+
+export const REPOSITORY_CATALOG_FILTERS = [
+  { id: "all", label: "All repositories", hint: "Portfolio overview across every workspace" },
+  { id: "needs_setup", label: "Needs setup", hint: "Repositories without any changes yet" },
+  { id: "active", label: "Active", hint: "Draft, review, or ready work is in motion" },
+  { id: "blocked", label: "Blocked", hint: "One or more changes are blocked or escalated" },
+  { id: "quiet", label: "Quiet", hint: "Completed or low-attention repositories" },
+] as const;
+
+export type RepositoryCatalogFilterId = (typeof REPOSITORY_CATALOG_FILTERS)[number]["id"];
 
 export function filterChanges(changes: ChangeSummary[], context: OperatorFilterContext) {
   const query = context.searchQuery.trim().toLowerCase();
@@ -53,6 +68,52 @@ export function buildViewCounts(views: BootstrapResponse["views"], changes: Chan
   return counts;
 }
 
+export function filterRepositoryCatalog(
+  entries: RepositoryCatalogEntry[],
+  context: RepositoryCatalogFilterContext,
+) {
+  const query = context.searchQuery.trim().toLowerCase();
+
+  return entries.filter((entry) => {
+    if (context.activeFilterId !== "all" && entry.attentionState !== context.activeFilterId) {
+      return false;
+    }
+
+    if (!query) {
+      return true;
+    }
+
+    return [
+      entry.name,
+      entry.repoPath,
+      entry.description,
+      entry.attentionState,
+      entry.nextRecommendedAction,
+      entry.featuredChange?.title ?? "",
+      entry.featuredChange?.nextAction ?? "",
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  });
+}
+
+export function buildRepositoryCatalogCounts(entries: RepositoryCatalogEntry[]) {
+  const counts: Record<RepositoryCatalogFilterId, number> = {
+    all: entries.length,
+    needs_setup: 0,
+    active: 0,
+    blocked: 0,
+    quiet: 0,
+  };
+
+  for (const entry of entries) {
+    counts[entry.attentionState] += 1;
+  }
+
+  return counts;
+}
+
 export function matchesView(change: ChangeSummary, viewId: string) {
   switch (viewId) {
     case "ready":
@@ -74,6 +135,16 @@ export function describeFilter(filterId: string) {
       id: filterId,
       label: "Custom filter",
       hint: "Project-owned queue slice",
+    }
+  );
+}
+
+export function describeRepositoryCatalogFilter(filterId: RepositoryCatalogFilterId) {
+  return (
+    REPOSITORY_CATALOG_FILTERS.find((filter) => filter.id === filterId) ?? {
+      id: "all",
+      label: "All repositories",
+      hint: "Portfolio overview across every workspace",
     }
   );
 }

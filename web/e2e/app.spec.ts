@@ -151,25 +151,80 @@ test("wires the approved foundations on the default operator path @platform", as
   await expect(page.locator('[data-platform-foundation="platform-clarification-textarea"]')).toHaveCount(1);
 });
 
-test("creates a new project from the header and switches to its empty tenant workspace @platform", async ({ page }) => {
+test("creates a new repository from the header and switches into catalog management @platform", async ({ page }) => {
   const projectName = uniqueTitle("Workspace seed");
   const repoPath = `/tmp/${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
   await page.goto("/");
-  await page.locator("header").getByRole("button", { name: "New project" }).click();
+  await page.locator("header").getByRole("button", { name: "New repository" }).click();
 
-  const dialog = page.getByRole("dialog", { name: "New project" });
-  await dialog.getByLabel("Project name").fill(projectName);
+  const dialog = page.getByRole("dialog", { name: "New repository" });
+  await dialog.getByLabel("Repository name").fill(projectName);
   await dialog.getByLabel("Repository path").fill(repoPath);
-  await dialog.getByLabel("Project description").fill("Created from the operator header.");
-  await dialog.getByRole("button", { name: "Create project" }).click();
+  await dialog.getByLabel("Repository description").fill("Created from the operator header.");
+  await dialog.getByRole("button", { name: "Create repository" }).click();
 
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByLabel("Tenant")).toContainText(projectName);
-  await expect(page.locator(".toast")).toContainText(`Created project ${projectName}.`);
-  await expect(page.locator(".queue-panel .empty-state")).toContainText("No changes match the current slice.");
-  await expect(page.locator(".hero-ribbon")).toContainText(repoPath);
+  await expect(page.locator(".toast")).toContainText(`Created repository ${projectName}.`);
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(projectName);
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(repoPath);
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("Create first change");
+  await expect(page).toHaveURL(/workspace=catalog/);
   await expect(page).toHaveURL(/tenant=tenant-/);
+});
+
+test("enters repository catalog mode, selects a repository, and returns to the queue @platform", async ({ page }) => {
+  await page.goto("/");
+
+  await page.locator('[data-platform-action="workspace-catalog"]').click();
+  await expect(page.locator('[data-platform-surface="repository-catalog"]')).toBeVisible();
+  await expect(page).toHaveURL(/workspace=catalog/);
+
+  const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
+  await sandboxRow.click();
+
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("/home/egor/code/sandbox-repo");
+
+  await page.locator('[data-platform-surface="repository-profile"]').getByRole("button", { name: "Open queue" }).click();
+
+  await expect(page.locator('[data-platform-action="workspace-queue"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Repository")).toContainText("sandbox-repo");
+  await expect(page.locator(".queue-panel")).toContainText("Control Queue");
+  await expect(page).not.toHaveURL(/workspace=catalog/);
+});
+
+test("restores repository catalog route state after reload @platform", async ({ page }) => {
+  await page.goto("/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
+
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
+
+  await page.reload();
+
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
+});
+
+test("renders compact repository catalog rows and drawer profile on narrow viewports @platform", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await page.goto("/?workspace=catalog");
+
+  const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
+  await expect(sandboxRow.locator('[data-platform-compact-label]').filter({ hasText: "Repository" })).toBeVisible();
+  await expect(sandboxRow.locator('[data-platform-compact-label]').filter({ hasText: "Next" })).toBeVisible();
+
+  await sandboxRow.click();
+
+  await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
+  await expect(page.getByText("Selected repository", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
+
+  await page.getByRole("button", { name: "Back to repositories" }).click();
+  await expect(page.getByRole("button", { name: "Back to repositories" })).toHaveCount(0);
 });
 
 test("aligns document language and form semantics on the backend-served shell @platform", async ({ page }) => {
@@ -182,7 +237,7 @@ test("aligns document language and form semantics on the backend-served shell @p
 
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByLabel("Search")).toHaveAttribute("name", "search");
-  await expect(page.getByLabel("Tenant")).toBeVisible();
+  await expect(page.getByLabel("Repository")).toBeVisible();
 
   await detailPanel.getByRole("tab", { name: "Chief" }).click();
   await expect(page.getByLabel("Fact title")).toHaveAttribute("name", "fact-title");
@@ -469,7 +524,7 @@ test("keeps global header mutations behind an explicit workflow pending boundary
   const header = page.locator("header");
   const runNext = header.getByRole("button", { name: "Run next step" });
   const newChange = header.getByRole("button", { name: "New change" });
-  const newProject = header.getByRole("button", { name: "New project" });
+  const newProject = header.getByRole("button", { name: "New repository" });
 
   await runNext.click();
 

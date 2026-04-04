@@ -5,6 +5,30 @@ export type Tenant = {
   description: string;
 };
 
+export type RepositoryCatalogAttentionState = "needs_setup" | "blocked" | "active" | "quiet";
+
+export type RepositoryCatalogFeaturedChange = {
+  id: string;
+  title: string;
+  state: string;
+  nextAction: string;
+};
+
+export type RepositoryCatalogEntry = {
+  tenantId: string;
+  name: string;
+  repoPath: string;
+  description: string;
+  changeCount: number;
+  blockedChangeCount: number;
+  readyChangeCount: number;
+  activeChangeCount: number;
+  attentionState: RepositoryCatalogAttentionState;
+  lastActivity: string;
+  nextRecommendedAction: string;
+  featuredChange: RepositoryCatalogFeaturedChange | null;
+};
+
 export const CHANGE_DETAIL_TAB_IDS = [
   "overview",
   "traceability",
@@ -209,6 +233,7 @@ export type RunDetailResponse = {
 
 export type BootstrapResponse = {
   tenants: Tenant[];
+  repositoryCatalog: RepositoryCatalogEntry[];
   activeTenantId: string;
   views: Array<{ id: string; label: string }>;
   changes: ChangeSummary[];

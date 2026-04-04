@@ -82,6 +82,98 @@ def curated_memory_packet(
     }
 
 
+def build_repository_catalog_entry(tenant: dict[str, Any], changes: list[dict[str, Any]]) -> dict[str, Any]:
+    change_count = len(changes)
+    blocked_change_count = sum(1 for change in changes if change["state"] in {"blocked_by_spec", "escalated"})
+    ready_change_count = sum(1 for change in changes if change["state"] in {"approved", "ready_for_acceptance"})
+    done_change_count = sum(1 for change in changes if change["state"] == "done")
+    active_change_count = change_count - blocked_change_count - ready_change_count - done_change_count
+    featured_change = _pick_repository_catalog_focus_change(changes)
+
+    return {
+        "tenantId": tenant["id"],
+        "name": tenant["name"],
+        "repoPath": tenant["repoPath"],
+        "description": tenant.get("description", ""),
+        "changeCount": change_count,
+        "blockedChangeCount": blocked_change_count,
+        "readyChangeCount": ready_change_count,
+        "activeChangeCount": active_change_count,
+        "attentionState": _repository_attention_state(change_count, blocked_change_count, ready_change_count, active_change_count),
+        "lastActivity": featured_change["lastRunAgo"] if featured_change else "No activity yet",
+        "nextRecommendedAction": _repository_next_action(
+            change_count,
+            blocked_change_count,
+            ready_change_count,
+            active_change_count,
+        ),
+        "featuredChange": (
+            {
+                "id": featured_change["id"],
+                "title": featured_change["title"],
+                "state": featured_change["state"],
+                "nextAction": featured_change["nextAction"],
+            }
+            if featured_change
+            else None
+        ),
+    }
+
+
+def _repository_attention_state(
+    change_count: int,
+    blocked_change_count: int,
+    ready_change_count: int,
+    active_change_count: int,
+) -> str:
+    if change_count == 0:
+        return "needs_setup"
+    if blocked_change_count > 0:
+        return "blocked"
+    if ready_change_count > 0 or active_change_count > 0:
+        return "active"
+    return "quiet"
+
+
+def _repository_next_action(
+    change_count: int,
+    blocked_change_count: int,
+    ready_change_count: int,
+    active_change_count: int,
+) -> str:
+    if change_count == 0:
+        return "Create first change"
+    if blocked_change_count > 0:
+        return "Review blocked work"
+    if ready_change_count > 0:
+        return "Open ready queue"
+    if active_change_count > 0:
+        return "Review active work"
+    return "Open queue"
+
+
+def _pick_repository_catalog_focus_change(changes: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not changes:
+        return None
+
+    return max(
+        changes,
+        key=lambda change: (_repository_focus_priority(change["state"]), change.get("updatedAt", "")),
+    )
+
+
+def _repository_focus_priority(state: str) -> int:
+    if state in {"blocked_by_spec", "escalated"}:
+        return 4
+    if state in {"review_pending", "gap_fixing", "draft", "executing"}:
+        return 3
+    if state in {"approved", "ready_for_acceptance"}:
+        return 2
+    if state == "done":
+        return 0
+    return 1
+
+
 def _next_run_id(change: dict[str, Any], existing_runs: list[dict[str, Any]]) -> str:
     del change, existing_runs
     return f"run-{uuid.uuid4().int % 10_000_000_000}"

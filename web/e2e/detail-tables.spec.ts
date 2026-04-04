@@ -9,6 +9,27 @@ const bootstrapResponse = {
       description: "Demo tenant for platform table smoke coverage.",
     },
   ],
+  repositoryCatalog: [
+    {
+      tenantId: "tenant-demo",
+      name: "Demo Tenant",
+      repoPath: "/repo",
+      description: "Demo tenant for platform table smoke coverage.",
+      changeCount: 1,
+      blockedChangeCount: 0,
+      readyChangeCount: 1,
+      activeChangeCount: 0,
+      attentionState: "active",
+      lastActivity: "1m",
+      nextRecommendedAction: "Open ready queue",
+      featuredChange: {
+        id: "ch-146",
+        title: "Foundation proof change",
+        state: "ready",
+        nextAction: "Review tabular surfaces",
+      },
+    },
+  ],
   activeTenantId: "tenant-demo",
   views: [{ id: "inbox", label: "Inbox" }],
   changes: [

@@ -11,6 +11,28 @@ const tenantSchema = strictObject({
   description: z.string(),
 });
 
+const repositoryCatalogFeaturedChangeSchema = strictObject({
+  id: z.string(),
+  title: z.string(),
+  state: z.string(),
+  nextAction: z.string(),
+});
+
+const repositoryCatalogEntrySchema = strictObject({
+  tenantId: z.string(),
+  name: z.string(),
+  repoPath: z.string(),
+  description: z.string(),
+  changeCount: z.number(),
+  blockedChangeCount: z.number(),
+  readyChangeCount: z.number(),
+  activeChangeCount: z.number(),
+  attentionState: z.enum(["needs_setup", "blocked", "active", "quiet"]),
+  lastActivity: z.string(),
+  nextRecommendedAction: z.string(),
+  featuredChange: repositoryCatalogFeaturedChangeSchema.nullable(),
+});
+
 const changeSummarySchema = strictObject({
   id: z.string(),
   tenantId: z.string(),
@@ -221,6 +243,7 @@ const changeDetailSchema = strictObject({
 
 export const bootstrapResponseSchema = strictObject({
   tenants: z.array(tenantSchema),
+  repositoryCatalog: z.array(repositoryCatalogEntrySchema),
   activeTenantId: z.string(),
   views: z.array(
     strictObject({

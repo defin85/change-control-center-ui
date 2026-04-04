@@ -20,9 +20,13 @@ def test_bootstrap_returns_real_backend_state(client: TestClient) -> None:
     payload = response.json()
 
     assert payload["tenants"]
+    assert payload["repositoryCatalog"]
     assert payload["activeTenantId"]
     assert payload["changes"]
     assert any(change["id"] == "ch-142" for change in payload["changes"])
+    demo_catalog_entry = next(entry for entry in payload["repositoryCatalog"] if entry["tenantId"] == "tenant-demo")
+    assert demo_catalog_entry["changeCount"] >= 1
+    assert demo_catalog_entry["attentionState"] in {"active", "blocked", "quiet", "needs_setup"}
 
 
 def test_tenant_creation_persists_backend_owned_project_entry(client: TestClient) -> None:
@@ -45,6 +49,10 @@ def test_tenant_creation_persists_backend_owned_project_entry(client: TestClient
     assert bootstrap.status_code == 200
     assert bootstrap.json()["activeTenantId"] == "tenant-demo"
     assert any(item["id"] == tenant["id"] for item in bootstrap.json()["tenants"])
+    created_entry = next(entry for entry in bootstrap.json()["repositoryCatalog"] if entry["tenantId"] == tenant["id"])
+    assert created_entry["changeCount"] == 0
+    assert created_entry["attentionState"] == "needs_setup"
+    assert created_entry["nextRecommendedAction"] == "Create first change"
 
     changes = client.get(f"/api/tenants/{tenant['id']}/changes")
     assert changes.status_code == 200

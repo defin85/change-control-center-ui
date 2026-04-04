@@ -3,8 +3,12 @@ import { CHANGE_DETAIL_TAB_IDS, type ChangeDetailTabId } from "../../types";
 export const DEFAULT_OPERATOR_VIEW_ID = "inbox";
 export const DEFAULT_OPERATOR_FILTER_ID = "all";
 export const DEFAULT_OPERATOR_TAB_ID: ChangeDetailTabId = "overview";
+export const DEFAULT_OPERATOR_WORKSPACE_MODE = "queue";
+
+export type OperatorWorkspaceMode = "queue" | "catalog";
 
 export type OperatorRouteState = {
+  workspaceMode?: OperatorWorkspaceMode;
   tenantId?: string;
   viewId?: string;
   filterId?: string;
@@ -18,6 +22,7 @@ export function readOperatorRouteState(search: string): OperatorRouteState {
   const params = new URLSearchParams(search);
 
   return {
+    workspaceMode: readWorkspaceMode(params.get("workspace")),
     tenantId: readParam(params, "tenant"),
     viewId: readParam(params, "view"),
     filterId: readParam(params, "filter"),
@@ -31,6 +36,9 @@ export function readOperatorRouteState(search: string): OperatorRouteState {
 export function buildOperatorRouteHref(pathname: string, state: OperatorRouteState): string {
   const params = new URLSearchParams();
 
+  if (state.workspaceMode && state.workspaceMode !== DEFAULT_OPERATOR_WORKSPACE_MODE) {
+    params.set("workspace", state.workspaceMode);
+  }
   if (state.tenantId) {
     params.set("tenant", state.tenantId);
   }
@@ -68,4 +76,11 @@ function readTabId(value: string | null): ChangeDetailTabId | undefined {
   }
 
   return CHANGE_DETAIL_TAB_IDS.includes(value as ChangeDetailTabId) ? (value as ChangeDetailTabId) : undefined;
+}
+
+function readWorkspaceMode(value: string | null): OperatorWorkspaceMode | undefined {
+  if (value === "queue" || value === "catalog") {
+    return value;
+  }
+  return undefined;
 }

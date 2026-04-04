@@ -17,6 +17,7 @@ from backend.app.domain import (
     answer_clarification_round,
     apply_run_transition,
     block_change_by_spec,
+    build_repository_catalog_entry,
     build_approval_record,
     build_focus_graph,
     count_open_mandatory_gaps,
@@ -108,6 +109,11 @@ def _build_runtime_client() -> RuntimeSidecarClient:
             timeout_seconds=settings.runtime_sidecar_timeout_seconds,
         )
     )
+
+
+def _build_repository_catalog(store: SQLiteStore) -> list[dict[str, Any]]:
+    tenants = store.list_tenants()
+    return [build_repository_catalog_entry(tenant, store.list_changes(tenant["id"])) for tenant in tenants]
 
 
 def create_app(
@@ -252,6 +258,7 @@ def create_app(
         changes = [_summarize_change(change) for change in store.list_changes(active_tenant_id)]
         return {
             "tenants": tenants,
+            "repositoryCatalog": _build_repository_catalog(store),
             "activeTenantId": active_tenant_id,
             "views": [
                 {"id": "inbox", "label": "Inbox"},
