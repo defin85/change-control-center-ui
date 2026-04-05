@@ -1,4 +1,9 @@
-import { OperatorWorkbench, OperatorWorkbenchState, useOperatorServerState } from "./platform";
+import {
+  OperatorWorkbench,
+  OperatorWorkbenchState,
+  SimpleReferenceWorkbench,
+  useOperatorServerState,
+} from "./platform";
 
 import "./styles.css";
 
@@ -13,7 +18,9 @@ function LiveOperatorApp() {
     return <OperatorWorkbenchState tone="loading" message={operatorServerState.message} />;
   }
 
-  return <OperatorWorkbench {...operatorServerState.workbenchProps} />;
+  return operatorServerState.workbenchProps.legacyWorkbenchEnabled
+    ? <OperatorWorkbench {...operatorServerState.workbenchProps} />
+    : <SimpleReferenceWorkbench {...operatorServerState.workbenchProps} />;
 }
 
 export default function App() {

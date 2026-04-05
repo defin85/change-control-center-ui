@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { gotoApp, reloadApp } from "./support/navigation";
 
@@ -14,6 +14,10 @@ function delay(ms: number) {
 
 function changeRow(page: Page, changeId: string) {
   return page.locator(`[data-change-id="${changeId}"]`).first();
+}
+
+function controlQueue(page: Page) {
+  return page.locator('[data-platform-surface="control-queue"]').first();
 }
 
 async function createIsolatedChange(page: Page, prefix: string) {
@@ -40,6 +44,16 @@ async function openIsolatedChange(page: Page, prefix: string) {
   await gotoApp(page, `/?change=${change.id}`);
   await waitForDetailPanel(page, change.title);
   return change;
+}
+
+async function ensureWorkflowDetailOpen(scope: Locator) {
+  const workflowDetail = scope.locator('[data-platform-surface="workflow-detail"]').first();
+  if (await workflowDetail.count()) {
+    const isOpen = await workflowDetail.evaluate((node) => node instanceof HTMLDetailsElement && node.open);
+    if (!isOpen) {
+      await workflowDetail.locator("summary").click();
+    }
+  }
 }
 
 async function activeElementInsideDialog(page: Page) {
@@ -99,7 +113,7 @@ test("renders the operator console surfaces and mandatory detail tabs @smoke @pl
   await expect(page.locator("header").getByRole("button", { name: "New change" })).toBeVisible();
   await expect(page.locator("header").getByRole("button", { name: "Run next step" })).toBeVisible();
   await expect(page.locator("header").getByLabel("Search")).toBeVisible();
-  await expect(page.locator(".queue-panel").getByText("Live queue", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Live queue" })).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Search queue", { exact: true })).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByRole("button", { name: "All severities" })).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByRole("button", { name: "Needs review" })).toBeVisible();
@@ -198,7 +212,7 @@ test("enters repository catalog mode, selects a repository, and returns to the q
 
   await expect(page.locator('[data-platform-action="workspace-queue"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("header").getByLabel("Repository")).toContainText("sandbox-repo");
-  await expect(page.locator(".queue-panel")).toContainText("Live queue");
+  await expect(page.getByRole("heading", { name: "Live queue" })).toBeVisible();
   await expect(page).not.toHaveURL(/workspace=catalog/);
 });
 
@@ -436,8 +450,8 @@ test("keeps selected operator context inside the visible filtered queue slice @p
   await expect(page).toHaveURL(/q=ch-146/);
   await expect(page).toHaveURL(/change=ch-146/);
   await expect(page.getByRole("heading", { name: "Bootstrap real app stack" })).toBeVisible();
-  await expect(page.locator(".queue-panel").getByRole("button", { name: /ch-142/i })).toHaveCount(0);
-  await expect(page.locator(".queue-panel").getByRole("button", { name: /ch-146/i })).toHaveCount(1);
+  await expect(controlQueue(page).getByRole("button", { name: /ch-142/i })).toHaveCount(0);
+  await expect(controlQueue(page).getByRole("button", { name: /ch-146/i })).toHaveCount(1);
 
   await page.goBack();
 
@@ -476,7 +490,7 @@ test("rehydrates queue context from backend state during same-tenant browser nav
   await page.goBack();
 
   await expect(page).toHaveURL(/change=ch-142/);
-  await expect(page.locator(".queue-panel")).toContainText("Backend rehydrated queue title");
+  await expect(controlQueue(page)).toContainText("Backend rehydrated queue title");
 });
 
 test("fails closed on stale cross-tenant route context without a terminal shell error @platform", async ({ page }) => {
@@ -545,7 +559,7 @@ test("fails closed on the global run action when no change is selected @platform
   await page.getByRole("button", { name: "Back to queue" }).click();
   await expect(page).toHaveURL(/change=ch-142/);
   await expect(headerRunAction).toBeEnabled();
-  await page.locator('.queue-panel [data-platform-action="clear-selection"]').click();
+  await controlQueue(page).locator('[data-platform-action="clear-selection"]').click();
 
   await expect(headerRunAction).toBeDisabled();
 });
@@ -629,7 +643,7 @@ test("fails closed on run studio entry until a backend-owned run exists @platfor
   const openRunStudio = detailActions.getByRole("button", { name: "Open run studio" });
 
   await expect(openRunStudio).toBeDisabled();
-  await expect(page.locator('[data-platform-governance="run-studio-run-required"]')).toBeVisible();
+  await expect(page.locator('[data-platform-governance="run-studio-run-required"]').first()).toBeVisible();
 
   await changeRow(page, "ch-142").click();
 
@@ -649,7 +663,7 @@ test("deletes the selected change through an explicit confirmation flow @platfor
 
   await expect(dialog).toHaveCount(0);
   await expect(page.locator(".toast")).toContainText(`Deleted ${change.id}.`);
-  await expect(page.locator(".queue-panel .empty-state")).toContainText("No changes match the current slice.");
+  await expect(controlQueue(page).locator(".empty-state")).toContainText("No changes match the current slice.");
   await expect(page.locator(`[data-change-id="${change.id}"]`)).toHaveCount(0);
   await expect(page).not.toHaveURL(new RegExp(`change=${change.id}`));
 });
@@ -732,6 +746,7 @@ test("fails closed on fact promotion until required inputs are present @platform
 test("promotes durable facts through the canonical backend flow @platform", async ({ page }) => {
   const change = await openIsolatedChange(page, "Fact promotion proof");
   const detailPanel = await waitForDetailPanel(page, change.title);
+  await ensureWorkflowDetailOpen(detailPanel);
   await detailPanel.getByRole("tab", { name: "Chief" }).click();
 
   await page.getByLabel("Fact title").fill("Operator memory policy");
@@ -744,6 +759,7 @@ test("promotes durable facts through the canonical backend flow @platform", asyn
   await reloadApp(page);
   await changeRow(page, change.id).click();
   const reloadedDetailPanel = await waitForDetailPanel(page, change.title);
+  await ensureWorkflowDetailOpen(reloadedDetailPanel);
   await reloadedDetailPanel.getByRole("tab", { name: "Chief" }).click();
 
   await expect(reloadedDetailPanel.getByText("Operator memory policy")).toBeVisible();

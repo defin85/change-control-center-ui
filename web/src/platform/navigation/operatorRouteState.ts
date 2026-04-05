@@ -8,6 +8,7 @@ export const DEFAULT_OPERATOR_WORKSPACE_MODE = "queue";
 export type OperatorWorkspaceMode = "queue" | "catalog";
 
 export type OperatorRouteState = {
+  legacyWorkbench?: boolean;
   workspaceMode?: OperatorWorkspaceMode;
   tenantId?: string;
   viewId?: string;
@@ -22,6 +23,7 @@ export function readOperatorRouteState(search: string): OperatorRouteState {
   const params = new URLSearchParams(search);
 
   return {
+    legacyWorkbench: readBooleanParam(params, "legacyWorkbench"),
     workspaceMode: readWorkspaceMode(params.get("workspace")),
     tenantId: readParam(params, "tenant"),
     viewId: readParam(params, "view"),
@@ -36,6 +38,9 @@ export function readOperatorRouteState(search: string): OperatorRouteState {
 export function buildOperatorRouteHref(pathname: string, state: OperatorRouteState): string {
   const params = new URLSearchParams();
 
+  if (state.legacyWorkbench) {
+    params.set("legacyWorkbench", "1");
+  }
   if (state.workspaceMode && state.workspaceMode !== DEFAULT_OPERATOR_WORKSPACE_MODE) {
     params.set("workspace", state.workspaceMode);
   }
@@ -68,6 +73,14 @@ export function buildOperatorRouteHref(pathname: string, state: OperatorRouteSta
 function readParam(params: URLSearchParams, key: string) {
   const value = params.get(key)?.trim();
   return value ? value : undefined;
+}
+
+function readBooleanParam(params: URLSearchParams, key: string) {
+  const value = params.get(key)?.trim();
+  if (!value) {
+    return undefined;
+  }
+  return value === "1" || value.toLowerCase() === "true";
 }
 
 function readTabId(value: string | null): ChangeDetailTabId | undefined {

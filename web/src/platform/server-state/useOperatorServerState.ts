@@ -36,7 +36,7 @@ import {
 } from "../navigation";
 import { ControlApiError } from "../contracts";
 import { useTenantRealtimeBoundary, type TenantRealtimeEvent } from "../realtime";
-import type { OperatorWorkbenchProps } from "../workbench/OperatorWorkbench";
+import type { OperatorWorkbenchProps } from "../workbench/types";
 import { filterChanges, resolveTenantId, resolveViewId, resolveVisibleChangeSelection } from "./filtering";
 
 type OperatorServerStateResult =
@@ -96,6 +96,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
   const [initialRouteState] = useState(() => readOperatorRouteState(window.location.search));
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
   const [changes, setChanges] = useState<BootstrapResponse["changes"]>([]);
+  const [legacyWorkbenchEnabled, setLegacyWorkbenchEnabled] = useState(() => initialRouteState.legacyWorkbench ?? false);
   const [hasExplicitCatalogSelection, setHasExplicitCatalogSelection] = useState(
     () => initialRouteState.workspaceMode === "catalog" && Boolean(initialRouteState.tenantId),
   );
@@ -303,6 +304,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       const nextViewId = resolveViewId(bootstrap, routeState.viewId ?? DEFAULT_OPERATOR_VIEW_ID, DEFAULT_OPERATOR_VIEW_ID);
       const nextFilterId = routeState.filterId ?? DEFAULT_OPERATOR_FILTER_ID;
       const nextSearchQuery = routeState.searchQuery ?? "";
+      setLegacyWorkbenchEnabled(routeState.legacyWorkbench ?? false);
       const queueSnapshot = (await fetchChanges(nextTenantId)).changes;
       if (orchestrationVersionRef.current !== flowVersion) {
         return;
@@ -420,6 +422,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
         }
 
         setBootstrap(payload);
+        setLegacyWorkbenchEnabled(initialRouteState.legacyWorkbench ?? false);
         setActiveWorkspaceMode(initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE);
         setHasExplicitCatalogSelection(
           (initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE) === "catalog" && Boolean(initialRouteState.tenantId),
@@ -502,6 +505,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     }
 
     const nextHref = buildOperatorRouteHref(window.location.pathname, {
+      legacyWorkbench: legacyWorkbenchEnabled,
       workspaceMode: activeWorkspaceMode,
       tenantId:
         activeWorkspaceMode === "catalog" && isCompactViewport && !hasExplicitCatalogSelection ? undefined : activeTenantId,
@@ -534,6 +538,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     bootstrap,
     hasExplicitCatalogSelection,
     isCompactViewport,
+    legacyWorkbenchEnabled,
     searchQuery,
   ]);
 
@@ -978,6 +983,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     state: "ready",
     workbenchProps: {
       bootstrap,
+      legacyWorkbenchEnabled,
       activeWorkspaceMode,
       activeTenantId: activeTenant.id,
       hasExplicitCatalogSelection,
