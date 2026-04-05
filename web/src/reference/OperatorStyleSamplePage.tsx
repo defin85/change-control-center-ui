@@ -277,6 +277,7 @@ export function OperatorStyleSamplePage() {
   const liveHref =
     (window as typeof window & { __CCC_LIVE_WORKBENCH_URL__?: string }).__CCC_LIVE_WORKBENCH_URL__ ??
     window.location.pathname;
+  const repositoriesHref = `${window.location.pathname}?workspace=catalog`;
 
   return (
     <div className="operator-style-sample" data-platform-surface="operator-style-sample">
@@ -292,10 +293,19 @@ export function OperatorStyleSamplePage() {
             </div>
           </div>
           <nav className="operator-style-sample__nav" aria-label="Preview sections">
-            <span className="operator-style-sample__nav-pill operator-style-sample__nav-pill--active">
+            <span
+              className="operator-style-sample__nav-pill operator-style-sample__nav-pill--active"
+              data-platform-action="workspace-queue"
+            >
               Workbench
             </span>
-            <span className="operator-style-sample__nav-pill">Repositories</span>
+            <a
+              className="operator-style-sample__nav-pill"
+              data-platform-action="workspace-catalog"
+              href={repositoriesHref}
+            >
+              Repositories
+            </a>
             <span className="operator-style-sample__nav-pill">Runs</span>
             <span className="operator-style-sample__nav-pill">Governance</span>
           </nav>

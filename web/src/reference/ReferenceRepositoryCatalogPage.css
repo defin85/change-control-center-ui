@@ -1,0 +1,99 @@
+.reference-catalog-shell {
+  min-height: 100vh;
+}
+
+.reference-catalog-shell .operator-style-sample__page {
+  gap: 24px;
+}
+
+.reference-catalog-utility {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.95fr) minmax(0, 1.45fr) auto;
+  gap: 14px 16px;
+  align-items: center;
+}
+
+.reference-catalog-utility-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--sample-muted);
+  font-size: 0.85rem;
+}
+
+.reference-catalog-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.reference-catalog-metric {
+  display: grid;
+  gap: 10px;
+  min-height: 142px;
+  padding: 20px;
+  border: 1px solid var(--sample-line);
+  border-radius: 24px;
+  background: var(--sample-surface);
+  box-shadow: 0 14px 34px rgba(24, 35, 52, 0.06);
+}
+
+.reference-catalog-metric strong {
+  font-size: clamp(2rem, 2vw, 2.45rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.reference-catalog-metric p {
+  margin: 0;
+  color: var(--sample-muted);
+  font-size: 0.9rem;
+}
+
+.reference-catalog-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  gap: 16px;
+}
+
+.reference-catalog-worklist {
+  min-height: 100%;
+}
+
+.reference-catalog-shell .reference-panel,
+.reference-catalog-shell .reference-detail-card,
+.reference-catalog-shell .reference-detail-block {
+  background: var(--sample-surface);
+}
+
+.reference-catalog-shell .reference-queue-row.active {
+  border-color: oklch(0.75 0.09 249 / 0.55);
+  background: oklch(0.985 0.012 252 / 0.94);
+}
+
+@media (max-width: 1180px) {
+  .reference-catalog-utility {
+    grid-template-columns: 1fr;
+  }
+
+  .reference-catalog-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reference-catalog-stage {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .reference-catalog-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .reference-catalog-utility-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

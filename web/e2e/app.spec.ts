@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { gotoApp, reloadApp } from "./support/navigation";
+import { gotoApp, gotoShippedApp, reloadApp } from "./support/navigation";
 
 function uniqueTitle(prefix: string) {
   return `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -92,7 +92,44 @@ test("shows a normalized HTTP failure when bootstrap request fails @platform", a
   await expect(page.getByText(/bootstrap unavailable/i)).toBeVisible();
 });
 
-test("renders the operator console surfaces and mandatory detail tabs @smoke @platform", async ({ page }) => {
+test("renders the shipped static preview and routes into repositories @smoke @platform", async ({ page }) => {
+  await gotoShippedApp(page);
+
+  await expect(page.locator('[data-platform-surface="operator-style-sample"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Operator Shell Preview" })).toBeVisible();
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="operator-workbench"]')).toHaveCount(0);
+
+  await page.locator('[data-platform-action="workspace-catalog"]').click();
+
+  await expect(page).toHaveURL(/workspace=catalog/);
+  await expect(page.getByRole("heading", { name: "Repository Portfolio" })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-catalog-workspace"]')).toBeVisible();
+});
+
+test("renders the canonical repositories workspace and selected repository stage @smoke @platform", async ({ page }) => {
+  await gotoShippedApp(page, "/?workspace=catalog");
+
+  await expect(page.locator('[data-platform-shell="workspace-page"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-catalog-workspace"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-catalog-metrics"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-catalog"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="selected-repository-workspace"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("change-control-center-ui");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
+  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]').getByLabel("Search")).toBeVisible();
+
+  const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
+  await expect(sandboxRow).toContainText("sandbox-repo");
+  await sandboxRow.click();
+
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("/home/egor/code/sandbox-repo");
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("Open queue");
+});
+
+test("renders the legacy operator console surfaces and mandatory detail tabs @platform", async ({ page }) => {
   await gotoApp(page);
   const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
 
@@ -171,12 +208,12 @@ test("wires the approved foundations on the default operator path @platform", as
   await expect(page.locator('[data-platform-foundation="platform-clarification-textarea"]')).toHaveCount(1);
 });
 
-test("creates a new repository from the header and switches into catalog management @platform", async ({ page }) => {
+test("creates a new repository from the shipped catalog utility bar @platform", async ({ page }) => {
   const projectName = uniqueTitle("Workspace seed");
   const repoPath = `/tmp/${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
-  await gotoApp(page);
-  await page.locator("header").getByRole("button", { name: "New repository" }).click();
+  await gotoShippedApp(page, "/?workspace=catalog");
+  await page.locator('[data-platform-surface="repository-catalog-utility"]').getByRole("button", { name: "New repository" }).click();
 
   const dialog = page.getByRole("dialog", { name: "New repository" });
   await dialog.getByLabel("Repository name").fill(projectName);
@@ -186,7 +223,7 @@ test("creates a new repository from the header and switches into catalog managem
 
   await expect(dialog).toHaveCount(0);
   await expect(page.locator(".toast")).toContainText(`Created repository ${projectName}.`);
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(projectName);
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(repoPath);
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("Create first change");
@@ -194,15 +231,14 @@ test("creates a new repository from the header and switches into catalog managem
   await expect(page).toHaveURL(/tenant=tenant-/);
 });
 
-test("enters repository catalog mode, selects a repository, and returns to the queue @platform", async ({ page }) => {
-  await gotoApp(page);
+test("selects a repository from the shipped catalog and hands off into queue work @platform", async ({ page }) => {
+  await gotoShippedApp(page, "/?workspace=catalog");
 
-  await page.locator('[data-platform-action="workspace-catalog"]').click();
   await expect(page.locator('[data-platform-surface="repository-catalog"]')).toBeVisible();
   await expect(page).toHaveURL(/workspace=catalog/);
 
   const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
-  await expect(sandboxRow).toContainText("not started");
+  await expect(sandboxRow).toContainText("sandbox-repo");
   await sandboxRow.click();
 
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
@@ -210,46 +246,46 @@ test("enters repository catalog mode, selects a repository, and returns to the q
 
   await page.locator('[data-platform-surface="repository-profile"]').getByRole("button", { name: "Open queue" }).click();
 
-  await expect(page.locator('[data-platform-action="workspace-queue"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/legacyWorkbench=1/);
   await expect(page.locator("header").getByLabel("Repository")).toContainText("sandbox-repo");
   await expect(page.getByRole("heading", { name: "Live queue" })).toBeVisible();
-  await expect(page).not.toHaveURL(/workspace=catalog/);
+  await expect(page).not.toHaveURL(/workspace=catalog(&|$)/);
 });
 
 test("restores repository catalog route state after reload @platform", async ({ page }) => {
-  await gotoApp(page, "/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
+  await gotoShippedApp(page, "/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
 
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
+  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]').getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 
   await reloadApp(page);
 
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
+  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]').getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 });
 
 test("restores compact repository catalog route state after reload @platform", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1200 });
-  await gotoApp(page, "/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
+  await gotoShippedApp(page, "/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
 
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
+  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]').getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 
   await reloadApp(page);
 
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
+  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]').getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 });
 
 test("renders compact repository catalog rows and drawer profile on narrow viewports @platform", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1200 });
-  await gotoApp(page, "/?workspace=catalog");
+  await gotoShippedApp(page, "/?workspace=catalog");
 
   const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
   await expect(sandboxRow.locator('[data-platform-compact-label]').filter({ hasText: "Repository" })).toBeVisible();
@@ -281,7 +317,7 @@ test("surfaces pending and error boundaries for repository selection in catalog 
     });
   });
 
-  await gotoApp(page, "/?workspace=catalog");
+  await gotoShippedApp(page, "/?workspace=catalog");
 
   const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
   await sandboxRow.click();

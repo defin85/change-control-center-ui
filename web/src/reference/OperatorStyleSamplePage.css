@@ -131,6 +131,7 @@
 
 .operator-style-sample__nav-pill {
   color: var(--sample-muted);
+  text-decoration: none;
 }
 
 .operator-style-sample__nav-pill--active {

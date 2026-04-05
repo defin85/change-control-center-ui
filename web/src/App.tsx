@@ -2,9 +2,11 @@ import { useEffect } from "react";
 import {
   OperatorWorkbench,
   OperatorWorkbenchState,
+  readOperatorRouteState,
   useOperatorServerState,
 } from "./platform";
 import { OperatorStyleSamplePage } from "./reference/OperatorStyleSamplePage";
+import { ReferenceRepositoryCatalogPage } from "./reference/ReferenceRepositoryCatalogPage";
 
 import "./styles.css";
 
@@ -35,12 +37,29 @@ function DefaultReferenceApp() {
   return <OperatorStyleSamplePage />;
 }
 
-export default function App() {
-  const routeParams = new URLSearchParams(window.location.search);
-  const legacyWorkbenchEnabled = routeParams.get("legacyWorkbench") === "1" || routeParams.get("legacyWorkbench") === "true";
+function RepositoryCatalogApp() {
+  const operatorServerState = useOperatorServerState();
 
-  if (legacyWorkbenchEnabled) {
+  if (operatorServerState.state === "error") {
+    return <OperatorWorkbenchState tone="error" message={operatorServerState.message} />;
+  }
+
+  if (operatorServerState.state === "loading") {
+    return <OperatorWorkbenchState tone="loading" message={operatorServerState.message} />;
+  }
+
+  return <ReferenceRepositoryCatalogPage {...operatorServerState.workbenchProps} />;
+}
+
+export default function App() {
+  const routeState = readOperatorRouteState(window.location.search);
+
+  if (routeState.legacyWorkbench) {
     return <LegacyOperatorApp />;
+  }
+
+  if (routeState.workspaceMode === "catalog") {
+    return <RepositoryCatalogApp />;
   }
 
   return <DefaultReferenceApp />;
