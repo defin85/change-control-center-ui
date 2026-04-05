@@ -61,29 +61,27 @@ The system SHALL model complex operator workflow transitions through explicit wo
 - **AND** simple presentational toggles or single-field drafts are not forced into the same workflow layer when that would add unnecessary complexity
 
 ### Requirement: Workflow-Oriented Operator Workbench Surfaces
-The system SHALL expose a workflow-oriented operator workbench shell with the primary surfaces and actions required to inspect and advance change-driven work.
+The system SHALL expose a workflow-oriented operator workbench shell whose default desktop queue workspace follows the reference-authoritative page flow while preserving the primary surfaces and actions required to inspect and advance change-driven work.
 
 #### Scenario: Operator opens the main shell on desktop
 - **WHEN** the operator opens the main application entrypoint on a desktop viewport
-- **THEN** the shell shows search and global actions
-- **AND** the shell shows queue and signal summaries together with queue and filter context
-- **AND** the shell shows a control queue and a contextual selected-change workspace in one operator workbench
-- **AND** the selected-change workspace is the primary action surface for the active change instead of a separate standalone inspector plus detached lower detail stage
+- **THEN** the shell shows masthead-level search and global actions
+- **AND** the shell shows compact overview and repository context in supporting sections rather than through a separate dashboard shell
+- **AND** the shell shows a paired live queue and contextual selected-change workspace in the same reference-parity page flow
 - **AND** all visible product data comes from backend-owned state rather than static client-only mock state
 
 #### Scenario: Operator inspects a selected change
 - **WHEN** a change is selected in the control queue
-- **THEN** the contextual workspace provides tabs for `Overview`, `Traceability`, `Runs`, `Gaps`, `Evidence`, `Git`, `Chief`, and `Clarifications`
-- **AND** the contextual workspace header exposes actions for `Run next step`, `Open run studio`, `Escalate`, and `Mark blocked by spec`
-- **AND** selected-change summary signals needed for decision-making remain visible without requiring a separate competing inspector surface
-- **AND** those actions operate through backend-owned commands and normalized state transitions
+- **THEN** the selected-change workspace remains the dominant pane in the paired queue and detail stage
+- **AND** the contextual workspace still provides tabs for `Overview`, `Traceability`, `Runs`, `Gaps`, `Evidence`, `Git`, `Chief`, and `Clarifications`
+- **AND** the contextual workspace still exposes actions for `Run next step`, `Open run studio`, `Escalate`, and `Mark blocked by spec`
+- **AND** auxiliary workflow surfaces do not force the old equal-weight dashboard structure to remain in place
 
 #### Scenario: Operator opens run studio from change detail
 - **WHEN** the operator opens run studio from the selected change context or selects a run from the `Runs` tab
-- **THEN** the contextual workspace reveals a dedicated run-inspection surface linked to the selected run
+- **THEN** the run-inspection surface remains available as a subordinate workflow surface linked to the selected run
 - **AND** the operator can return focus to change detail without losing the selected change context
 - **AND** run lineage, approvals, evidence, and clarification context remain available from backend-owned data
-- **AND** run studio does not remain a permanently emphasized competing panel while no run is selected
 
 ### Requirement: Governed Operator Authoring and Responsive Detail Flows
 The system SHALL provide canonical platform-approved entry points for operator authoring and responsive detail workflows.
@@ -206,13 +204,18 @@ The system SHALL keep route-level operator context visible without letting summa
 - **AND** shell-level summaries do not repeat the same selected-change state through multiple equally prominent blocks
 
 ### Requirement: Scan-Optimized Queue Worklist
-The system SHALL present the control queue as a scan-optimized worklist that highlights the few signals most useful for choosing the next change.
+The system SHALL present the control queue through a reference-parity toolbar and compact row cadence that optimize scanning without separate queue dashboard chrome.
 
 #### Scenario: Operator scans a repetitive draft-heavy queue slice
 - **WHEN** many visible queue rows share similar draft or low-signal state
-- **THEN** each row still exposes state, blocker, and next-step context
-- **AND** those signals are consolidated into a small number of readable row regions instead of forcing every summary field into its own equally weighted column
-- **AND** repetitive rows remain distinguishable without requiring the operator to read long repeated phrases across every column
+- **THEN** queue-level search, slice, and filter context remain available inside the queue section itself
+- **AND** each row consolidates title or summary, concise metadata, state, blocker, and next-step context into a small number of readable row regions
+- **AND** the operator does not need a separate context-chip band or equally weighted multi-column dashboard frame to understand the current queue slice
+
+#### Scenario: Operator compares queue rows before opening one change
+- **WHEN** the operator scans several candidate queue rows before choosing the next change
+- **THEN** repetitive rows remain distinguishable through their compact state, blocker, owner, and next-step signals
+- **AND** the queue emphasizes the worklist itself instead of competing with it through surrounding summary chrome of similar visual weight
 
 ### Requirement: Focused Compact Detail Overview
 The system SHALL adapt the compact selected-change workspace into a focused operator sheet with progressive disclosure for lower-priority overview detail.
@@ -230,25 +233,6 @@ The system SHALL keep unavailable and guarded operator actions fail-closed witho
 - **WHEN** the shell disables or gates an action because required context or product support is missing
 - **THEN** the UI describes the immediate operator-facing prerequisite or unavailable state in product language
 - **AND** the shell does not rely on default copy that explains internal OpenSpec, repository-governance, or implementation-contract mechanics to the operator
-
-### Requirement: Editorial Operator Visual Hierarchy
-The system SHALL present the default operator workbench through a restrained editorial visual hierarchy that keeps supporting context quiet and the selected-change workspace dominant.
-
-#### Scenario: Operator opens the main shell on desktop
-- **WHEN** the operator opens the main desktop shell
-- **THEN** the selected-change workspace reads as the primary action surface
-- **AND** summary strips, queue context, and navigation support the workflow without competing visually as equal dashboard surfaces
-- **AND** the shell does not rely on repeated ornamental card treatments to distinguish every section
-
-#### Scenario: Operator scans the control queue
-- **WHEN** the operator scans the queue for the next change to inspect
-- **THEN** queue rows read as a disciplined worklist optimized for scanning state, blocker, and next action
-- **AND** queue context remains visible without repeating the same information through multiple equally prominent summary blocks
-
-#### Scenario: Operator drills into run inspection
-- **WHEN** the operator opens run studio from the selected change context
-- **THEN** the run-inspection surface remains available without overtaking the selected-change workspace as a second competing dashboard
-- **AND** raw runtime payloads are visually demoted behind higher-signal operational context
 
 ### Requirement: Governed Project Authoring Entry Point
 The system SHALL provide a governed header-level authoring flow for creating a new tenant/project from the operator shell.
@@ -300,4 +284,66 @@ The system SHALL route repository creation and repository selection from the cat
 - **THEN** the shell uses one governed authoring flow with explicit pending and error states
 - **AND** a successful submission refreshes the catalog through shared server-state orchestration and selects the new repository as the active tenant
 - **AND** the resulting repository profile exposes an explicit next action such as opening the queue or creating the first change instead of leaving the operator in an ambiguous empty state
+
+### Requirement: Operational Operator Visual Hierarchy
+The system SHALL present the default operator workbench through a codex-lb-inspired operational visual hierarchy with restrained translucent chrome, bordered work panels, concise semantic accents, and a clearly dominant selected-change workspace.
+
+#### Scenario: Operator opens the canonical shell on desktop
+- **WHEN** the operator opens the default backend-served desktop shell
+- **THEN** the selected-change workspace reads as the primary action surface
+- **AND** shell chrome, repository context, search, and summary signals are framed through compact supporting surfaces rather than a document-like hero treatment
+- **AND** the shell does not preserve the legacy editorial visual contract as a parallel or fallback presentation mode
+
+#### Scenario: Operator scans the control queue in the operational shell
+- **WHEN** the operator scans the queue for the next change to inspect
+- **THEN** queue rows read as a disciplined operational worklist optimized for scanning state, blocker, orchestrator owner label, and next-step context
+- **AND** concise status treatments, compact metadata, and bordered row or panel framing make repetitive queue slices easier to scan
+- **AND** queue context remains visible without repeating the same information through multiple equally prominent summary blocks
+
+#### Scenario: Operator drills into run inspection from the operational shell
+- **WHEN** the operator opens run studio from the selected change context
+- **THEN** the run-inspection surface remains available without overtaking the selected-change workspace as a second competing dashboard
+- **AND** the run surface shares the same operational visual system as the surrounding shell
+- **AND** raw runtime payloads remain visually demoted behind higher-signal operational context
+
+### Requirement: Single Canonical Operational Shell
+The system SHALL ship one canonical backend-served operator shell in the operational style and SHALL retire preview-only or editorial shell variants from the default application entrypoint.
+
+#### Scenario: Operator opens the default served entrypoint
+- **WHEN** the operator opens the backend-served default application entrypoint
+- **THEN** the operator receives the canonical operational shell directly
+- **AND** the default entrypoint does not depend on a preview-only route or opt-in visual mode to reach the approved shell
+- **AND** the served application does not keep the retired editorial shell as a supported fallback
+- **AND** any retained static sample remains a non-shipped reference artifact outside the default served application path
+
+### Requirement: Operational Shell Signal Framing
+The system SHALL frame shell-level operator signals through compact operational summary treatments that support decision-making without becoming a parallel dashboard.
+
+#### Scenario: Operator scans shell-level status before choosing work
+- **WHEN** the operator opens the default workbench with repository and queue context available
+- **THEN** the shell exposes compact metric, state, or sync signals in a restrained supporting layer
+- **AND** semantic colors are reserved for actionable status, risk, and approval state rather than ornamental emphasis
+- **AND** those shell-level signals do not compete visually with the selected-change workspace for primary operator attention
+
+### Requirement: Reference-Authoritative Default Workbench Composition
+The system SHALL treat `legacy/references/operator-workbench` as the authoritative visual and structural reference for the default desktop queue workspace until another approved OpenSpec change supersedes it.
+
+#### Scenario: Operator opens the default desktop queue workspace
+- **WHEN** the operator opens the backend-served default application entrypoint in queue mode on a desktop viewport
+- **THEN** the shell follows the reference-parity section cadence of masthead, compact overview metrics, supporting repository overview, and one paired live-queue plus selected-change stage
+- **AND** the shell does not insert a separate permanent rail, standalone summary strip, or other parallel dashboard layer between those primary sections
+- **AND** differences from the reference are limited to backend-owned live data and approved workflow affordances
+
+#### Scenario: Contributor compares the live shell with the reference artifact
+- **WHEN** a contributor compares the default desktop queue workspace with `legacy/references/operator-workbench`
+- **THEN** the overall composition, dominant surfaces, and section hierarchy are recognizably the same
+- **AND** a cosmetic token or background update without structural parity is not treated as sufficient implementation evidence
+
+### Requirement: Legacy Dashboard Chrome Removal
+The system SHALL retire the current intermediate dashboard chrome from the canonical desktop queue workspace and SHALL re-express any required context inside the simpler reference-parity sections.
+
+#### Scenario: Canonical desktop queue workspace renders supporting context
+- **WHEN** the canonical desktop queue workspace renders repository, slice, or queue context
+- **THEN** that context appears inside the masthead, overview, repository, queue, or selected-change sections of the reference-parity shell
+- **AND** the canonical queue workspace does not rely on a separate permanent operator rail, summary strip, or queue-context dashboard band as first-class structural layers
 
