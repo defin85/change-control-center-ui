@@ -33,8 +33,8 @@ export function RunStudio({ run, events, approvals, onApprovalDecision, onClose 
         </PlatformPrimitives.Button>
       }
     >
-      <div className="stack">
-        <div className="key-value-grid run-facts-grid">
+      <div className="stack reference-run-studio">
+        <div className="key-value-grid run-facts-grid reference-run-studio-facts">
           <div>
             <span>Kind</span>
             <strong>{run.kind}</strong>
@@ -64,7 +64,7 @@ export function RunStudio({ run, events, approvals, onApprovalDecision, onClose 
             <pre className="run-studio-code">{JSON.stringify(run.memoryPacket, null, 2)}</pre>
           </div>
         </details>
-        <div className="card">
+        <div className="card reference-overview-card">
           <p className="eyebrow">Runtime Events</p>
           {events.length === 0 ? (
             <p>No runtime events captured for this run.</p>
@@ -82,7 +82,7 @@ export function RunStudio({ run, events, approvals, onApprovalDecision, onClose 
             </div>
           )}
         </div>
-        <div className="card">
+        <div className="card reference-overview-card">
           <p className="eyebrow">Approvals</p>
           {approvalWorkflow.error ? (
             <p className="empty-state">

@@ -17,7 +17,7 @@ test("fails closed when selected change detail drifts from the shared contract b
   });
 
   await gotoApp(page);
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await page.locator('[data-change-id="ch-142"]').first().click();
 
   await expect(page.getByText(/Control API contract failure/i)).toBeVisible();
   await expect(page.getByText(/change\.memory: Invalid input/i)).toBeVisible();

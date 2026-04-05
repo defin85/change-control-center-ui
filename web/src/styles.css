@@ -2507,3 +2507,613 @@ textarea {
     min-height: auto;
   }
 }
+
+.workbench-page {
+  display: grid;
+  gap: 28px;
+}
+
+.reference-overview,
+.reference-section,
+.reference-panel,
+.reference-repository-card,
+.reference-detail-card,
+.reference-detail-block,
+.reference-overview-card {
+  min-width: 0;
+}
+
+.reference-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.reference-page-header h1,
+.reference-section-heading h2,
+.reference-panel-heading h2,
+.reference-detail-head h2,
+.reference-repository-head h3 {
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.reference-page-header h1 {
+  font-size: clamp(2rem, 3vw, 2.7rem);
+  line-height: 1;
+}
+
+.reference-header-note {
+  min-height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-strong) 92%, white);
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.reference-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: oklch(0.72 0.18 156);
+  box-shadow: 0 0 0 6px oklch(0.94 0.03 156 / 0.45);
+}
+
+.reference-metrics-grid,
+.reference-support-grid,
+.reference-repository-grid,
+.reference-paired-stage {
+  display: grid;
+  gap: 16px;
+}
+
+.reference-metrics-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.reference-support-grid {
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+}
+
+.reference-panel,
+.reference-repository-card,
+.detail-surface-panel,
+.repository-profile-panel,
+.queue-panel {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, oklch(0.99 0.004 255 / 0.97), oklch(0.982 0.006 255 / 0.96)),
+    radial-gradient(circle at top right, oklch(0.95 0.03 252 / 0.26), transparent 34%);
+  box-shadow: 0 14px 34px rgba(24, 35, 52, 0.06);
+}
+
+.reference-panel,
+.reference-repository-card,
+.detail-surface-panel,
+.repository-profile-panel,
+.queue-panel {
+  padding: 20px;
+}
+
+.reference-panel--wide {
+  min-height: 100%;
+}
+
+.reference-panel-heading,
+.reference-section-heading,
+.reference-repository-head,
+.reference-detail-block-head,
+.reference-detail-head,
+.reference-queue-row-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.reference-panel-heading {
+  margin-bottom: 16px;
+}
+
+.reference-panel-heading--queue {
+  align-items: center;
+}
+
+.reference-panel-actions,
+.detail-action-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.reference-metric-card {
+  display: grid;
+  gap: 8px;
+  min-height: 150px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--surface) 96%, white);
+  box-shadow: 0 12px 28px rgba(24, 35, 52, 0.05);
+}
+
+.reference-metric-card strong {
+  font-size: clamp(1.4rem, 2vw, 2.2rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.reference-metric-card p:last-child,
+.reference-panel-heading p,
+.reference-page-header p,
+.reference-repository-head p,
+.reference-detail-head p,
+.reference-detail-block p,
+.reference-timeline-row p,
+.reference-queue-row-main p {
+  color: var(--muted);
+}
+
+.reference-lane-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.reference-lane {
+  display: grid;
+  gap: 8px;
+}
+
+.reference-lane-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reference-lane-track,
+.reference-repository-bar-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-muted) 88%, white);
+}
+
+.reference-lane-fill,
+.reference-repository-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.reference-lane-fill--blue,
+.reference-repository-bar-fill--blue {
+  background: linear-gradient(90deg, oklch(0.63 0.17 252), oklch(0.74 0.12 240));
+}
+
+.reference-lane-fill--violet {
+  background: linear-gradient(90deg, oklch(0.62 0.19 294), oklch(0.78 0.1 300));
+}
+
+.reference-lane-fill--emerald {
+  background: linear-gradient(90deg, oklch(0.71 0.15 163), oklch(0.79 0.1 165));
+}
+
+.reference-lane-fill--amber,
+.reference-repository-bar-fill--amber {
+  background: linear-gradient(90deg, oklch(0.71 0.18 52), oklch(0.8 0.12 68));
+}
+
+.reference-fact-list {
+  display: grid;
+  gap: 10px;
+}
+
+.reference-fact-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.reference-fact-list div:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.reference-fact-list dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reference-fact-list dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+}
+
+.reference-section {
+  display: grid;
+  gap: 16px;
+}
+
+.reference-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.reference-section-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--line-strong), transparent);
+}
+
+.reference-repository-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reference-repository-card {
+  display: grid;
+  gap: 14px;
+  text-align: left;
+}
+
+.reference-repository-card.active {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
+  box-shadow: 0 20px 40px rgba(24, 35, 52, 0.08);
+}
+
+.reference-repository-card .state-pill {
+  justify-self: end;
+}
+
+.reference-repository-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.reference-repository-metrics div,
+.reference-detail-stats div {
+  display: grid;
+  gap: 4px;
+}
+
+.reference-repository-bars {
+  display: grid;
+  gap: 10px;
+}
+
+.reference-repository-bar {
+  display: grid;
+  gap: 6px;
+}
+
+.reference-repository-foot,
+.reference-repository-featured {
+  color: var(--muted);
+}
+
+.reference-repository-featured {
+  font-size: 0.86rem;
+}
+
+.reference-paired-stage {
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+  align-items: start;
+}
+
+.reference-paired-stage--catalog {
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+}
+
+.reference-paired-stage > [data-platform-shell="detail-workspace"],
+.reference-paired-stage > [data-platform-shell="repository-catalog-workspace"] {
+  min-width: 0;
+}
+
+.reference-chip-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-strong) 92%, white);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.reference-chip-button.active {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 52%, white);
+}
+
+.reference-queue-toolbar {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.reference-queue-search {
+  display: grid;
+  gap: 6px;
+}
+
+.reference-queue-search span {
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.reference-queue-search-input,
+.reference-queue-search-readout {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-strong) 95%, white);
+  padding: 10px 14px;
+}
+
+.reference-queue-search--static .reference-queue-search-readout {
+  display: flex;
+  align-items: center;
+  color: var(--text);
+}
+
+.reference-queue-chip-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reference-queue-chip-stack--secondary .reference-chip-button {
+  background: color-mix(in srgb, var(--surface-soft) 88%, white);
+}
+
+.reference-queue-context-note {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-soft) 82%, white);
+}
+
+.reference-queue-table,
+.reference-queue-list {
+  display: grid;
+  gap: 12px;
+}
+
+.reference-queue-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface-strong) 92%, white);
+  text-align: left;
+  box-shadow: 0 10px 22px rgba(24, 35, 52, 0.04);
+}
+
+.reference-queue-row:hover,
+.reference-repository-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--line));
+}
+
+.reference-queue-row.active {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(231, 237, 243, 0.76));
+  box-shadow: 0 18px 32px rgba(24, 35, 52, 0.08);
+}
+
+.reference-queue-row-main,
+.reference-queue-row-side {
+  display: grid;
+  gap: 10px;
+}
+
+.reference-compact-label {
+  display: none;
+}
+
+.reference-queue-row-meta,
+.reference-queue-row-summary,
+.reference-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reference-queue-row-meta span,
+.reference-queue-row-summary span,
+.reference-detail-actions span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-soft) 86%, white);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.reference-queue-row-label {
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.reference-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.reference-status-bar span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-soft) 84%, white);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.reference-detail-card,
+.reference-detail-block {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface-strong) 94%, white);
+  box-shadow: 0 10px 22px rgba(24, 35, 52, 0.04);
+}
+
+.reference-detail-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.reference-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.reference-detail-block {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.reference-timeline {
+  display: grid;
+  gap: 12px;
+}
+
+.reference-timeline-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+}
+
+.reference-timeline-dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent-soft) 80%, white);
+}
+
+.reference-overview-grid {
+  margin-top: 6px;
+}
+
+.reference-overview-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-strong) 94%, white);
+  box-shadow: 0 10px 22px rgba(24, 35, 52, 0.04);
+}
+
+.reference-run-studio {
+  padding-top: 8px;
+}
+
+.reference-run-studio-facts {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-soft) 80%, white);
+}
+
+.reference-featured-change {
+  display: grid;
+  gap: 4px;
+}
+
+@media (max-width: 1380px) {
+  .reference-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reference-support-grid,
+  .reference-paired-stage,
+  .reference-paired-stage--catalog,
+  .reference-repository-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1080px) {
+  .workbench-page {
+    gap: 22px;
+  }
+
+  .reference-page-header,
+  .reference-panel-heading,
+  .reference-panel-heading--queue,
+  .reference-detail-head,
+  .reference-section-heading {
+    display: grid;
+  }
+
+  .reference-header-note {
+    white-space: normal;
+  }
+
+  .reference-metrics-grid,
+  .reference-support-grid,
+  .reference-repository-grid,
+  .reference-detail-stats,
+  .reference-paired-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .reference-queue-row {
+    grid-template-columns: 1fr;
+  }
+
+  .reference-compact-label {
+    display: inline-flex;
+    align-items: center;
+    color: var(--muted);
+  }
+
+  .reference-panel,
+  .reference-repository-card,
+  .detail-surface-panel,
+  .repository-profile-panel,
+  .queue-panel {
+    padding: 16px;
+  }
+}

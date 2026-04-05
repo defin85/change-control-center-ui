@@ -12,6 +12,10 @@ function delay(ms: number) {
   });
 }
 
+function changeRow(page: Page, changeId: string) {
+  return page.locator(`[data-change-id="${changeId}"]`).first();
+}
+
 async function createIsolatedChange(page: Page, prefix: string) {
   const title = uniqueTitle(prefix);
   const createResponse = await page.request.post("/api/tenants/tenant-demo/changes", {
@@ -79,29 +83,27 @@ test("renders the operator console surfaces and mandatory detail tabs @smoke @pl
   const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
 
   await expect(page.locator('[data-platform-shell="workspace-page"]')).toBeVisible();
-  await expect(page.locator('[data-platform-shell="master-detail"]')).toBeVisible();
   await expect(page.locator('[data-platform-shell="detail-workspace"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="global-actions"]')).toBeVisible();
-  await expect(page.locator('[data-platform-surface="queue-context"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="workbench-overview"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-overview"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-detail-stage"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="control-queue"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="selected-change-workspace"]')).toBeVisible();
-  await expect(page.locator('[data-platform-surface="signal-summary-card"]')).toHaveCount(1);
+  await expect(page.locator('[data-platform-surface="queue-context"]')).toHaveCount(0);
+  await expect(page.locator('[data-platform-surface="signal-summary-card"]')).toHaveCount(0);
 
-  await page.getByRole("button", { name: /ch-146/i }).click();
+  await changeRow(page, "ch-146").click();
   await expect(page.locator("header").getByRole("button", { name: "New change" })).toBeVisible();
   await expect(page.locator("header").getByRole("button", { name: "Run next step" })).toBeVisible();
-  await expect(page.getByLabel("Search")).toBeVisible();
-  await expect(page.locator(".operator-rail").getByText("Views", { exact: true })).toBeVisible();
-  await expect(page.locator(".operator-rail").getByText("Filters", { exact: true })).toBeVisible();
-  await expect(page.locator(".operator-rail").getByText("Chief policy", { exact: true })).toBeVisible();
-  await expect(page.locator(".operator-rail").getByText("Saved slices", { exact: true })).toBeVisible();
-  await expect(page.locator(".queue-panel").getByText("Control Queue", { exact: true })).toBeVisible();
-  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Slice", { exact: true })).toBeVisible();
-  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Filter", { exact: true })).toBeVisible();
-  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Ownership", { exact: true })).toBeVisible();
-  await expect(page.locator('[data-platform-governance="queue-actions-closed"]')).toBeVisible();
+  await expect(page.locator("header").getByLabel("Search")).toBeVisible();
+  await expect(page.locator(".queue-panel").getByText("Live queue", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Search queue", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByRole("button", { name: "All severities" })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByRole("button", { name: "Needs review" })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-overview"]').getByRole("button", { name: /change-control-center-ui/i })).toBeVisible();
   await expect(page.locator('[data-change-id="ch-142"]')).toContainText("Codex Chief");
   await expect(page.locator("header").getByRole("button", { name: "Run next step" })).toBeVisible();
   await expect(detailActions.getByRole("button", { name: "Open run studio" })).toHaveAttribute("aria-controls", "run-studio");
@@ -146,8 +148,8 @@ test("wires the approved foundations on the default operator path @platform", as
   await expect(page.locator('[data-platform-foundation="tanstack-table"]')).toBeVisible();
   await expect(page.locator('[data-platform-foundation="base-ui-tabs"]')).toBeVisible();
 
-  await expect(page.getByRole("button", { name: /Foundation proof change/i })).toBeVisible();
-  await page.getByRole("button", { name: /Foundation proof change/i }).click();
+  await expect(changeRow(page, change.id)).toBeVisible();
+  await changeRow(page, change.id).click();
   await page.getByRole("tab", { name: "Clarifications" }).click();
 
   await expect(page.locator('[data-platform-foundation="base-ui-clarification-actions"]')).toHaveCount(2);
@@ -195,8 +197,8 @@ test("enters repository catalog mode, selects a repository, and returns to the q
   await page.locator('[data-platform-surface="repository-profile"]').getByRole("button", { name: "Open queue" }).click();
 
   await expect(page.locator('[data-platform-action="workspace-queue"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByLabel("Repository")).toContainText("sandbox-repo");
-  await expect(page.locator(".queue-panel")).toContainText("Control Queue");
+  await expect(page.locator("header").getByLabel("Repository")).toContainText("sandbox-repo");
+  await expect(page.locator(".queue-panel")).toContainText("Live queue");
   await expect(page).not.toHaveURL(/workspace=catalog/);
 });
 
@@ -204,13 +206,13 @@ test("restores repository catalog route state after reload @platform", async ({ 
   await gotoApp(page, "/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
 
   await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 
   await reloadApp(page);
 
   await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 });
 
@@ -219,14 +221,14 @@ test("restores compact repository catalog route state after reload @platform", a
   await gotoApp(page, "/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
 
   await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 
   await reloadApp(page);
 
   await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 });
@@ -243,7 +245,7 @@ test("renders compact repository catalog rows and drawer profile on narrow viewp
   await sandboxRow.click();
 
   await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
-  await expect(page.getByText("Selected repository", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Selected repository" })).toBeVisible();
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 
   await page.getByRole("button", { name: "Back to repositories" }).click();
@@ -299,8 +301,8 @@ test("aligns document language and form semantics on the backend-served shell @p
   const detailPanel = await waitForDetailPanel(page, change.title);
 
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByLabel("Search")).toHaveAttribute("name", "search");
-  await expect(page.getByLabel("Repository")).toBeVisible();
+  await expect(page.locator("header").getByLabel("Search")).toHaveAttribute("name", "search");
+  await expect(page.locator("header").getByLabel("Repository")).toBeVisible();
 
   await detailPanel.getByRole("tab", { name: "Chief" }).click();
   await expect(page.getByLabel("Fact title")).toHaveAttribute("name", "fact-title");
@@ -316,7 +318,7 @@ test("creates a run and shows runtime lineage in run studio @platform", async ({
   const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
   const runStudio = page.locator("#run-studio");
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
   await detailActions.getByRole("tab", { name: "Runs" }).click();
   await page.getByRole("button", { name: /run-30/i }).click();
 
@@ -353,8 +355,8 @@ test("persists clarification answers across reload @smoke", async ({ page }) => 
 test("restores route-addressable operator context after reload @platform", async ({ page }) => {
   await gotoApp(page);
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
-  await page.getByLabel("Search").fill("ch-142");
+  await changeRow(page, "ch-142").click();
+  await page.locator("header").getByLabel("Search").fill("ch-142");
   await page.getByRole("tab", { name: "Runs" }).click();
   await page.getByRole("button", { name: /run-30/i }).click();
 
@@ -365,7 +367,7 @@ test("restores route-addressable operator context after reload @platform", async
 
   await reloadApp(page);
 
-  await expect(page.getByLabel("Search")).toHaveValue("ch-142");
+  await expect(page.locator("header").getByLabel("Search")).toHaveValue("ch-142");
   await expect(page.locator(".tab-list [role=\"tab\"][aria-selected=\"true\"]")).toHaveText("Runs");
   await expect(page.locator("#run-studio").getByRole("heading", { name: "run-30" })).toBeVisible();
 });
@@ -373,7 +375,7 @@ test("restores route-addressable operator context after reload @platform", async
 test("restores route-addressable operator context through browser navigation @platform", async ({ page }) => {
   await gotoApp(page);
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
   await page.getByRole("tab", { name: "Runs" }).click();
   await page.getByRole("button", { name: /run-30/i }).click();
 
@@ -381,7 +383,7 @@ test("restores route-addressable operator context through browser navigation @pl
   await expect(page).toHaveURL(/run=run-30/);
   await expect(page).toHaveURL(/tab=runs/);
 
-  await page.getByRole("button", { name: /ch-146/i }).click();
+  await changeRow(page, "ch-146").click();
   await page.locator(".tab-list").getByRole("tab", { name: "Gaps" }).click();
 
   await expect(page).toHaveURL(/change=ch-146/);
@@ -407,7 +409,7 @@ test("restores search query through browser navigation @platform", async ({ page
   await page.setViewportSize({ width: 900, height: 1200 });
   await gotoApp(page);
 
-  const search = page.getByLabel("Search");
+  const search = page.locator("header").getByLabel("Search");
 
   await search.fill("ch-142");
   await expect(page).toHaveURL(/q=ch-142/);
@@ -424,11 +426,11 @@ test("restores search query through browser navigation @platform", async ({ page
 test("keeps selected operator context inside the visible filtered queue slice @platform", async ({ page }) => {
   await gotoApp(page);
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
   await expect(page).toHaveURL(/change=ch-142/);
   await expect(page.getByRole("heading", { name: "Replace static template with real operator shell" })).toBeVisible();
 
-  const search = page.getByLabel("Search");
+  const search = page.locator("header").getByLabel("Search");
   await search.fill("ch-146");
 
   await expect(page).toHaveURL(/q=ch-146/);
@@ -467,8 +469,8 @@ test("rehydrates queue context from backend state during same-tenant browser nav
   });
 
   await gotoApp(page);
-  await page.getByRole("button", { name: /ch-142/i }).click();
-  await page.getByRole("button", { name: /ch-146/i }).click();
+  await changeRow(page, "ch-142").click();
+  await changeRow(page, "ch-146").click();
 
   refreshFromBackend = true;
   await page.goBack();
@@ -539,7 +541,7 @@ test("fails closed on the global run action when no change is selected @platform
   await expect(headerRunAction).toBeDisabled();
   await expect(page.locator('[data-platform-governance="run-next-selection-required"]')).toBeVisible();
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
   await page.getByRole("button", { name: "Back to queue" }).click();
   await expect(page).toHaveURL(/change=ch-142/);
   await expect(headerRunAction).toBeEnabled();
@@ -556,7 +558,7 @@ test("demotes the global next-step action while a change workspace is focused @p
 
   await expect(headerRunAction).toHaveAttribute("data-platform-hierarchy", "primary");
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
   const detailPanel = page.getByRole("dialog", { name: "Selected change" }).locator('[data-platform-shell="detail-panel"]').first();
   const detailRunAction = detailPanel.getByRole("button", { name: "Run next step" });
 
@@ -629,7 +631,7 @@ test("fails closed on run studio entry until a backend-owned run exists @platfor
   await expect(openRunStudio).toBeDisabled();
   await expect(page.locator('[data-platform-governance="run-studio-run-required"]')).toBeVisible();
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
 
   await expect(openRunStudio).toBeEnabled();
 });
@@ -637,7 +639,7 @@ test("fails closed on run studio entry until a backend-owned run exists @platfor
 test("deletes the selected change through an explicit confirmation flow @platform", async ({ page }) => {
   const change = await openIsolatedChange(page, "Delete flow");
 
-  await page.getByLabel("Search").fill(change.title);
+  await page.locator("header").getByLabel("Search").fill(change.title);
   const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
   await detailActions.getByRole("button", { name: "Delete change" }).click();
 
@@ -711,7 +713,7 @@ test("keeps historical clarification rounds read-only and resets drafts for the 
 test("fails closed on fact promotion until required inputs are present @platform", async ({ page }) => {
   await gotoApp(page);
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await detailPanel.getByRole("tab", { name: "Chief" }).click();
 
@@ -740,7 +742,7 @@ test("promotes durable facts through the canonical backend flow @platform", asyn
   await expect(detailPanel.getByText("Escalate after two repeated fingerprints.")).toBeVisible();
 
   await reloadApp(page);
-  await page.getByRole("button", { name: new RegExp(change.id, "i") }).click();
+  await changeRow(page, change.id).click();
   const reloadedDetailPanel = await waitForDetailPanel(page, change.title);
   await reloadedDetailPanel.getByRole("tab", { name: "Chief" }).click();
 
@@ -918,7 +920,7 @@ test("reconciles only the affected selected surfaces for tenant events @platform
   });
 
   await gotoApp(page);
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
   await page.getByRole("tab", { name: "Runs" }).click();
   await page.getByRole("button", { name: /run-30/i }).click();
   await expect(page.locator("#run-studio").getByRole("heading", { name: "run-30" })).toBeVisible();
@@ -954,7 +956,7 @@ test("reconciles only the affected selected surfaces for tenant events @platform
 test("reconciles tenant events without losing selected operator context @platform", async ({ page }) => {
   await gotoApp(page);
 
-  await page.getByRole("button", { name: /ch-146/i }).click();
+  await changeRow(page, "ch-146").click();
   await expect(page.getByRole("heading", { name: "Bootstrap real app stack" })).toBeVisible();
   await expect(page.locator(".status-bar")).not.toContainText("Escalated");
 
@@ -1010,7 +1012,7 @@ test("surfaces normalized contract failures for change command mutations @platfo
 
   await gotoApp(page);
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await detailPanel.getByRole("button", { name: "Escalate" }).click();
 
@@ -1075,7 +1077,7 @@ test("keeps follow-up refresh failures inside the local change workflow boundary
   });
 
   await gotoApp(page);
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
 
   await detailPanel.getByRole("button", { name: "Escalate" }).click();
@@ -1098,7 +1100,7 @@ test("surfaces normalized contract failures for fact promotion mutations @platfo
 
   await gotoApp(page);
 
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await changeRow(page, "ch-142").click();
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await detailPanel.getByRole("tab", { name: "Chief" }).click();
 
@@ -1137,8 +1139,8 @@ test("uses approved platform foundations across required operator surfaces @plat
   await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-filter-action"]')).toHaveCount(3);
   await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(1);
 
-  await page.getByLabel("Search").fill("ch-142");
-  await page.getByRole("button", { name: /ch-142/i }).click();
+  await page.locator("header").getByLabel("Search").fill("ch-142");
+  await changeRow(page, "ch-142").click();
 
   await expect(page.locator('[data-platform-foundation="base-ui-queue-row"]')).toHaveCount(1);
   await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(1);

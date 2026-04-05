@@ -1,7 +1,7 @@
 import type { RepositoryCatalogEntry } from "../../types";
 import { PlatformPrimitives } from "../foundation";
 import { StatusBadge } from "../shells/StatusBadge";
-import { describeRepositoryCatalogFilter, type RepositoryCatalogFilterId } from "../server-state";
+import { describeRepositoryCatalogFilter, type RepositoryCatalogFilterId, REPOSITORY_CATALOG_FILTERS } from "../server-state";
 
 type RepositoryCatalogPanelProps = {
   entries: RepositoryCatalogEntry[];
@@ -11,6 +11,7 @@ type RepositoryCatalogPanelProps = {
   selectionPendingLabel: string | null;
   selectionError: string | null;
   searchQuery: string;
+  onSelectFilter: (filterId: RepositoryCatalogFilterId) => void;
   onSelectTenant: (tenantId: string) => void;
   onOpenCreateTenant: () => void;
 };
@@ -23,6 +24,7 @@ export function RepositoryCatalogPanel({
   selectionPendingLabel,
   selectionError,
   searchQuery,
+  onSelectFilter,
   onSelectTenant,
   onOpenCreateTenant,
 }: RepositoryCatalogPanelProps) {
@@ -30,14 +32,14 @@ export function RepositoryCatalogPanel({
   const normalizedQuery = searchQuery.trim();
 
   return (
-    <section className="panel queue-panel repository-catalog-panel" data-platform-surface="repository-catalog">
-      <div className="panel-header">
+    <section className="repository-catalog-panel reference-panel" data-platform-surface="repository-catalog">
+      <div className="reference-panel-heading">
         <div>
           <p className="eyebrow">Repository catalog</p>
           <h2>{activeFilter.label}</h2>
           <p className="subtitle">{entries.length} repositories match the current portfolio slice</p>
         </div>
-        <div className="panel-head-actions">
+        <div className="reference-panel-actions">
           <button
             type="button"
             className="primary-button"
@@ -49,25 +51,30 @@ export function RepositoryCatalogPanel({
         </div>
       </div>
 
-      <div className="queue-context-grid" data-platform-surface="repository-catalog-filter-context">
-        <article className="context-chip">
-          <span>Slice</span>
-          <strong>{activeFilter.label}</strong>
-          <small>{activeFilter.hint}</small>
-        </article>
-        <article className="context-chip">
+      <div className="reference-queue-toolbar" data-platform-surface="repository-catalog-filter-context">
+        <div className="reference-queue-search reference-queue-search--static">
           <span>Search</span>
-          <strong>{normalizedQuery || "No active search"}</strong>
-          <small>{normalizedQuery ? "Catalog results are narrowed by repository search." : "Showing the full repository slice."}</small>
-        </article>
-        <article className="context-chip">
-          <span>Focus</span>
+          <div className="reference-queue-search-readout">{normalizedQuery || "No active search query"}</div>
+        </div>
+        <div className="reference-queue-chip-stack">
+          {REPOSITORY_CATALOG_FILTERS.map((filter) => (
+            <PlatformPrimitives.Button
+              key={filter.id}
+              type="button"
+              className={`reference-chip-button ${activeFilterId === filter.id ? "active" : ""}`}
+              onClick={() => onSelectFilter(filter.id)}
+            >
+              <span>{filter.label}</span>
+            </PlatformPrimitives.Button>
+          ))}
+        </div>
+        <div className="reference-queue-context-note">
           <strong>{selectedTenantId ?? "No repository selected"}</strong>
-          <small>Select a repository to inspect its current workload and next step.</small>
-        </article>
+          <span>Select a repository to inspect workload and move back into queue work.</span>
+        </div>
       </div>
 
-      <div className="queue-list repository-catalog-list">
+      <div className="reference-queue-table">
         {selectionError ? (
           <p className="governance-note" data-platform-governance="catalog-selection-error">
             <strong>Repository selection failed.</strong> {selectionError}
@@ -88,79 +95,59 @@ export function RepositoryCatalogPanel({
             </div>
           </div>
         ) : (
-          entries.map((entry) => (
-            <PlatformPrimitives.Button
-              key={entry.tenantId}
-              type="button"
-              className={`queue-row repository-catalog-row ${selectedTenantId === entry.tenantId ? "active" : ""}`}
-              data-platform-foundation="base-ui-repository-row"
-              data-tenant-id={entry.tenantId}
-              aria-pressed={selectedTenantId === entry.tenantId}
-              disabled={isSelectionPending}
-              onClick={() => onSelectTenant(entry.tenantId)}
-            >
-              <span className="responsive-field" data-platform-compact-field="repository">
-                <span className="responsive-field-label" data-platform-compact-label>
-                  Repository
-                </span>
-                <span className="responsive-field-value repository-title">
-                  <strong>{entry.name}</strong>
-                  <span>{entry.description || "No repository description yet."}</span>
-                </span>
-              </span>
-              <span className="responsive-field" data-platform-compact-field="attention">
-                <span className="responsive-field-label" data-platform-compact-label>
-                  Attention
-                </span>
-                <span className="responsive-field-value">
-                  <StatusBadge status={entry.attentionState} label={formatAttentionLabel(entry.attentionState)} />
-                </span>
-              </span>
-              <span className="responsive-field" data-platform-compact-field="path">
-                <span className="responsive-field-label" data-platform-compact-label>
-                  Repo path
-                </span>
-                <span className="responsive-field-value repository-path">{entry.repoPath}</span>
-              </span>
-              <span className="responsive-field" data-platform-compact-field="load">
-                <span className="responsive-field-label" data-platform-compact-label>
-                  Load
-                </span>
-                <span className="responsive-field-value repository-load">
-                  <strong>{entry.changeCount} changes</strong>
-                  <span>
-                    {entry.activeChangeCount} active · {entry.readyChangeCount} ready · {entry.blockedChangeCount} blocked
+          <div className="reference-queue-list reference-repository-list">
+            {entries.map((entry) => (
+              <PlatformPrimitives.Button
+                key={entry.tenantId}
+                type="button"
+                className={`reference-queue-row reference-repository-row ${selectedTenantId === entry.tenantId ? "active" : ""}`}
+                data-platform-foundation="base-ui-repository-row"
+                data-tenant-id={entry.tenantId}
+                aria-pressed={selectedTenantId === entry.tenantId}
+                disabled={isSelectionPending}
+                onClick={() => onSelectTenant(entry.tenantId)}
+              >
+                <div className="reference-queue-row-main" data-platform-compact-field="repository">
+                  <span className="reference-compact-label" data-platform-compact-label>
+                    Repository
                   </span>
-                </span>
-              </span>
-              <span className="responsive-field" data-platform-compact-field="activity">
-                <span className="responsive-field-label" data-platform-compact-label>
-                  Recent
-                </span>
-                <span className="responsive-field-value repository-activity">
-                  <strong>{entry.lastActivity}</strong>
-                  <span>
-                    {entry.featuredChange
-                      ? `Latest backend-owned activity across ${entry.featuredChange.id}.`
-                      : "No recorded repository activity yet."}
-                  </span>
-                </span>
-              </span>
-              <span className="responsive-field" data-platform-compact-field="next">
-                <span className="responsive-field-label" data-platform-compact-label>
-                  Next
-                </span>
-                <span className="responsive-field-value repository-next">
-                  <strong>{entry.nextRecommendedAction}</strong>
-                  <span>
-                    {entry.featuredChange
-                      ? `${entry.featuredChange.id} · ${entry.featuredChange.title}`
-                      : "Create the first change to start this repository workspace."}
-                  </span>
-                </span>
-              </span>
-            </PlatformPrimitives.Button>
-          ))
+                  <div className="reference-queue-row-heading">
+                    <strong>{entry.name}</strong>
+                    <StatusBadge status={entry.attentionState} label={formatAttentionLabel(entry.attentionState)} />
+                  </div>
+                  <p>{entry.description || "No repository description yet."}</p>
+                  <div className="reference-queue-row-meta">
+                    <span>{entry.repoPath}</span>
+                  </div>
+                </div>
+                <div className="reference-queue-row-side">
+                  <div data-platform-compact-field="recent">
+                    <span className="reference-compact-label" data-platform-compact-label>
+                      Recent
+                    </span>
+                    <strong>{entry.lastActivity}</strong>
+                    <p>{entry.featuredChange ? `Latest activity around ${entry.featuredChange.id}.` : "No recent repository activity."}</p>
+                  </div>
+                  <div>
+                    <span className="reference-queue-row-label reference-compact-label" data-platform-compact-label>
+                      Next
+                    </span>
+                    <strong>{entry.nextRecommendedAction}</strong>
+                  </div>
+                  <div>
+                    <span className="reference-queue-row-label">Load</span>
+                    <p>
+                      {entry.changeCount} changes · {entry.activeChangeCount} active · {entry.blockedChangeCount} blocked
+                    </p>
+                  </div>
+                  <div className="reference-queue-row-summary">
+                    <span>{entry.readyChangeCount} ready</span>
+                    <span>{entry.featuredChange?.id ?? "No featured change"}</span>
+                  </div>
+                </div>
+              </PlatformPrimitives.Button>
+            ))}
+          </div>
         )}
       </div>
     </section>

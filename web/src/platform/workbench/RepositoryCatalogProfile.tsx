@@ -1,3 +1,4 @@
+import { StatusBadge } from "../shells/StatusBadge";
 import type { RepositoryCatalogEntry } from "../../types";
 
 type RepositoryCatalogProfileProps = {
@@ -15,10 +16,10 @@ export function RepositoryCatalogProfile({
 }: RepositoryCatalogProfileProps) {
   if (!entry) {
     return (
-      <section className="panel detail-panel repository-profile-panel" data-platform-surface="repository-profile">
-        <div className="panel-header">
+      <section className="repository-profile-panel reference-panel" data-platform-surface="repository-profile">
+        <div className="reference-panel-heading">
           <div>
-            <p className="eyebrow">Repository profile</p>
+            <p className="eyebrow">Selected repository</p>
             <h2>No repository selected</h2>
             <p className="subtitle">Choose a repository from the catalog to inspect workload and next steps.</p>
           </div>
@@ -39,14 +40,32 @@ export function RepositoryCatalogProfile({
   const primaryActionLabel = entry.changeCount === 0 ? "Create first change" : "Open queue";
 
   return (
-    <section className="panel detail-panel repository-profile-panel" data-platform-surface="repository-profile">
-      <div className="panel-header">
+    <section className="repository-profile-panel reference-panel reference-detail-panel" data-platform-surface="repository-profile">
+      <div className="reference-detail-head">
         <div>
-          <p className="eyebrow">Repository profile</p>
+          <span className="eyebrow">Selected repository</span>
           <h2>{entry.name}</h2>
-          <p className="subtitle">{entry.description || "No repository description yet."}</p>
+          <p>{entry.repoPath}</p>
         </div>
-        <div className="panel-head-actions">
+        <StatusBadge status={entry.attentionState} label={formatAttentionLabel(entry.attentionState)} />
+      </div>
+
+      <div className="reference-detail-card">
+        <div className="reference-detail-stats">
+          <div>
+            <span>Changes</span>
+            <strong>{entry.changeCount}</strong>
+          </div>
+          <div>
+            <span>Ready</span>
+            <strong>{entry.readyChangeCount}</strong>
+          </div>
+          <div>
+            <span>Blocked</span>
+            <strong>{entry.blockedChangeCount}</strong>
+          </div>
+        </div>
+        <div className="reference-detail-actions">
           <button type="button" className="primary-button" onClick={entry.changeCount === 0 ? onCreateChange : onOpenQueue}>
             {primaryActionLabel}
           </button>
@@ -56,57 +75,47 @@ export function RepositoryCatalogProfile({
         </div>
       </div>
 
-      <div className="repository-path-card">
-        <span className="block-label">Repo path</span>
-        <strong>{entry.repoPath}</strong>
-        <p className="muted">The selected repository remains the active tenant boundary for queue, runs, and memory.</p>
+      <div className="reference-detail-block">
+        <div className="reference-detail-block-head">
+          <h3>Repository note</h3>
+          <span>Backend-owned context</span>
+        </div>
+        <p>{entry.description || "No repository description yet."}</p>
       </div>
 
-      <div className="workspace-summary-grid repository-metrics-grid">
-        <article className="metric-card">
-          <span className="metric-label">Changes</span>
-          <strong>{entry.changeCount}</strong>
-          <p className="muted">Total tracked changes in this repository workspace.</p>
-        </article>
-        <article className="metric-card">
-          <span className="metric-label">Active</span>
-          <strong>{entry.activeChangeCount}</strong>
-          <p className="muted">Draft, review, or execution work that still needs attention.</p>
-        </article>
-        <article className="metric-card">
-          <span className="metric-label">Ready</span>
-          <strong>{entry.readyChangeCount}</strong>
-          <p className="muted">Changes that can move into the next operational step.</p>
-        </article>
-        <article className="metric-card">
-          <span className="metric-label">Blocked</span>
-          <strong>{entry.blockedChangeCount}</strong>
-          <p className="muted">Escalated or spec-blocked work that needs operator review.</p>
-        </article>
+      <div className="reference-detail-block">
+        <div className="reference-detail-block-head">
+          <h3>Current pressure</h3>
+          <span>Live portfolio signals</span>
+        </div>
+        <dl className="reference-fact-list">
+          <div>
+            <dt>Active changes</dt>
+            <dd>{entry.activeChangeCount}</dd>
+          </div>
+          <div>
+            <dt>Last activity</dt>
+            <dd>{entry.lastActivity}</dd>
+          </div>
+          <div>
+            <dt>Next recommendation</dt>
+            <dd>{entry.nextRecommendedAction}</dd>
+          </div>
+        </dl>
       </div>
 
-      <div className="grid-two">
-        <article className="card repository-highlight-card">
-          <span className="block-label">Recent activity</span>
-          <strong>{entry.lastActivity}</strong>
-          <p className="muted">Backend-owned activity label for the repository currently in focus.</p>
-        </article>
-        <article className="card repository-highlight-card">
-          <span className="block-label">Next recommendation</span>
-          <strong>{entry.nextRecommendedAction}</strong>
-          <p className="muted">Use the queue when you need change-level execution, not portfolio browsing.</p>
-        </article>
-      </div>
-
-      <div className="card repository-featured-card">
-        <span className="block-label">Featured change</span>
+      <div className="reference-detail-block">
+        <div className="reference-detail-block-head">
+          <h3>Featured change</h3>
+          <span>Queue handoff</span>
+        </div>
         {entry.featuredChange ? (
-          <div className="stack">
+          <div className="reference-featured-change">
             <strong>{entry.featuredChange.id}</strong>
             <p>{entry.featuredChange.title}</p>
-            <p className="muted">
+            <span>
               {entry.featuredChange.state} · {entry.featuredChange.nextAction}
-            </p>
+            </span>
           </div>
         ) : (
           <div className="empty-state">This repository has no change history yet. Create the first change to begin queue work.</div>
@@ -114,4 +123,17 @@ export function RepositoryCatalogProfile({
       </div>
     </section>
   );
+}
+
+function formatAttentionLabel(attentionState: RepositoryCatalogEntry["attentionState"]) {
+  switch (attentionState) {
+    case "needs_setup":
+      return "Needs setup";
+    case "blocked":
+      return "Blocked";
+    case "quiet":
+      return "Quiet";
+    default:
+      return "Active";
+  }
 }

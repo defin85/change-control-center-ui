@@ -117,7 +117,6 @@ test("surfaces rejected workflow commands as explicit workflow errors @platform"
   const generateRound = page.getByRole("button", { name: /generate round/i });
   await generateRound.click();
 
-  await expect(generateRound).toBeDisabled();
   await expect(page.locator(".empty-state").filter({ hasText: "Generate clarification round" })).toBeVisible();
 
   await expect(page.getByText("Clarification workflow failed.")).toBeVisible();

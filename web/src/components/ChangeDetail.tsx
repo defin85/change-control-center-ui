@@ -194,6 +194,13 @@ export function ChangeDetail({
   const normalizedFactBody = factBody.trim();
   const canPromoteFact = normalizedFactTitle.length > 0 && normalizedFactBody.length > 0;
   const canOpenRunStudio = runs.length > 0;
+  const openMandatoryGapCount = change.gaps.filter((gap) => gap.mandatory && gap.status !== "closed").length;
+  const timelineEntries = change.timeline.length > 0
+    ? change.timeline
+    : change.chiefHistory.map((entry) => ({
+        title: entry.title,
+        note: `${entry.at} · ${entry.note}`,
+      }));
 
   return (
     <DetailPanelShell
@@ -201,7 +208,7 @@ export function ChangeDetail({
       title={change.title}
       subtitle={change.subtitle}
       actions={
-        <>
+        <div className="detail-action-cluster">
           <PlatformPrimitives.Button
             type="button"
             className="primary-button"
@@ -321,7 +328,7 @@ export function ChangeDetail({
               </PlatformPrimitives.AlertDialog.Viewport>
             </PlatformPrimitives.AlertDialog.Portal>
           </PlatformPrimitives.AlertDialog.Root>
-        </>
+        </div>
       }
     >
       {actionWorkflow.error ? (
@@ -329,55 +336,70 @@ export function ChangeDetail({
           <strong>Change command failed.</strong> {actionWorkflow.error}
         </div>
       ) : null}
-      {actionWorkflow.isPending ? <div className="empty-state">{actionWorkflow.activeLabel ?? "Operator command in progress."}</div> : null}
+      {actionWorkflow.isPending ? (
+        <div className="empty-state">{actionWorkflow.activeLabel ?? "Operator command in progress."}</div>
+      ) : null}
       {!canOpenRunStudio ? (
         <p className="governance-note" data-platform-governance="run-studio-run-required">
           Run the change once before opening runtime details.
         </p>
       ) : null}
-      <div className="status-bar">
+      <div className="status-bar reference-status-bar">
         <StatusBadge status={change.state} label={formatStateLabel(change.state)} />
+        <span>{change.id}</span>
+        <span>{change.owner.label}</span>
         <span>{change.nextAction}</span>
-        <span>{change.blocker}</span>
       </div>
-      <div
-        className={`workspace-summary-grid detail-summary-grid${compactViewport ? " compact-detail-summary" : ""}`}
-      >
-        <article className="metric-card">
-          <p className="metric-label">Traceability</p>
-          <strong>{change.traceability.length} linked entries</strong>
-          <p className="muted">{change.gaps.filter((gap) => gap.mandatory && gap.status !== "closed").length} mandatory gaps still open</p>
-        </article>
-        <article className="metric-card">
-          <p className="metric-label">Run context</p>
-          <strong>{selectedRun ? selectedRun.id : runs.length > 0 ? `${runs.length} runs ready` : "No run selected"}</strong>
-          <p className="muted">
-            {selectedRun
-              ? `${selectedRun.kind} via ${selectedRun.transport}`
-              : runs.length > 0
-                ? "Open run studio when you need lineage, approvals, and runtime events."
-              : "Run the next step before opening run studio."}
-          </p>
-        </article>
-        {!compactViewport ? (
-          <article className="mini-card">
-            <p className="block-label">Chief policy</p>
-            <div className="mini-card-list">
-              <div>
-                <strong>{change.policy?.maxAutoCycles ?? 3} auto cycles</strong>
-                <span className="muted">before escalation</span>
+      <div className="reference-detail-card">
+        <div className="reference-detail-stats">
+          <div>
+            <span>Run lineage</span>
+            <strong>{selectedRun ? selectedRun.id : runs.length > 0 ? `${runs.length} runs ready` : "No run selected"}</strong>
+          </div>
+          <div>
+            <span>Mandatory gaps</span>
+            <strong>{openMandatoryGapCount > 0 ? `${openMandatoryGapCount} open` : "Clear"}</strong>
+          </div>
+          <div>
+            <span>Owner</span>
+            <strong>{change.owner.label}</strong>
+          </div>
+        </div>
+        <div className="reference-detail-actions">
+          <span>{change.blocker}</span>
+          <span>{change.verificationStatus}</span>
+          <span>{change.loopCount} loop cycles</span>
+        </div>
+      </div>
+
+      <div className="reference-detail-block">
+        <div className="reference-detail-block-head">
+          <h3>Operator note</h3>
+          <span>Gate-aware summary</span>
+        </div>
+        <p>{change.summary}</p>
+      </div>
+
+      <div className="reference-detail-block">
+        <div className="reference-detail-block-head">
+          <h3>Timeline</h3>
+          <span>Latest milestones</span>
+        </div>
+        {timelineEntries.length > 0 ? (
+          <div className="reference-timeline">
+            {timelineEntries.slice(0, 4).map((entry) => (
+              <div key={`${entry.title}-${entry.note}`} className="reference-timeline-row">
+                <span className="reference-timeline-dot" aria-hidden="true" />
+                <div>
+                  <strong>{entry.title}</strong>
+                  <p>{entry.note}</p>
+                </div>
               </div>
-              <div>
-                <strong>{change.policy?.escalationRule ?? "Recurring fingerprint ×2"}</strong>
-                <span className="muted">recurrence threshold</span>
-              </div>
-              <div>
-                <strong>{change.policy?.acceptanceGate ?? "Req -> Code -> Test must be green"}</strong>
-                <span className="muted">delivery gate</span>
-              </div>
-            </div>
-          </article>
-        ) : null}
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No timeline milestones captured yet.</p>
+        )}
       </div>
 
       <PlatformPrimitives.Tabs.Root
@@ -401,18 +423,18 @@ export function ChangeDetail({
 
       {activeTab === "overview" && (
         <div className="stack">
-          <div className="overview-grid detail-overview-grid">
-            <div className="card">
+          <div className="overview-grid detail-overview-grid reference-overview-grid">
+            <div className="card reference-overview-card">
               <p className="eyebrow">Current state</p>
               <strong>{formatStateLabel(change.state)}</strong>
               <p>{change.verificationStatus}</p>
             </div>
-            <div className="card">
+            <div className="card reference-overview-card">
               <p className="eyebrow">Next best action</p>
               <strong>{change.nextAction}</strong>
               <p>{change.blocker}</p>
             </div>
-            <div className="card">
+            <div className="card reference-overview-card">
               <p className="eyebrow">Change meta</p>
               <strong>{change.owner.label}</strong>
               <p>
@@ -420,7 +442,7 @@ export function ChangeDetail({
               </p>
             </div>
           </div>
-          <div className="card">
+          <div className="card reference-overview-card">
             <p className="eyebrow">Summary</p>
             <p>{change.summary}</p>
           </div>
@@ -471,7 +493,7 @@ export function ChangeDetail({
           ) : (
             <>
               <div className="grid-two">
-                <div className="card">
+                <div className="card reference-overview-card">
                   <p className="eyebrow">Contract</p>
                   <strong>{change.contract.goal}</strong>
                   <ul>
@@ -480,7 +502,7 @@ export function ChangeDetail({
                     ))}
                   </ul>
                 </div>
-                <div className="card">
+                <div className="card reference-overview-card">
                   <p className="eyebrow">Working Memory</p>
                   <p>{change.memory.summary}</p>
                   <ul>
@@ -490,7 +512,7 @@ export function ChangeDetail({
                   </ul>
                 </div>
               </div>
-              <div className="card">
+              <div className="card reference-overview-card">
                 <p className="eyebrow">Focus Graph</p>
                 <ul>
                   {focusGraph.items.map((item) => (

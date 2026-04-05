@@ -206,7 +206,7 @@ test("renders detail tabs through the approved table foundation @platform", asyn
   await gotoApp(page);
 
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').filter({ hasText: "Foundation proof change" }).first();
-  const queueRow = page.getByRole("button", { name: /Foundation proof change/i });
+  const queueRow = page.locator('[data-change-id="ch-146"]').first();
   const detailTabs = detailPanel.locator(".tab-list");
 
   await queueRow.click();
