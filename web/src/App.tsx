@@ -1,8 +1,13 @@
-import { OperatorWorkbench, OperatorWorkbenchState, useOperatorServerState } from "./platform";
+import {
+  OperatorStyleSamplePage,
+  OperatorWorkbench,
+  OperatorWorkbenchState,
+  useOperatorServerState,
+} from "./platform";
 
 import "./styles.css";
 
-export default function App() {
+function LiveOperatorApp() {
   const operatorServerState = useOperatorServerState();
 
   if (operatorServerState.state === "error") {
@@ -14,4 +19,17 @@ export default function App() {
   }
 
   return <OperatorWorkbench {...operatorServerState.workbenchProps} />;
+}
+
+function isStyleSampleEnabled(search: string) {
+  const params = new URLSearchParams(search);
+  return params.get("preview") === "codex-lb";
+}
+
+export default function App() {
+  if (isStyleSampleEnabled(window.location.search)) {
+    return <OperatorStyleSamplePage />;
+  }
+
+  return <LiveOperatorApp />;
 }
