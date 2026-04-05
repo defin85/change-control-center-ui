@@ -1,13 +1,14 @@
+import { useEffect } from "react";
 import {
   OperatorWorkbench,
   OperatorWorkbenchState,
-  SimpleReferenceWorkbench,
   useOperatorServerState,
 } from "./platform";
+import { OperatorStyleSamplePage } from "./reference/OperatorStyleSamplePage";
 
 import "./styles.css";
 
-function LiveOperatorApp() {
+function LegacyOperatorApp() {
   const operatorServerState = useOperatorServerState();
 
   if (operatorServerState.state === "error") {
@@ -18,11 +19,29 @@ function LiveOperatorApp() {
     return <OperatorWorkbenchState tone="loading" message={operatorServerState.message} />;
   }
 
-  return operatorServerState.workbenchProps.legacyWorkbenchEnabled
-    ? <OperatorWorkbench {...operatorServerState.workbenchProps} />
-    : <SimpleReferenceWorkbench {...operatorServerState.workbenchProps} />;
+  return <OperatorWorkbench {...operatorServerState.workbenchProps} />;
+}
+
+function DefaultReferenceApp() {
+  useEffect(() => {
+    const hostWindow = window as typeof window & { __CCC_LIVE_WORKBENCH_URL__?: string };
+    hostWindow.__CCC_LIVE_WORKBENCH_URL__ = `${window.location.pathname}?legacyWorkbench=1`;
+
+    return () => {
+      delete hostWindow.__CCC_LIVE_WORKBENCH_URL__;
+    };
+  }, []);
+
+  return <OperatorStyleSamplePage />;
 }
 
 export default function App() {
-  return <LiveOperatorApp />;
+  const routeParams = new URLSearchParams(window.location.search);
+  const legacyWorkbenchEnabled = routeParams.get("legacyWorkbench") === "1" || routeParams.get("legacyWorkbench") === "true";
+
+  if (legacyWorkbenchEnabled) {
+    return <LegacyOperatorApp />;
+  }
+
+  return <DefaultReferenceApp />;
 }
