@@ -2,7 +2,7 @@
 
 ### Requirement: Editorial Operator Visual Hierarchy
 **Reason**: The legacy editorial shell is intentionally retired. This change replaces it with the codex-lb-inspired operational workbench as the only supported canonical visual contract.
-**Migration**: The backend-served default shell, browser proofs, and served entrypoint all move to the operational shell. Legacy editorial presentation affordances and preview-only shell paths are not preserved.
+**Migration**: The backend-served default shell, browser proofs, and served entrypoint all move to the operational shell. Legacy editorial presentation affordances and preview-only shell paths are not preserved, while any retained static sample remains a non-shipped reference artifact.
 
 ## ADDED Requirements
 
@@ -17,7 +17,7 @@ The system SHALL present the default operator workbench through a codex-lb-inspi
 
 #### Scenario: Operator scans the control queue in the operational shell
 - **WHEN** the operator scans the queue for the next change to inspect
-- **THEN** queue rows read as a disciplined operational worklist optimized for scanning state, blocker, owner, and next-step context
+- **THEN** queue rows read as a disciplined operational worklist optimized for scanning state, blocker, orchestrator owner label, and next-step context
 - **AND** concise status treatments, compact metadata, and bordered row or panel framing make repetitive queue slices easier to scan
 - **AND** queue context remains visible without repeating the same information through multiple equally prominent summary blocks
 
@@ -35,6 +35,7 @@ The system SHALL ship one canonical backend-served operator shell in the operati
 - **THEN** the operator receives the canonical operational shell directly
 - **AND** the default entrypoint does not depend on a preview-only route or opt-in visual mode to reach the approved shell
 - **AND** the served application does not keep the retired editorial shell as a supported fallback
+- **AND** any retained static sample remains a non-shipped reference artifact outside the default served application path
 
 ### Requirement: Operational Shell Signal Framing
 The system SHALL frame shell-level operator signals through compact operational summary treatments that support decision-making without becoming a parallel dashboard.

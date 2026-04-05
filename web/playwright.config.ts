@@ -2,6 +2,10 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  timeout: 60_000,
+  // The backend-served shell opens a full runtime stack per worker.
+  // Two workers keep platform proofs deterministic without load-event timeouts.
+  workers: 2,
   use: {
     baseURL: "http://127.0.0.1:8000",
     headless: true,

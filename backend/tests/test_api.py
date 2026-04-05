@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app.domain import build_repository_catalog_entry
+from backend.app.domain import build_repository_catalog_entry, create_change
 from backend.app.store import SQLiteStore
 
 
@@ -25,6 +25,8 @@ def test_bootstrap_returns_real_backend_state(client: TestClient) -> None:
     assert payload["activeTenantId"]
     assert payload["changes"]
     assert any(change["id"] == "ch-142" for change in payload["changes"])
+    bootstrap_change = next(change for change in payload["changes"] if change["id"] == "ch-142")
+    assert bootstrap_change["owner"] == {"id": "codex-chief", "label": "Codex Chief"}
     demo_catalog_entry = next(entry for entry in payload["repositoryCatalog"] if entry["tenantId"] == "tenant-demo")
     assert demo_catalog_entry["changeCount"] >= 1
     assert demo_catalog_entry["attentionState"] in {"active", "blocked", "quiet", "needs_setup"}
@@ -45,12 +47,21 @@ def test_tenant_creation_persists_backend_owned_project_entry(client: TestClient
     assert tenant["id"].startswith("tenant-")
     assert tenant["name"] == "workspace-created-from-ui"
     assert tenant["repoPath"] == "/tmp/workspace-created-from-ui"
+    assert "defaultOwner" not in tenant
+
+    internal_tenant = client.app.state.store.get_tenant(tenant["id"])
+    assert internal_tenant["defaultOwner"] == {
+        "id": "workspace-created-from-ui-chief",
+        "label": "Workspace Created From Ui Chief",
+    }
 
     bootstrap = client.get("/api/bootstrap")
     assert bootstrap.status_code == 200
     assert bootstrap.json()["activeTenantId"] == "tenant-demo"
     assert any(item["id"] == tenant["id"] for item in bootstrap.json()["tenants"])
     created_entry = next(entry for entry in bootstrap.json()["repositoryCatalog"] if entry["tenantId"] == tenant["id"])
+    public_tenant = next(item for item in bootstrap.json()["tenants"] if item["id"] == tenant["id"])
+    assert "defaultOwner" not in public_tenant
     assert created_entry["changeCount"] == 0
     assert created_entry["attentionState"] == "needs_setup"
     assert created_entry["nextRecommendedAction"] == "Create first change"
@@ -58,6 +69,74 @@ def test_tenant_creation_persists_backend_owned_project_entry(client: TestClient
     changes = client.get(f"/api/tenants/{tenant['id']}/changes")
     assert changes.status_code == 200
     assert changes.json()["changes"] == []
+
+
+def test_first_change_for_new_tenant_uses_persisted_tenant_default_owner(client: TestClient) -> None:
+    tenant_response = client.post(
+        "/api/tenants",
+        json={
+            "name": "fresh-review-repo",
+            "repoPath": "/tmp/fresh-review-repo",
+            "description": "Cold-start tenant owner proof.",
+        },
+    )
+
+    assert tenant_response.status_code == 201
+    tenant = tenant_response.json()["tenant"]
+    internal_tenant = client.app.state.store.get_tenant(tenant["id"])
+
+    response = client.post(
+        f"/api/tenants/{tenant['id']}/changes",
+        json={"title": "First change for a cold-start tenant"},
+    )
+
+    assert response.status_code == 201
+    created_change = response.json()["change"]
+    assert created_change["owner"] == internal_tenant["defaultOwner"]
+
+    queue_response = client.get(f"/api/tenants/{tenant['id']}/changes")
+    detail_response = client.get(f"/api/tenants/{tenant['id']}/changes/{created_change['id']}")
+
+    assert queue_response.status_code == 200
+    assert detail_response.status_code == 200
+
+    queue_change = next(change for change in queue_response.json()["changes"] if change["id"] == created_change["id"])
+    assert queue_change["owner"] == internal_tenant["defaultOwner"]
+    assert detail_response.json()["change"]["owner"] == internal_tenant["defaultOwner"]
+
+
+def test_legacy_string_owner_resolves_to_canonical_contract(client: TestClient) -> None:
+    tenant_response = client.post(
+        "/api/tenants",
+        json={
+            "name": "Legacy migration tenant",
+            "repoPath": "/tmp/legacy-migration-tenant",
+            "description": "Validates legacy scalar owner migration.",
+        },
+    )
+
+    assert tenant_response.status_code == 201
+    tenant = tenant_response.json()["tenant"]
+    internal_tenant = client.app.state.store.get_tenant(tenant["id"])
+
+    legacy_label_change = create_change(tenant["id"], "Legacy display-label owner migration proof")
+    legacy_label_change["owner"] = internal_tenant["defaultOwner"]["label"]
+    client.app.state.store.add_change(legacy_label_change)
+
+    legacy_chief_change = create_change(tenant["id"], "Legacy chief owner migration proof")
+    legacy_chief_change["owner"] = "chief"
+    client.app.state.store.add_change(legacy_chief_change)
+
+    queue_response = client.get(f"/api/tenants/{tenant['id']}/changes")
+    detail_response = client.get(f"/api/tenants/{tenant['id']}/changes/{legacy_chief_change['id']}")
+
+    assert queue_response.status_code == 200
+    assert detail_response.status_code == 200
+
+    queue_payload = {change["id"]: change for change in queue_response.json()["changes"]}
+    assert queue_payload[legacy_label_change["id"]]["owner"] == internal_tenant["defaultOwner"]
+    assert queue_payload[legacy_chief_change["id"]]["owner"] == internal_tenant["defaultOwner"]
+    assert detail_response.json()["change"]["owner"] == internal_tenant["defaultOwner"]
 
 
 def test_tenant_creation_rejects_duplicate_repo_path(client: TestClient) -> None:
@@ -115,6 +194,53 @@ def test_change_detail_restores_contract_memory_and_focus(client: TestClient) ->
     assert payload["change"]["contract"]["goal"]
     assert payload["change"]["memory"]["summary"]
     assert payload["focusGraph"]["items"]
+    assert payload["change"]["owner"] == {"id": "codex-chief", "label": "Codex Chief"}
+
+
+def test_queue_and_detail_share_same_canonical_owner_contract(client: TestClient) -> None:
+    queue_response = client.get("/api/tenants/tenant-demo/changes")
+    detail_response = client.get("/api/tenants/tenant-demo/changes/ch-142")
+
+    assert queue_response.status_code == 200
+    assert detail_response.status_code == 200
+
+    queue_change = next(change for change in queue_response.json()["changes"] if change["id"] == "ch-142")
+    detail_owner = detail_response.json()["change"]["owner"]
+
+    assert queue_change["owner"] == {"id": "codex-chief", "label": "Codex Chief"}
+    assert queue_change["owner"] == detail_owner
+
+
+@pytest.mark.parametrize(
+    ("tenant_id", "expected_owner"),
+    [
+        ("tenant-demo", {"id": "codex-chief", "label": "Codex Chief"}),
+        ("tenant-sandbox", {"id": "sandbox-chief", "label": "Sandbox Chief"}),
+    ],
+)
+def test_created_change_inherits_tenant_scoped_default_owner_contract(
+    client: TestClient,
+    tenant_id: str,
+    expected_owner: dict[str, str],
+) -> None:
+    response = client.post(
+        f"/api/tenants/{tenant_id}/changes",
+        json={"title": f"Owner contract proof for {tenant_id}"},
+    )
+
+    assert response.status_code == 201
+    created_change = response.json()["change"]
+    assert created_change["owner"] == expected_owner
+
+    queue_response = client.get(f"/api/tenants/{tenant_id}/changes")
+    detail_response = client.get(f"/api/tenants/{tenant_id}/changes/{created_change['id']}")
+
+    assert queue_response.status_code == 200
+    assert detail_response.status_code == 200
+
+    queue_change = next(change for change in queue_response.json()["changes"] if change["id"] == created_change["id"])
+    assert queue_change["owner"] == expected_owner
+    assert detail_response.json()["change"]["owner"] == expected_owner
 
 
 def _wait_for_run_completion(client: TestClient, tenant_id: str, run_id: str) -> dict:

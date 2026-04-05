@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 import threading
 from pathlib import Path
 from typing import Any
 
+from backend.app.domain import build_default_owner_for_tenant, build_owner
 from backend.app.seeds import build_seed_fixtures
 
 
@@ -41,11 +43,75 @@ def _canonicalize_fact_list(facts: Any, tenant_id: str) -> list[dict[str, Any]]:
     return [_canonicalize_fact_record(fact, tenant_id) for fact in facts if isinstance(fact, dict)]
 
 
-def _canonicalize_change(change: dict[str, Any]) -> dict[str, Any]:
+def _slugify_owner_id(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
+    normalized = re.sub(r"-{2,}", "-", normalized).strip("-")
+    return normalized or "chief"
+
+
+def _is_machine_owner_id(value: str) -> bool:
+    return bool(re.fullmatch(r"[a-z0-9]+(?:[-_][a-z0-9]+)*", value.strip()))
+
+
+def _canonicalize_owner(owner: Any, tenant_default_owner: dict[str, str] | None = None) -> dict[str, str]:
+    if isinstance(owner, dict):
+        owner_id = owner.get("id")
+        owner_label = owner.get("label")
+        if isinstance(owner_id, str) and owner_id.strip():
+            normalized_id = owner_id.strip()
+            if isinstance(owner_label, str) and owner_label.strip():
+                normalized_label = owner_label.strip()
+            else:
+                normalized_label = " ".join(
+                    part.capitalize()
+                    for part in normalized_id.replace("_", "-").split("-")
+                    if part
+                ) or "Chief"
+            return {
+                "id": normalized_id,
+                "label": normalized_label,
+            }
+
+    if isinstance(owner, str) and owner.strip():
+        normalized_owner = owner.strip()
+        normalized_owner_id = _slugify_owner_id(normalized_owner)
+        if tenant_default_owner and normalized_owner.casefold() in {
+            tenant_default_owner["id"].casefold(),
+            tenant_default_owner["label"].casefold(),
+        }:
+            return tenant_default_owner
+        if tenant_default_owner and normalized_owner_id == tenant_default_owner["id"]:
+            return tenant_default_owner
+        if tenant_default_owner and normalized_owner_id == "chief" and tenant_default_owner["id"].endswith("-chief"):
+            return tenant_default_owner
+
+        if _is_machine_owner_id(normalized_owner):
+            return build_owner(normalized_owner)
+
+        return build_owner(normalized_owner_id, normalized_owner)
+
+    return tenant_default_owner or build_owner("chief")
+
+
+def _canonicalize_tenant(tenant: dict[str, Any]) -> dict[str, Any]:
+    canonical = dict(tenant)
+    canonical["id"] = str(canonical.get("id") or "")
+    canonical["name"] = str(canonical.get("name") or "")
+    canonical["repoPath"] = str(canonical.get("repoPath") or "")
+    canonical["description"] = str(canonical.get("description") or "")
+
+    if "defaultOwner" in canonical and canonical["defaultOwner"] is not None:
+        canonical["defaultOwner"] = _canonicalize_owner(canonical["defaultOwner"])
+
+    return canonical
+
+
+def _canonicalize_change(change: dict[str, Any], tenant_default_owner: dict[str, str] | None = None) -> dict[str, Any]:
     tenant_id = str(change.get("tenantId") or "")
     memory = change.get("memory")
     if isinstance(memory, dict):
         memory["facts"] = _canonicalize_fact_list(memory.get("facts", []), tenant_id)
+    change["owner"] = _canonicalize_owner(change.get("owner"), tenant_default_owner=tenant_default_owner)
     return change
 
 
@@ -150,6 +216,7 @@ class SQLiteStore:
 
             fixtures = build_seed_fixtures()
             for tenant in fixtures["tenants"]:
+                tenant = _canonicalize_tenant(tenant)
                 self._connection.execute("insert into tenants(id, tenant_json) values (?, ?)", (tenant["id"], _json_dumps(tenant)))
             for fact in fixtures["tenantMemory"]:
                 self._connection.execute(
@@ -189,17 +256,18 @@ class SQLiteStore:
 
     def list_tenants(self) -> list[dict[str, Any]]:
         rows = self._fetchall("select tenant_json from tenants order by rowid")
-        return [json.loads(row["tenant_json"]) for row in rows]
+        return [_canonicalize_tenant(json.loads(row["tenant_json"])) for row in rows]
 
     def get_tenant(self, tenant_id: str) -> dict[str, Any] | None:
         row = self._fetchone("select tenant_json from tenants where id = ?", (tenant_id,))
-        return json.loads(row["tenant_json"]) if row else None
+        return _canonicalize_tenant(json.loads(row["tenant_json"])) if row else None
 
     def add_tenant(self, tenant: dict[str, Any]) -> None:
+        tenant = _canonicalize_tenant(tenant)
         with self._lock:
             existing = self._connection.execute("select tenant_json from tenants").fetchall()
             for row in existing:
-                current = json.loads(row["tenant_json"])
+                current = _canonicalize_tenant(json.loads(row["tenant_json"]))
                 if current["id"] == tenant["id"]:
                     raise ValueError(f"Tenant {tenant['id']} already exists")
                 if current["repoPath"] == tenant["repoPath"]:
@@ -210,6 +278,13 @@ class SQLiteStore:
                 (tenant["id"], _json_dumps(tenant)),
             )
             self._connection.commit()
+
+    def save_tenant(self, tenant: dict[str, Any]) -> None:
+        tenant = _canonicalize_tenant(tenant)
+        self._execute(
+            "update tenants set tenant_json = ? where id = ?",
+            (_json_dumps(tenant), tenant["id"]),
+        )
 
     def list_tenant_memory(self, tenant_id: str) -> list[dict[str, Any]]:
         rows = self._fetchall(
@@ -230,24 +305,27 @@ class SQLiteStore:
             "select change_json from changes where tenant_id = ? order by id",
             (tenant_id,),
         )
-        return [_canonicalize_change(json.loads(row["change_json"])) for row in rows]
+        tenant_default_owner = self._tenant_default_owner(tenant_id)
+        return [_canonicalize_change(json.loads(row["change_json"]), tenant_default_owner) for row in rows]
 
     def get_change(self, tenant_id: str, change_id: str) -> dict[str, Any] | None:
         row = self._fetchone(
             "select change_json from changes where tenant_id = ? and id = ?",
             (tenant_id, change_id),
         )
-        return _canonicalize_change(json.loads(row["change_json"])) if row else None
+        if not row:
+            return None
+        return _canonicalize_change(json.loads(row["change_json"]), self._tenant_default_owner(tenant_id))
 
     def save_change(self, change: dict[str, Any]) -> None:
-        change = _canonicalize_change(change)
+        change = _canonicalize_change(change, self._tenant_default_owner(str(change.get("tenantId") or "")))
         self._execute(
             "update changes set change_json = ? where id = ? and tenant_id = ?",
             (_json_dumps(change), change["id"], change["tenantId"]),
         )
 
     def add_change(self, change: dict[str, Any]) -> None:
-        change = _canonicalize_change(change)
+        change = _canonicalize_change(change, self._tenant_default_owner(str(change.get("tenantId") or "")))
         self._execute(
             "insert into changes(id, tenant_id, change_json) values (?, ?, ?)",
             (change["id"], change["tenantId"], _json_dumps(change)),
@@ -429,3 +507,16 @@ class SQLiteStore:
             "update approval_requests set approval_json = ? where id = ? and tenant_id = ?",
             (_json_dumps(approval), approval["id"], approval["tenantId"]),
         )
+
+    def _tenant_default_owner(self, tenant_id: str) -> dict[str, str] | None:
+        tenant = self.get_tenant(tenant_id)
+        if not tenant:
+            return None
+
+        raw_default_owner = tenant.get("defaultOwner")
+        if raw_default_owner is not None:
+            return _canonicalize_owner(raw_default_owner)
+
+        tenant_name = str(tenant.get("name") or "")
+        tenant_repo_path = str(tenant.get("repoPath") or "")
+        return build_default_owner_for_tenant(tenant_name, tenant_repo_path)

@@ -33,7 +33,7 @@ def _base_change_detail_payload() -> dict[str, object]:
             "requirementsLinked": 0,
             "requirementsTotal": 1,
             "specStatus": "draft",
-            "owner": "chief",
+            "owner": {"id": "chief", "label": "Chief"},
             "policy": {
                 "maxAutoCycles": 3,
                 "escalationRule": "fingerprint repeated twice",

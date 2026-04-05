@@ -1,3 +1,5 @@
+import "./OperatorStyleSamplePage.css";
+
 type PreviewMetric = {
   label: string;
   value: string;
@@ -272,7 +274,9 @@ function PreviewMetricCard({ metric }: { metric: PreviewMetric }) {
 }
 
 export function OperatorStyleSamplePage() {
-  const liveHref = window.location.pathname;
+  const liveHref =
+    (window as typeof window & { __CCC_LIVE_WORKBENCH_URL__?: string }).__CCC_LIVE_WORKBENCH_URL__ ??
+    window.location.pathname;
 
   return (
     <div className="operator-style-sample" data-platform-surface="operator-style-sample">

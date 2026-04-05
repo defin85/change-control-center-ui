@@ -96,6 +96,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
   const [initialRouteState] = useState(() => readOperatorRouteState(window.location.search));
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
   const [changes, setChanges] = useState<BootstrapResponse["changes"]>([]);
+  const [hasExplicitCatalogSelection, setHasExplicitCatalogSelection] = useState(
+    () => initialRouteState.workspaceMode === "catalog" && Boolean(initialRouteState.tenantId),
+  );
   const [activeWorkspaceMode, setActiveWorkspaceMode] = useState<OperatorWorkspaceMode>(
     initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE,
   );
@@ -119,7 +122,8 @@ export function useOperatorServerState(): OperatorServerStateResult {
   const historyInitializedRef = useRef(false);
   const orchestrationVersionRef = useRef(0);
   const runRequestVersionRef = useRef(0);
-  const shouldAutoSelectChange = !window.matchMedia("(max-width: 1080px)").matches;
+  const isCompactViewport = window.matchMedia("(max-width: 1080px)").matches;
+  const shouldAutoSelectChange = !isCompactViewport;
 
   function beginOrchestration() {
     orchestrationVersionRef.current += 1;
@@ -311,6 +315,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       );
 
       setActiveWorkspaceMode(nextWorkspaceMode);
+      setHasExplicitCatalogSelection(nextWorkspaceMode === "catalog" && Boolean(routeState.tenantId));
       setActiveTenantId(nextTenantId);
       activeTenantRef.current = nextTenantId;
       setChanges(queueSnapshot);
@@ -416,6 +421,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
         setBootstrap(payload);
         setActiveWorkspaceMode(initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE);
+        setHasExplicitCatalogSelection(
+          (initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE) === "catalog" && Boolean(initialRouteState.tenantId),
+        );
         setActiveTenantId(initialTenantId);
         activeTenantRef.current = initialTenantId;
         setChanges(initialChanges);
@@ -495,7 +503,8 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
     const nextHref = buildOperatorRouteHref(window.location.pathname, {
       workspaceMode: activeWorkspaceMode,
-      tenantId: activeTenantId,
+      tenantId:
+        activeWorkspaceMode === "catalog" && isCompactViewport && !hasExplicitCatalogSelection ? undefined : activeTenantId,
       viewId: activeViewId,
       filterId: activeFilterId,
       searchQuery,
@@ -514,7 +523,19 @@ export function useOperatorServerState(): OperatorServerStateResult {
     }
     historyInitializedRef.current = true;
     historyModeRef.current = "replace";
-  }, [activeFilterId, activeSelectedChangeId, activeSelectedRunId, activeTabId, activeTenantId, activeViewId, activeWorkspaceMode, bootstrap, searchQuery]);
+  }, [
+    activeFilterId,
+    activeSelectedChangeId,
+    activeSelectedRunId,
+    activeTabId,
+    activeTenantId,
+    activeViewId,
+    activeWorkspaceMode,
+    bootstrap,
+    hasExplicitCatalogSelection,
+    isCompactViewport,
+    searchQuery,
+  ]);
 
   useTenantRealtimeBoundary({
     tenantId: activeTenantId,
@@ -733,6 +754,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
     setBootstrap(bootstrapPayload);
     setActiveWorkspaceMode("catalog");
+    setHasExplicitCatalogSelection(true);
     setActiveTenantId(payload.tenant.id);
     activeTenantRef.current = payload.tenant.id;
     setChanges(changesPayload.changes);
@@ -851,6 +873,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     selectChange(null);
     setActiveTenantId(tenantId);
     activeTenantRef.current = tenantId;
+    setHasExplicitCatalogSelection(activeWorkspaceMode === "catalog");
     const payload = await fetchChanges(tenantId);
     if (orchestrationVersionRef.current !== flowVersion || activeTenantRef.current !== tenantId) {
       return;
@@ -869,6 +892,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       return;
     }
     setActiveWorkspaceMode("catalog");
+    setHasExplicitCatalogSelection(true);
     setActiveTenantId(tenantId);
     activeTenantRef.current = tenantId;
     setChanges(payload.changes);
@@ -888,7 +912,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
     beginOrchestration();
     historyModeRef.current = "push";
     setActiveWorkspaceMode(workspaceMode);
+    setHasExplicitCatalogSelection(false);
     setSearchQuery("");
+  }
+
+  function handleClearCatalogSelection() {
+    beginOrchestration();
+    historyModeRef.current = "push";
+    setHasExplicitCatalogSelection(false);
   }
 
   function handleSelectView(viewId: string) {
@@ -949,6 +980,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       bootstrap,
       activeWorkspaceMode,
       activeTenantId: activeTenant.id,
+      hasExplicitCatalogSelection,
       activeViewId,
       activeFilterId,
       activeViewCount: filteredChanges.length,
@@ -973,6 +1005,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       onRunNext: handleDetailRunNext,
       onTenantChange: handleTenantChange,
       onSelectCatalogTenant: handleSelectCatalogTenant,
+      onClearCatalogSelection: handleClearCatalogSelection,
       onSelectView: handleSelectView,
       onSelectFilter: handleSelectFilter,
       onSelectChange: handleSelectChange,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -551,12 +552,46 @@ def create_tenant_fact(tenant_id: str, payload: dict[str, Any]) -> dict[str, Any
     }
 
 
+def _slugify_owner_token(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
+    normalized = re.sub(r"-{2,}", "-", normalized).strip("-")
+    return normalized
+
+
+def _humanize_owner_token(value: str) -> str:
+    tokens = re.split(r"[^a-zA-Z0-9]+", value.strip())
+    return " ".join(token.capitalize() for token in tokens if token)
+
+
+def build_owner(owner_id: str, label: str | None = None) -> dict[str, str]:
+    if label and label.strip():
+        resolved_label = label.strip()
+    else:
+        resolved_label = " ".join(part.capitalize() for part in owner_id.replace("_", "-").split("-") if part) or "Chief"
+    return {
+        "id": owner_id,
+        "label": resolved_label,
+    }
+
+
+def build_default_owner_for_tenant(name: str, repo_path: str | None = None) -> dict[str, str]:
+    owner_prefix = _slugify_owner_token(name)
+    if not owner_prefix and repo_path:
+        owner_prefix = _slugify_owner_token(repo_path.rsplit("/", maxsplit=1)[-1])
+    if not owner_prefix:
+        owner_prefix = "tenant"
+
+    owner_label_prefix = _humanize_owner_token(name) or _humanize_owner_token(owner_prefix) or "Tenant"
+    return build_owner(f"{owner_prefix}-chief", f"{owner_label_prefix} Chief")
+
+
 def create_tenant(name: str, repo_path: str, description: str | None = None) -> dict[str, Any]:
     return {
         "id": f"tenant-{uuid.uuid4().hex[:8]}",
         "name": name,
         "repoPath": repo_path,
         "description": description or "",
+        "defaultOwner": build_default_owner_for_tenant(name, repo_path),
     }
 
 
@@ -587,16 +622,51 @@ def apply_approval_decision(approval: dict[str, Any], decision: str) -> dict[str
     return approval
 
 
-def create_change(tenant_id: str, title: str | None = None) -> dict[str, Any]:
+def infer_default_owner(changes: list[dict[str, Any]], fallback_owner: dict[str, str] | None = None) -> dict[str, str]:
+    if not changes:
+        return build_owner(fallback_owner["id"], fallback_owner.get("label")) if fallback_owner else build_owner("chief")
+
+    owner_counts: dict[str, int] = {}
+    owner_labels: dict[str, str] = {}
+    owner_latest_activity: dict[str, str] = {}
+
+    for change in changes:
+        raw_owner = change.get("owner")
+        if isinstance(raw_owner, dict):
+            owner = build_owner(str(raw_owner.get("id") or "chief"), raw_owner.get("label"))
+        elif isinstance(raw_owner, str) and raw_owner.strip():
+            owner = build_owner(raw_owner.strip())
+        else:
+            owner = build_owner("chief")
+
+        owner_id = owner["id"]
+        owner_counts[owner_id] = owner_counts.get(owner_id, 0) + 1
+        owner_labels.setdefault(owner_id, owner["label"])
+        owner_latest_activity[owner_id] = max(owner_latest_activity.get(owner_id, ""), str(change.get("updatedAt") or ""))
+
+    def owner_priority(owner_id: str) -> tuple[int, int, str]:
+        chief_like = int(owner_id == "chief" or owner_id.endswith("-chief"))
+        return (
+            chief_like,
+            owner_counts[owner_id],
+            owner_latest_activity[owner_id],
+        )
+
+    selected_owner_id = max(owner_counts, key=owner_priority)
+    return build_owner(selected_owner_id, owner_labels[selected_owner_id])
+
+
+def create_change(tenant_id: str, title: str | None = None, owner: dict[str, str] | None = None) -> dict[str, Any]:
     suffix = uuid.uuid4().hex[:4]
     human_title = title or "New change"
+    resolved_owner = build_owner(owner["id"], owner.get("label")) if owner else build_owner("chief")
     return {
         "id": f"ch-{suffix}",
         "tenantId": tenant_id,
         "title": human_title,
         "subtitle": "Draft change created from the new product shell",
         "state": "draft",
-        "owner": "chief",
+        "owner": resolved_owner,
         "createdAt": iso_now(),
         "updatedAt": iso_now(),
         "lastRunAgo": "not started",

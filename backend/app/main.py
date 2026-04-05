@@ -17,6 +17,7 @@ from backend.app.domain import (
     answer_clarification_round,
     apply_run_transition,
     block_change_by_spec,
+    build_default_owner_for_tenant,
     build_repository_catalog_entry,
     build_approval_record,
     build_focus_graph,
@@ -28,6 +29,7 @@ from backend.app.domain import (
     create_tenant_fact,
     curated_memory_packet,
     escalate_change,
+    infer_default_owner,
     infer_run_kind,
     mark_change_run_started,
     record_clarification_answers,
@@ -84,6 +86,15 @@ class ApprovalDecisionRequest(BaseModel):
     decision: str
 
 
+def _public_tenant(tenant: dict[str, Any]) -> dict[str, str]:
+    return {
+        "id": tenant["id"],
+        "name": tenant["name"],
+        "repoPath": tenant["repoPath"],
+        "description": tenant.get("description", ""),
+    }
+
+
 def _summarize_change(change: dict[str, Any]) -> dict[str, Any]:
     mandatory_gap_count = count_open_mandatory_gaps(change)
     return {
@@ -92,6 +103,7 @@ def _summarize_change(change: dict[str, Any]) -> dict[str, Any]:
         "title": change["title"],
         "subtitle": change["subtitle"],
         "state": change["state"],
+        "owner": change["owner"],
         "nextAction": change["nextAction"],
         "blocker": change["blocker"],
         "loopCount": change["loopCount"],
@@ -249,11 +261,12 @@ def create_app(
             store.add_tenant(tenant)
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-        return {"tenant": tenant}
+        return {"tenant": _public_tenant(tenant)}
 
     @app.get("/api/bootstrap")
     def get_bootstrap() -> dict[str, Any]:
-        tenants = store.list_tenants()
+        internal_tenants = store.list_tenants()
+        tenants = [_public_tenant(tenant) for tenant in internal_tenants]
         active_tenant_id = tenants[0]["id"]
         changes = [_summarize_change(change) for change in store.list_changes(active_tenant_id)]
         return {
@@ -282,7 +295,15 @@ def create_app(
         tenant = store.get_tenant(tenant_id)
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
-        change = create_change(tenant_id, request.title)
+        default_owner = tenant.get("defaultOwner")
+        if not default_owner:
+            default_owner = infer_default_owner(
+                store.list_changes(tenant_id),
+                fallback_owner=build_default_owner_for_tenant(tenant["name"], tenant["repoPath"]),
+            )
+            tenant["defaultOwner"] = default_owner
+            store.save_tenant(tenant)
+        change = create_change(tenant_id, request.title, owner=default_owner)
         store.add_change(change)
         await event_hub.broadcast(tenant_id, {"type": "change-created", "changeId": change["id"]})
         return {"change": change}

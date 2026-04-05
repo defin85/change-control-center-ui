@@ -182,7 +182,7 @@ export function ChangeDetail({
 
   if (!detail) {
     return (
-      <DetailPanelShell eyebrow="Change Detail" title="No Change Selected">
+      <DetailPanelShell eyebrow="Selected change" title="No Change Selected">
         <p className="empty-state">Select a change from the control queue to inspect backend-owned state.</p>
       </DetailPanelShell>
     );
@@ -197,7 +197,7 @@ export function ChangeDetail({
 
   return (
     <DetailPanelShell
-      eyebrow="Change Detail"
+      eyebrow="Selected change"
       title={change.title}
       subtitle={change.subtitle}
       actions={
@@ -414,8 +414,10 @@ export function ChangeDetail({
             </div>
             <div className="card">
               <p className="eyebrow">Change meta</p>
-              <strong>{change.owner ?? "chief"}</strong>
-              <p>{change.loopCount} loop cycles</p>
+              <strong>{change.owner.label}</strong>
+              <p>
+                {change.owner.id} · {change.loopCount} loop cycles
+              </p>
             </div>
           </div>
           <div className="card">

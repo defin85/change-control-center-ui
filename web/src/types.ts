@@ -14,6 +14,11 @@ export type RepositoryCatalogFeaturedChange = {
   nextAction: string;
 };
 
+export type OwnerContract = {
+  id: string;
+  label: string;
+};
+
 export type RepositoryCatalogEntry = {
   tenantId: string;
   name: string;
@@ -48,6 +53,7 @@ export type ChangeSummary = {
   title: string;
   subtitle: string;
   state: string;
+  owner: OwnerContract;
   nextAction: string;
   blocker: string;
   loopCount: number;
@@ -179,7 +185,7 @@ export type ChangeDetailResponse = {
     requirementsLinked: number;
     requirementsTotal: number;
     specStatus: string;
-    owner?: string;
+    owner: OwnerContract;
     policy?: {
       maxAutoCycles: number;
       escalationRule: string;

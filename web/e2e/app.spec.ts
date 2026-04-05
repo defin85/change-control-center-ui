@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { gotoApp, reloadApp } from "./support/navigation";
+
 function uniqueTitle(prefix: string) {
   return `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
@@ -31,7 +33,7 @@ async function waitForDetailPanel(page: Page, title: string) {
 
 async function openIsolatedChange(page: Page, prefix: string) {
   const change = await createIsolatedChange(page, prefix);
-  await page.goto(`/?change=${change.id}`);
+  await gotoApp(page, `/?change=${change.id}`);
   await waitForDetailPanel(page, change.title);
   return change;
 }
@@ -52,7 +54,7 @@ test("shows a normalized contract failure when bootstrap payload is invalid @pla
     });
   });
 
-  await page.goto("/");
+  await gotoApp(page);
 
   await expect(page.getByText(/Control API contract failure/i)).toBeVisible();
 });
@@ -66,14 +68,14 @@ test("shows a normalized HTTP failure when bootstrap request fails @platform", a
     });
   });
 
-  await page.goto("/");
+  await gotoApp(page);
 
   await expect(page.getByText(/Control API request failed \(HTTP 503\)/i)).toBeVisible();
   await expect(page.getByText(/bootstrap unavailable/i)).toBeVisible();
 });
 
 test("renders the operator console surfaces and mandatory detail tabs @smoke @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
   const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
 
   await expect(page.locator('[data-platform-shell="workspace-page"]')).toBeVisible();
@@ -98,7 +100,9 @@ test("renders the operator console surfaces and mandatory detail tabs @smoke @pl
   await expect(page.locator(".queue-panel").getByText("Control Queue", { exact: true })).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Slice", { exact: true })).toBeVisible();
   await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Filter", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-filter-context"]').getByText("Ownership", { exact: true })).toBeVisible();
   await expect(page.locator('[data-platform-governance="queue-actions-closed"]')).toBeVisible();
+  await expect(page.locator('[data-change-id="ch-142"]')).toContainText("Codex Chief");
   await expect(page.locator("header").getByRole("button", { name: "Run next step" })).toBeVisible();
   await expect(detailActions.getByRole("button", { name: "Open run studio" })).toHaveAttribute("aria-controls", "run-studio");
   await expect(detailActions.getByRole("button", { name: "Escalate" })).toBeVisible();
@@ -135,7 +139,7 @@ test("wires the approved foundations on the default operator path @platform", as
   );
   expect(clarificationResponse.ok()).toBeTruthy();
 
-  await page.goto("/");
+  await gotoApp(page);
 
   await expect(page.locator('[data-platform-foundation="base-ui-toolbar"]')).toBeVisible();
   await expect(page.locator('[data-platform-foundation="base-ui-select"]')).toBeVisible();
@@ -155,7 +159,7 @@ test("creates a new repository from the header and switches into catalog managem
   const projectName = uniqueTitle("Workspace seed");
   const repoPath = `/tmp/${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
-  await page.goto("/");
+  await gotoApp(page);
   await page.locator("header").getByRole("button", { name: "New repository" }).click();
 
   const dialog = page.getByRole("dialog", { name: "New repository" });
@@ -175,7 +179,7 @@ test("creates a new repository from the header and switches into catalog managem
 });
 
 test("enters repository catalog mode, selects a repository, and returns to the queue @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   await page.locator('[data-platform-action="workspace-catalog"]').click();
   await expect(page.locator('[data-platform-surface="repository-catalog"]')).toBeVisible();
@@ -197,22 +201,39 @@ test("enters repository catalog mode, selects a repository, and returns to the q
 });
 
 test("restores repository catalog route state after reload @platform", async ({ page }) => {
-  await page.goto("/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
+  await gotoApp(page, "/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
 
   await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 
-  await page.reload();
+  await reloadApp(page);
 
   await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 });
 
+test("restores compact repository catalog route state after reload @platform", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await gotoApp(page, "/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
+
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
+
+  await reloadApp(page);
+
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
+});
+
 test("renders compact repository catalog rows and drawer profile on narrow viewports @platform", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1200 });
-  await page.goto("/?workspace=catalog");
+  await gotoApp(page, "/?workspace=catalog");
 
   const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
   await expect(sandboxRow.locator('[data-platform-compact-label]').filter({ hasText: "Repository" })).toBeVisible();
@@ -244,7 +265,7 @@ test("surfaces pending and error boundaries for repository selection in catalog 
     });
   });
 
-  await page.goto("/?workspace=catalog");
+  await gotoApp(page, "/?workspace=catalog");
 
   const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
   await sandboxRow.click();
@@ -274,7 +295,7 @@ test("aligns document language and form semantics on the backend-served shell @p
   const createRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
   expect(createRoundResponse.ok()).toBeTruthy();
 
-  await page.goto(`/?change=${change.id}&tab=chief`);
+  await gotoApp(page, `/?change=${change.id}&tab=chief`);
   const detailPanel = await waitForDetailPanel(page, change.title);
 
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
@@ -290,7 +311,7 @@ test("aligns document language and form semantics on the backend-served shell @p
 });
 
 test("creates a run and shows runtime lineage in run studio @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
   const runStudio = page.locator("#run-studio");
@@ -317,12 +338,12 @@ test("persists clarification answers across reload @smoke", async ({ page }) => 
   const createRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
   expect(createRoundResponse.ok()).toBeTruthy();
 
-  await page.goto(`/?change=${change.id}&tab=clarifications`);
+  await gotoApp(page, `/?change=${change.id}&tab=clarifications`);
   await page.locator(".option-card").first().click();
   await page.getByLabel(/Additional clarification note:/).first().fill("Зафиксировать sidecar deployment.");
   await page.getByRole("button", { name: /submit answers/i }).click();
 
-  await page.reload();
+  await reloadApp(page);
   await expect(page).toHaveURL(new RegExp(`change=${change.id}`));
   await page.getByRole("tab", { name: "Clarifications" }).click();
 
@@ -330,7 +351,7 @@ test("persists clarification answers across reload @smoke", async ({ page }) => 
 });
 
 test("restores route-addressable operator context after reload @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   await page.getByRole("button", { name: /ch-142/i }).click();
   await page.getByLabel("Search").fill("ch-142");
@@ -342,7 +363,7 @@ test("restores route-addressable operator context after reload @platform", async
   await expect(page).toHaveURL(/q=ch-142/);
   await expect(page).toHaveURL(/tab=runs/);
 
-  await page.reload();
+  await reloadApp(page);
 
   await expect(page.getByLabel("Search")).toHaveValue("ch-142");
   await expect(page.locator(".tab-list [role=\"tab\"][aria-selected=\"true\"]")).toHaveText("Runs");
@@ -350,7 +371,7 @@ test("restores route-addressable operator context after reload @platform", async
 });
 
 test("restores route-addressable operator context through browser navigation @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   await page.getByRole("button", { name: /ch-142/i }).click();
   await page.getByRole("tab", { name: "Runs" }).click();
@@ -384,7 +405,7 @@ test("restores route-addressable operator context through browser navigation @pl
 
 test("restores search query through browser navigation @platform", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1200 });
-  await page.goto("/");
+  await gotoApp(page);
 
   const search = page.getByLabel("Search");
 
@@ -401,7 +422,7 @@ test("restores search query through browser navigation @platform", async ({ page
 });
 
 test("keeps selected operator context inside the visible filtered queue slice @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   await page.getByRole("button", { name: /ch-142/i }).click();
   await expect(page).toHaveURL(/change=ch-142/);
@@ -445,7 +466,7 @@ test("rehydrates queue context from backend state during same-tenant browser nav
     });
   });
 
-  await page.goto("/");
+  await gotoApp(page);
   await page.getByRole("button", { name: /ch-142/i }).click();
   await page.getByRole("button", { name: /ch-146/i }).click();
 
@@ -468,7 +489,7 @@ test("fails closed on stale cross-tenant route context without a terminal shell 
     });
   });
 
-  await page.goto("/?tenant=tenant-sandbox&change=ch-142");
+  await gotoApp(page, "/?tenant=tenant-sandbox&change=ch-142");
 
   await expect.poll(() => staleDetailRequests).toBe(0);
   await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
@@ -478,7 +499,7 @@ test("fails closed on stale cross-tenant route context without a terminal shell 
 
 test("uses a drawer-style detail workspace on narrow viewports @platform", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1200 });
-  await page.goto("/");
+  await gotoApp(page);
 
   const detailWorkspace = page.locator('[data-platform-shell="detail-workspace"]');
   const selectedQueueRow = page.locator('[data-change-id="ch-142"]');
@@ -511,7 +532,7 @@ test("uses a drawer-style detail workspace on narrow viewports @platform", async
 
 test("fails closed on the global run action when no change is selected @platform", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1200 });
-  await page.goto("/");
+  await gotoApp(page);
 
   const headerRunAction = page.locator("header [data-platform-action='run-next-step']").first();
 
@@ -529,7 +550,7 @@ test("fails closed on the global run action when no change is selected @platform
 
 test("demotes the global next-step action while a change workspace is focused @platform", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1200 });
-  await page.goto("/");
+  await gotoApp(page);
 
   const headerRunAction = page.locator("header [data-platform-action='run-next-step']").first();
 
@@ -636,7 +657,7 @@ test("fails closed on clarification submission until an answer is selected @plat
   const createRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
   expect(createRoundResponse.ok()).toBeTruthy();
 
-  await page.goto(`/?change=${change.id}&tab=clarifications`);
+  await gotoApp(page, `/?change=${change.id}&tab=clarifications`);
 
   const submitAnswers = page.getByRole("button", { name: /submit answers/i });
 
@@ -653,7 +674,7 @@ test("keeps clarification round creation unavailable while an open round already
   const createRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
   expect(createRoundResponse.ok()).toBeTruthy();
 
-  await page.goto(`/?change=${change.id}&tab=clarifications`);
+  await gotoApp(page, `/?change=${change.id}&tab=clarifications`);
 
   const generateRound = page.getByRole("button", { name: /generate round/i });
   await expect(generateRound).toBeDisabled();
@@ -667,7 +688,7 @@ test("keeps historical clarification rounds read-only and resets drafts for the 
   const firstRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
   expect(firstRoundResponse.ok()).toBeTruthy();
 
-  await page.goto(`/?change=${change.id}&tab=clarifications`);
+  await gotoApp(page, `/?change=${change.id}&tab=clarifications`);
   await page.locator(".option-card").first().click();
   await page.getByLabel(/Additional clarification note:/).first().fill("Historical answer should stay visible.");
   await page.getByRole("button", { name: /submit answers/i }).click();
@@ -680,7 +701,7 @@ test("keeps historical clarification rounds read-only and resets drafts for the 
 
   const secondRoundResponse = await page.request.post(`/api/tenants/tenant-demo/changes/${change.id}/clarifications/auto`);
   expect(secondRoundResponse.ok()).toBeTruthy();
-  await page.reload();
+  await reloadApp(page);
 
   await expect(page.getByText("Historical answer should stay visible.")).toBeVisible();
   await expect(page.getByLabel(/Additional clarification note:/).first()).toHaveValue("");
@@ -688,7 +709,7 @@ test("keeps historical clarification rounds read-only and resets drafts for the 
 });
 
 test("fails closed on fact promotion until required inputs are present @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   await page.getByRole("button", { name: /ch-142/i }).click();
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
@@ -718,7 +739,7 @@ test("promotes durable facts through the canonical backend flow @platform", asyn
   await expect(detailPanel.getByText("Operator memory policy")).toBeVisible();
   await expect(detailPanel.getByText("Escalate after two repeated fingerprints.")).toBeVisible();
 
-  await page.reload();
+  await reloadApp(page);
   await page.getByRole("button", { name: new RegExp(change.id, "i") }).click();
   const reloadedDetailPanel = await waitForDetailPanel(page, change.title);
   await reloadedDetailPanel.getByRole("tab", { name: "Chief" }).click();
@@ -781,7 +802,7 @@ test("keeps the operator shell available when realtime subscription fails @platf
     window.WebSocket = FailingWebSocket as unknown as typeof WebSocket;
   });
 
-  await page.goto("/");
+  await gotoApp(page);
 
   await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
   await expect(page.locator('[data-platform-governance="realtime-degraded"]')).toBeVisible();
@@ -823,7 +844,7 @@ test("surfaces realtime degradation after an unexpected close without a socket e
     window.WebSocket = ClosingWebSocket as unknown as typeof WebSocket;
   });
 
-  await page.goto("/");
+  await gotoApp(page);
 
   await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
   await expect(page.locator('[data-platform-governance="realtime-degraded"]')).toBeVisible();
@@ -896,7 +917,7 @@ test("reconciles only the affected selected surfaces for tenant events @platform
     await route.continue();
   });
 
-  await page.goto("/");
+  await gotoApp(page);
   await page.getByRole("button", { name: /ch-142/i }).click();
   await page.getByRole("tab", { name: "Runs" }).click();
   await page.getByRole("button", { name: /run-30/i }).click();
@@ -931,7 +952,7 @@ test("reconciles only the affected selected surfaces for tenant events @platform
 });
 
 test("reconciles tenant events without losing selected operator context @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   await page.getByRole("button", { name: /ch-146/i }).click();
   await expect(page.getByRole("heading", { name: "Bootstrap real app stack" })).toBeVisible();
@@ -945,7 +966,7 @@ test("reconciles tenant events without losing selected operator context @platfor
 });
 
 test("operator actions create a change, mutate its state, and resolve runtime approvals @smoke @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   await page.locator("header").getByRole("button", { name: "New change" }).click();
   await page.getByRole("button", { name: /^ch-.* New change/ }).click();
@@ -987,7 +1008,7 @@ test("surfaces normalized contract failures for change command mutations @platfo
     });
   });
 
-  await page.goto("/");
+  await gotoApp(page);
 
   await page.getByRole("button", { name: /ch-142/i }).click();
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
@@ -1053,7 +1074,7 @@ test("keeps follow-up refresh failures inside the local change workflow boundary
     await route.continue();
   });
 
-  await page.goto("/");
+  await gotoApp(page);
   await page.getByRole("button", { name: /ch-142/i }).click();
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
 
@@ -1075,7 +1096,7 @@ test("surfaces normalized contract failures for fact promotion mutations @platfo
     });
   });
 
-  await page.goto("/");
+  await gotoApp(page);
 
   await page.getByRole("button", { name: /ch-142/i }).click();
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
@@ -1098,7 +1119,7 @@ test("keeps gap inspection non-mutating until an explicit action is invoked @pla
     await route.continue();
   });
 
-  await page.goto("/?change=ch-142&tab=gaps");
+  await gotoApp(page, "/?change=ch-142&tab=gaps");
 
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   await expect(detailPanel.locator('[data-platform-foundation="base-ui-gap-row"]').first()).toBeVisible();
@@ -1110,7 +1131,7 @@ test("keeps gap inspection non-mutating until an explicit action is invoked @pla
 });
 
 test("uses approved platform foundations across required operator surfaces @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-view-action"]')).toHaveCount(5);
   await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-filter-action"]')).toHaveCount(3);

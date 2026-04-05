@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+import { gotoApp } from "./support/navigation";
+
 function delay(ms: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -33,7 +35,7 @@ async function fulfillAfterDelay(route: Route, ms: number) {
 
 test("keeps workflow-heavy operator commands behind an explicit pending boundary @platform", async ({ page }) => {
   const change = await createIsolatedChange(page, "Workflow boundary");
-  await page.goto(`/?change=${change.id}`);
+  await gotoApp(page, `/?change=${change.id}`);
 
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
   const runStudio = page.locator('[data-platform-shell="run-inspection"]');
@@ -98,7 +100,7 @@ test("keeps workflow-heavy operator commands behind an explicit pending boundary
 });
 
 test("surfaces rejected workflow commands as explicit workflow errors @platform", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   await page.getByRole("button", { name: /ch-150/i }).click();
   await page.getByRole("tab", { name: "Clarifications" }).click();

@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { gotoApp } from "./support/navigation";
+
 const bootstrapResponse = {
   tenants: [
     {
@@ -39,6 +41,10 @@ const bootstrapResponse = {
       title: "Foundation proof change",
       subtitle: "Ready for review",
       state: "ready",
+      owner: {
+        id: "codex-chief",
+        label: "Codex Chief",
+      },
       nextAction: "Review tabular surfaces",
       blocker: "None",
       loopCount: 2,
@@ -67,6 +73,10 @@ const detailResponse = {
     requirementsLinked: 1,
     requirementsTotal: 1,
     specStatus: "ready",
+    owner: {
+      id: "codex-chief",
+      label: "Codex Chief",
+    },
     contract: {
       goal: "Prove the approved table foundation on detail surfaces.",
       scope: ["Traceability", "Runs", "Gaps", "Evidence"],
@@ -193,7 +203,7 @@ test("renders detail tabs through the approved table foundation @platform", asyn
     });
   });
 
-  await page.goto("/");
+  await gotoApp(page);
 
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').filter({ hasText: "Foundation proof change" }).first();
   const queueRow = page.getByRole("button", { name: /Foundation proof change/i });
@@ -254,14 +264,13 @@ test("renders labeled compact queue and detail rows on narrow viewports @platfor
     });
   });
 
-  await page.goto("/");
+  await gotoApp(page);
 
   const queueRow = page.locator('[data-change-id="ch-146"]');
   await queueRow.click();
 
-  const idLabel = queueRow.locator('[data-platform-compact-label]').filter({ hasText: "ID" });
-  await expect(idLabel).toBeVisible();
   await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Change" })).toBeVisible();
+  await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Owner" })).toBeVisible();
   await expect(queueRow.locator('[data-platform-compact-label]').filter({ hasText: "Next step" })).toBeVisible();
 
   const detailPanel = page.locator('[data-platform-shell="detail-panel"]').filter({ hasText: "Foundation proof change" }).first();

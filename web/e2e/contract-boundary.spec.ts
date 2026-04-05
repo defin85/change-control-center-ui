@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { gotoApp } from "./support/navigation";
+
 test("fails closed when selected change detail drifts from the shared contract boundary @platform", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1200 });
 
@@ -14,7 +16,7 @@ test("fails closed when selected change detail drifts from the shared contract b
     });
   });
 
-  await page.goto("/");
+  await gotoApp(page);
   await page.getByRole("button", { name: /ch-142/i }).click();
 
   await expect(page.getByText(/Control API contract failure/i)).toBeVisible();

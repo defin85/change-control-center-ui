@@ -33,10 +33,6 @@ export function QueuePanel({
   const normalizedQuery = searchQuery.trim();
   const columns = useMemo(
     () => [
-      queueColumnHelper.accessor("id", {
-        header: "ID",
-        cell: (context) => <span className="queue-id">{context.getValue()}</span>,
-      }),
       queueColumnHelper.display({
         id: "change",
         header: "Change",
@@ -44,12 +40,23 @@ export function QueuePanel({
           <span className="queue-title">
             <strong>{context.row.original.title}</strong>
             <span>{context.row.original.subtitle}</span>
+            <small className="queue-id">{context.row.original.id}</small>
           </span>
         ),
       }),
       queueColumnHelper.accessor("state", {
         header: "State",
         cell: (context) => <StatusBadge status={context.getValue()} label={formatStateLabel(context.getValue())} />,
+      }),
+      queueColumnHelper.display({
+        id: "owner",
+        header: "Owner",
+        cell: (context) => (
+          <span className="queue-owner">
+            <strong>{context.row.original.owner.label}</strong>
+            <span>{context.row.original.owner.id}</span>
+          </span>
+        ),
       }),
       queueColumnHelper.accessor("blocker", {
         header: "Blocker",
@@ -116,6 +123,11 @@ export function QueuePanel({
           <strong>{normalizedQuery || "No active search"}</strong>
           <small>{normalizedQuery ? "Queue results are narrowed by the current query." : "Showing the full current slice."}</small>
         </article>
+        <article className="context-chip">
+          <span>Ownership</span>
+          <strong>Backend-owned</strong>
+          <small>Queue rows use the same orchestrator contract as change detail.</small>
+        </article>
       </div>
 
       <p className="governance-note" data-platform-governance="queue-actions-closed">
@@ -144,6 +156,7 @@ export function QueuePanel({
                 className={`queue-row ${selectedChangeId === row.original.id ? "active" : ""}`}
                 data-platform-foundation="base-ui-queue-row"
                 data-change-id={row.original.id}
+                aria-label={`${row.original.id} ${row.original.title}`}
                 aria-pressed={selectedChangeId === row.original.id}
                 onClick={() => onSelectChange(row.original.id)}
               >

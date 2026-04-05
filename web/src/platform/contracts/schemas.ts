@@ -33,12 +33,18 @@ const repositoryCatalogEntrySchema = strictObject({
   featuredChange: repositoryCatalogFeaturedChangeSchema.nullable(),
 });
 
+const ownerContractSchema = strictObject({
+  id: z.string(),
+  label: z.string(),
+});
+
 const changeSummarySchema = strictObject({
   id: z.string(),
   tenantId: z.string(),
   title: z.string(),
   subtitle: z.string(),
   state: z.string(),
+  owner: ownerContractSchema,
   nextAction: z.string(),
   blocker: z.string(),
   loopCount: z.number(),
@@ -179,7 +185,7 @@ const changeDetailSchema = strictObject({
   requirementsLinked: z.number(),
   requirementsTotal: z.number(),
   specStatus: z.string(),
-  owner: optionalStringSchema,
+  owner: ownerContractSchema,
   policy: strictObject({
     maxAutoCycles: z.number(),
     escalationRule: z.string(),

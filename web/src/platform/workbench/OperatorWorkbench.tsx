@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { ChangeDetail } from "../../components/ChangeDetail";
 import { OperatorRail } from "../../components/OperatorRail";
@@ -33,6 +33,7 @@ export type OperatorWorkbenchProps = {
   bootstrap: BootstrapResponse;
   activeWorkspaceMode: OperatorWorkspaceMode;
   activeTenantId: string;
+  hasExplicitCatalogSelection: boolean;
   activeViewId: string;
   activeFilterId: string;
   activeViewCount: number;
@@ -57,6 +58,7 @@ export type OperatorWorkbenchProps = {
   onRunNext: () => Promise<void>;
   onTenantChange: (tenantId: string) => Promise<void>;
   onSelectCatalogTenant: (tenantId: string) => Promise<void>;
+  onClearCatalogSelection: () => void;
   onSelectView: (viewId: string) => void;
   onSelectFilter: (filterId: string) => void;
   onSelectChange: (changeId: string | null) => void;
@@ -96,6 +98,7 @@ export function OperatorWorkbench({
   bootstrap,
   activeWorkspaceMode,
   activeTenantId,
+  hasExplicitCatalogSelection,
   activeViewId,
   activeFilterId,
   activeViewCount,
@@ -120,6 +123,7 @@ export function OperatorWorkbench({
   onRunNext,
   onTenantChange,
   onSelectCatalogTenant,
+  onClearCatalogSelection,
   onSelectView,
   onSelectFilter,
   onSelectChange,
@@ -138,7 +142,6 @@ export function OperatorWorkbench({
 }: OperatorWorkbenchProps) {
   const [isCompactViewport, setIsCompactViewport] = useState(() => window.matchMedia("(max-width: 1080px)").matches);
   const [dismissedChangeId, setDismissedChangeId] = useState<string | null>(null);
-  const [openedCatalogTenantId, setOpenedCatalogTenantId] = useState<string | null>(null);
   const [isCreateTenantDialogOpen, setIsCreateTenantDialogOpen] = useState(false);
   const [activeRepositoryCatalogFilterId, setActiveRepositoryCatalogFilterId] =
     useState<RepositoryCatalogFilterId>("all");
@@ -153,7 +156,7 @@ export function OperatorWorkbench({
   const activeRepositoryCatalogEntry = repositoryCatalog.find((entry) => entry.tenantId === activeTenantId) ?? null;
   const selectedRun = detail?.runs.find((run) => run.id === selectedRunId) ?? null;
   const isDetailWorkspaceOpen = Boolean(selectedChangeId) && dismissedChangeId !== selectedChangeId;
-  const isRepositoryCatalogWorkspaceOpen = Boolean(activeRepositoryCatalogEntry) && openedCatalogTenantId === activeTenantId;
+  const isRepositoryCatalogWorkspaceOpen = Boolean(activeRepositoryCatalogEntry) && hasExplicitCatalogSelection;
   const hasVisibleContextualPrimaryAction = Boolean(selectedChangeId) && (!isCompactViewport || isDetailWorkspaceOpen);
 
   useEffect(() => {
@@ -170,16 +173,14 @@ export function OperatorWorkbench({
   }
 
   function handleCatalogSelection(tenantId: string) {
-    if (tenantId === activeTenantId) {
+    if (tenantId === activeTenantId && hasExplicitCatalogSelection) {
       catalogSelectionWorkflow.clearError();
-      setOpenedCatalogTenantId(tenantId);
       return;
     }
     catalogSelectionWorkflow.runCommand({
       label: `Open repository ${repositoryCatalog.find((entry) => entry.tenantId === tenantId)?.name ?? tenantId}`,
       execute: async () => {
         await onSelectCatalogTenant(tenantId);
-        setOpenedCatalogTenantId(tenantId);
       },
     });
   }
@@ -190,13 +191,12 @@ export function OperatorWorkbench({
 
   function handleCloseCatalogWorkspace() {
     catalogSelectionWorkflow.clearError();
-    setOpenedCatalogTenantId(null);
+    onClearCatalogSelection();
   }
 
   function handleWorkspaceModeChange(workspaceMode: OperatorWorkspaceMode) {
     if (workspaceMode !== "catalog") {
       catalogSelectionWorkflow.clearError();
-      setOpenedCatalogTenantId(null);
     }
     onWorkspaceModeChange(workspaceMode);
   }
@@ -211,41 +211,59 @@ export function OperatorWorkbench({
       <div data-platform-surface="repository-catalog-workbench">
         <MasterDetailShell
           navigation={
-            <RepositoryCatalogRail
-              entries={repositoryCatalog}
-              activeFilterId={activeRepositoryCatalogFilterId}
-              onSelectFilter={setActiveRepositoryCatalogFilterId}
-            />
+            <WorkbenchStage
+              eyebrow="Portfolio lanes"
+              title="Repositories"
+              description="Use the catalog to choose which repository needs operator attention next."
+            >
+              <RepositoryCatalogRail
+                entries={repositoryCatalog}
+                activeFilterId={activeRepositoryCatalogFilterId}
+                onSelectFilter={setActiveRepositoryCatalogFilterId}
+              />
+            </WorkbenchStage>
           }
           list={
-            <RepositoryCatalogPanel
-              entries={filteredRepositoryCatalog}
-              selectedTenantId={activeTenantId}
-              activeFilterId={activeRepositoryCatalogFilterId}
-              isSelectionPending={catalogSelectionWorkflow.isPending}
-              selectionPendingLabel={catalogSelectionWorkflow.activeLabel}
-              selectionError={catalogSelectionWorkflow.error}
-              searchQuery={searchQuery}
-              onSelectTenant={handleCatalogSelection}
-              onOpenCreateTenant={() => setIsCreateTenantDialogOpen(true)}
-            />
+            <WorkbenchStage
+              eyebrow="Catalog"
+              title="Repository inventory"
+              description="Backend-owned repository entries with explicit operator routing and readiness context."
+            >
+              <RepositoryCatalogPanel
+                entries={filteredRepositoryCatalog}
+                selectedTenantId={isCompactViewport && !hasExplicitCatalogSelection ? null : activeTenantId}
+                activeFilterId={activeRepositoryCatalogFilterId}
+                isSelectionPending={catalogSelectionWorkflow.isPending}
+                selectionPendingLabel={catalogSelectionWorkflow.activeLabel}
+                selectionError={catalogSelectionWorkflow.error}
+                searchQuery={searchQuery}
+                onSelectTenant={handleCatalogSelection}
+                onOpenCreateTenant={() => setIsCreateTenantDialogOpen(true)}
+              />
+            </WorkbenchStage>
           }
           workspace={
             !isCompactViewport ? (
-              <RepositoryCatalogWorkspaceShell
-                isCompactViewport={false}
-                isOpen={Boolean(activeRepositoryCatalogEntry)}
-                selectedTenantId={activeTenantId}
-                onClose={handleCloseCatalogWorkspace}
-                detail={
-                  <RepositoryCatalogProfile
-                    entry={activeRepositoryCatalogEntry}
-                    onOpenQueue={() => handleWorkspaceModeChange("queue")}
-                    onCreateChange={handleCreateChangeFromCatalog}
-                    onOpenCreateTenant={() => setIsCreateTenantDialogOpen(true)}
-                  />
-                }
-              />
+              <WorkbenchStage
+                eyebrow="Repository workspace"
+                title="Repository workspace"
+                description="Repository profile, next action, and queue handoff for the current selection."
+              >
+                <RepositoryCatalogWorkspaceShell
+                  isCompactViewport={false}
+                  isOpen={Boolean(activeRepositoryCatalogEntry)}
+                  selectedTenantId={activeTenantId}
+                  onClose={handleCloseCatalogWorkspace}
+                  detail={
+                    <RepositoryCatalogProfile
+                      entry={activeRepositoryCatalogEntry}
+                      onOpenQueue={() => handleWorkspaceModeChange("queue")}
+                      onCreateChange={handleCreateChangeFromCatalog}
+                      onOpenCreateTenant={() => setIsCreateTenantDialogOpen(true)}
+                    />
+                  }
+                />
+              </WorkbenchStage>
             ) : null
           }
         />
@@ -255,68 +273,86 @@ export function OperatorWorkbench({
       <div data-platform-surface="operator-workbench">
         <MasterDetailShell
           navigation={
-            <OperatorRail
-              views={bootstrap.views}
-              changes={changes}
-              detail={detail}
-              viewCounts={buildViewCounts(bootstrap.views, changes)}
-              activeViewId={activeViewId}
-              activeFilterId={activeFilterId}
-              onSelectView={onSelectView}
-              onSelectFilter={onSelectFilter}
-            />
+            <WorkbenchStage
+              eyebrow="Repository controls"
+              title="Repositories"
+              description="Saved slices, queue filters, and chief policy for the active repository."
+            >
+              <OperatorRail
+                views={bootstrap.views}
+                changes={changes}
+                detail={detail}
+                viewCounts={buildViewCounts(bootstrap.views, changes)}
+                activeViewId={activeViewId}
+                activeFilterId={activeFilterId}
+                onSelectView={onSelectView}
+                onSelectFilter={onSelectFilter}
+              />
+            </WorkbenchStage>
           }
           list={
-            <QueuePanel
-              changes={filteredChanges}
-              selectedChangeId={selectedChangeId}
-              activeViewLabel={activeViewLabel}
-              activeViewHint={activeViewHint}
-              activeViewCount={activeViewCount}
-              activeFilterLabel={activeFilter.label}
-              activeFilterHint={activeFilter.hint}
-              searchQuery={searchQuery}
-              onClearSelection={onClearSelection}
-              onSelectChange={handleWorkspaceSelection}
-            />
+            <WorkbenchStage
+              eyebrow="Queue"
+              title="Live queue"
+              description="Backend-owned change feed with owner parity between queue and detail."
+            >
+              <QueuePanel
+                changes={filteredChanges}
+                selectedChangeId={selectedChangeId}
+                activeViewLabel={activeViewLabel}
+                activeViewHint={activeViewHint}
+                activeViewCount={activeViewCount}
+                activeFilterLabel={activeFilter.label}
+                activeFilterHint={activeFilter.hint}
+                searchQuery={searchQuery}
+                onClearSelection={onClearSelection}
+                onSelectChange={handleWorkspaceSelection}
+              />
+            </WorkbenchStage>
           }
           workspace={
             !isCompactViewport ? (
-              <DetailWorkspaceShell
-                isCompactViewport={false}
-                isOpen={Boolean(selectedChangeId)}
-                selectedChangeId={selectedChangeId}
-                onClose={handleCloseWorkspace}
-                detail={
-                  <ChangeDetail
-                    activeTab={activeTabId}
-                    compactViewport={false}
-                    detail={detail}
-                    selectedRunId={selectedRunId}
-                    onRunNext={onRunNext}
-                    onOpenRunStudio={onOpenRunStudio}
-                    onEscalate={onEscalate}
-                    onBlockBySpec={onBlockBySpec}
-                    onDeleteChange={onDeleteChange}
-                    onCreateClarificationRound={onCreateClarificationRound}
-                    onAnswerClarificationRound={onAnswerClarificationRound}
-                    onSelectRun={onSelectRun}
-                    onSelectTab={onSelectTab}
-                    onPromoteFact={onPromoteFact}
-                  />
-                }
-                runInspection={
-                  showRunStudio ? (
-                    <RunStudio
-                      run={selectedRun}
-                      events={selectedRunEvents}
-                      approvals={selectedRunApprovals}
-                      onApprovalDecision={onApprovalDecision}
-                      onClose={onClearSelectedRun}
+              <WorkbenchStage
+                eyebrow="Selected change"
+                title="Change workspace"
+                description="Primary operator surface for actioning the current change and inspecting run lineage."
+              >
+                <DetailWorkspaceShell
+                  isCompactViewport={false}
+                  isOpen={Boolean(selectedChangeId)}
+                  selectedChangeId={selectedChangeId}
+                  onClose={handleCloseWorkspace}
+                  detail={
+                    <ChangeDetail
+                      activeTab={activeTabId}
+                      compactViewport={false}
+                      detail={detail}
+                      selectedRunId={selectedRunId}
+                      onRunNext={onRunNext}
+                      onOpenRunStudio={onOpenRunStudio}
+                      onEscalate={onEscalate}
+                      onBlockBySpec={onBlockBySpec}
+                      onDeleteChange={onDeleteChange}
+                      onCreateClarificationRound={onCreateClarificationRound}
+                      onAnswerClarificationRound={onAnswerClarificationRound}
+                      onSelectRun={onSelectRun}
+                      onSelectTab={onSelectTab}
+                      onPromoteFact={onPromoteFact}
                     />
-                  ) : null
-                }
-              />
+                  }
+                  runInspection={
+                    showRunStudio ? (
+                      <RunStudio
+                        run={selectedRun}
+                        events={selectedRunEvents}
+                        approvals={selectedRunApprovals}
+                        onApprovalDecision={onApprovalDecision}
+                        onClose={onClearSelectedRun}
+                      />
+                    ) : null
+                  }
+                />
+              </WorkbenchStage>
             ) : null
           }
         />
@@ -347,6 +383,9 @@ export function OperatorWorkbench({
           activeWorkspaceMode={activeWorkspaceMode}
           activeTenantRepoPath={activeTenantRepoPath}
           activeTenantName={activeRepositoryCatalogEntry?.name ?? activeTenantId}
+          activeViewLabel={activeViewLabel}
+          activeFilterLabel={activeFilter.label}
+          searchQuery={searchQuery}
           detail={detail}
           filteredChangeCount={filteredChanges.length}
           repositoryCatalog={repositoryCatalog}
@@ -422,5 +461,28 @@ export function OperatorWorkbench({
         </>
       }
     />
+  );
+}
+
+type WorkbenchStageProps = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+};
+
+function WorkbenchStage({ eyebrow, title, description, children }: WorkbenchStageProps) {
+  return (
+    <div className="workbench-stage">
+      <div className="workbench-stage-heading">
+        <div>
+          <p className="eyebrow">{eyebrow}</p>
+          <h2>{title}</h2>
+          <p className="subtitle">{description}</p>
+        </div>
+        <div className="workbench-stage-rule" aria-hidden="true" />
+      </div>
+      {children}
+    </div>
   );
 }
