@@ -19,6 +19,18 @@ ccc_require_tools() {
   done
 }
 
+ccc_python_bin() {
+  if command -v python >/dev/null 2>&1; then
+    printf 'python'
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    printf 'python3'
+    return 0
+  fi
+  ccc_die "required tool not found: python or python3"
+}
+
 ccc_ensure_run_root() {
   mkdir -p "$CCC_RUN_ROOT"
 }
@@ -50,18 +62,19 @@ ccc_env_file() {
   printf '%s/launch.env' "$(ccc_profile_dir "$1")"
 }
 
-ccc_pid_is_running() {
-  local pid="${1:-}"
-  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+ccc_process_target_is_running() {
+  local target="${1:-}"
+  [[ -n "$target" ]] || return 1
+  kill -0 -- "$target" 2>/dev/null
 }
 
 ccc_cleanup_stale_pidfile() {
   local pid_file="$1"
-  local pid
+  local target
 
   [[ -f "$pid_file" ]] || return 0
-  pid="$(<"$pid_file")"
-  if ! ccc_pid_is_running "$pid"; then
+  target="$(<"$pid_file")"
+  if ! ccc_process_target_is_running "$target"; then
     rm -f "$pid_file"
   fi
 }
