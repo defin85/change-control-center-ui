@@ -7,6 +7,8 @@ import type {
   FactRecord,
   RuntimeEvent,
   RunDetailResponse,
+  RunListEntry,
+  RunListSlice,
   RunRecord,
   Tenant,
 } from "./types";
@@ -23,6 +25,7 @@ import {
   requestControlApi,
   runDetailResponseSchema,
   runMutationResponseSchema,
+  runsResponseSchema,
 } from "./platform";
 
 export function fetchBootstrap(): Promise<BootstrapResponse> {
@@ -84,6 +87,13 @@ export function fetchRunDetail(
   runId: string,
 ): Promise<RunDetailResponse> {
   return requestControlApi(`/api/tenants/${tenantId}/runs/${runId}`, runDetailResponseSchema);
+}
+
+export function fetchRuns(
+  tenantId: string,
+  slice: RunListSlice = "attention",
+): Promise<{ slice: RunListSlice; runs: RunListEntry[] }> {
+  return requestControlApi(`/api/tenants/${tenantId}/runs?slice=${encodeURIComponent(slice)}`, runsResponseSchema);
 }
 
 export function createClarificationRound(

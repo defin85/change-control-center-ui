@@ -4,12 +4,14 @@ export const DEFAULT_OPERATOR_VIEW_ID = "inbox";
 export const DEFAULT_OPERATOR_FILTER_ID = "all";
 export const DEFAULT_OPERATOR_TAB_ID: ChangeDetailTabId = "overview";
 export const DEFAULT_OPERATOR_WORKSPACE_MODE = "queue";
+export const DEFAULT_OPERATOR_RUN_SLICE = "attention";
 
-export type OperatorWorkspaceMode = "queue" | "catalog";
+export type OperatorWorkspaceMode = "queue" | "catalog" | "runs";
+export type OperatorRunSlice = "attention" | "all";
 
 export type OperatorRouteState = {
-  legacyWorkbench?: boolean;
   workspaceMode?: OperatorWorkspaceMode;
+  runSlice?: OperatorRunSlice;
   tenantId?: string;
   viewId?: string;
   filterId?: string;
@@ -23,8 +25,8 @@ export function readOperatorRouteState(search: string): OperatorRouteState {
   const params = new URLSearchParams(search);
 
   return {
-    legacyWorkbench: readBooleanParam(params, "legacyWorkbench"),
     workspaceMode: readWorkspaceMode(params.get("workspace")),
+    runSlice: readRunSlice(params.get("runSlice")),
     tenantId: readParam(params, "tenant"),
     viewId: readParam(params, "view"),
     filterId: readParam(params, "filter"),
@@ -38,11 +40,11 @@ export function readOperatorRouteState(search: string): OperatorRouteState {
 export function buildOperatorRouteHref(pathname: string, state: OperatorRouteState): string {
   const params = new URLSearchParams();
 
-  if (state.legacyWorkbench) {
-    params.set("legacyWorkbench", "1");
-  }
   if (state.workspaceMode && state.workspaceMode !== DEFAULT_OPERATOR_WORKSPACE_MODE) {
     params.set("workspace", state.workspaceMode);
+  }
+  if (state.runSlice && state.runSlice !== DEFAULT_OPERATOR_RUN_SLICE) {
+    params.set("runSlice", state.runSlice);
   }
   if (state.tenantId) {
     params.set("tenant", state.tenantId);
@@ -75,14 +77,6 @@ function readParam(params: URLSearchParams, key: string) {
   return value ? value : undefined;
 }
 
-function readBooleanParam(params: URLSearchParams, key: string) {
-  const value = params.get(key)?.trim();
-  if (!value) {
-    return undefined;
-  }
-  return value === "1" || value.toLowerCase() === "true";
-}
-
 function readTabId(value: string | null): ChangeDetailTabId | undefined {
   if (!value) {
     return undefined;
@@ -92,7 +86,14 @@ function readTabId(value: string | null): ChangeDetailTabId | undefined {
 }
 
 function readWorkspaceMode(value: string | null): OperatorWorkspaceMode | undefined {
-  if (value === "queue" || value === "catalog") {
+  if (value === "queue" || value === "catalog" || value === "runs") {
+    return value;
+  }
+  return undefined;
+}
+
+function readRunSlice(value: string | null): OperatorRunSlice | undefined {
+  if (value === "attention" || value === "all") {
     return value;
   }
   return undefined;

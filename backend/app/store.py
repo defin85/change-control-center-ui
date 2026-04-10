@@ -382,6 +382,13 @@ class SQLiteStore:
         )
         return [_canonicalize_run(json.loads(row["run_json"])) for row in rows]
 
+    def list_tenant_runs(self, tenant_id: str) -> list[dict[str, Any]]:
+        rows = self._fetchall(
+            "select run_json from runs where tenant_id = ? order by rowid desc",
+            (tenant_id,),
+        )
+        return [_canonicalize_run(json.loads(row["run_json"])) for row in rows]
+
     def get_run(self, tenant_id: str, run_id: str) -> dict[str, Any] | None:
         row = self._fetchone(
             "select run_json from runs where tenant_id = ? and id = ?",

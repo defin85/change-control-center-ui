@@ -89,7 +89,7 @@ export function SimpleReferenceWorkbench({
   onSelectChange,
   onClearSelection,
   onClearSelectedRun,
-  onOpenRunStudio,
+  onOpenRuns,
   onEscalate,
   onBlockBySpec,
   onDeleteChange,
@@ -225,7 +225,7 @@ export function SimpleReferenceWorkbench({
           actionWorkflow={detailWorkflow}
           onWorkflowDetailOpenChange={setWorkflowDetailOpenByUser}
           onRunNext={onRunNext}
-          onOpenRunStudio={onOpenRunStudio}
+          onOpenRuns={onOpenRuns}
           onEscalate={onEscalate}
           onBlockBySpec={onBlockBySpec}
           onDeleteChange={onDeleteChange}
@@ -767,7 +767,7 @@ type SelectedChangeStageProps = {
   actionWorkflow: ReturnType<typeof useAsyncWorkflowCommandMachine>;
   onWorkflowDetailOpenChange: (open: boolean) => void;
   onRunNext: () => Promise<void>;
-  onOpenRunStudio: () => void;
+  onOpenRuns: () => void;
   onEscalate: () => Promise<void>;
   onBlockBySpec: () => Promise<void>;
   onDeleteChange: () => Promise<void>;
@@ -792,7 +792,7 @@ function SelectedChangeStage({
   actionWorkflow,
   onWorkflowDetailOpenChange,
   onRunNext,
-  onOpenRunStudio,
+  onOpenRuns,
   onEscalate,
   onBlockBySpec,
   onDeleteChange,
@@ -907,7 +907,7 @@ function SelectedChangeStage({
             className="ghost-button"
             data-platform-action="open-run-studio"
             aria-controls="run-studio"
-            onClick={onOpenRunStudio}
+            onClick={onOpenRuns}
             disabled={actionWorkflow.isPending || runs.length === 0}
             title={runs.length === 0 ? "Generate or select a backend-owned run before opening Run Studio." : undefined}
           >
@@ -1066,7 +1066,7 @@ function SelectedChangeStage({
               detail={detail}
               selectedRunId={selectedRunId}
               onRunNext={onRunNext}
-              onOpenRunStudio={onOpenRunStudio}
+              onOpenRuns={onOpenRuns}
               onEscalate={onEscalate}
               onBlockBySpec={onBlockBySpec}
               onDeleteChange={onDeleteChange}

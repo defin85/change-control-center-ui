@@ -2,7 +2,8 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { ChangeDetail } from "../../components/ChangeDetail";
 import { QueuePanel } from "../../components/QueuePanel";
-import { RunStudio } from "../../components/RunStudio";
+import { RunDetailPanel } from "../../components/RunDetailPanel";
+import { RunsWorkspacePanel } from "../../components/RunsWorkspacePanel";
 import type { RepositoryCatalogEntry } from "../../types";
 import type { OperatorWorkspaceMode } from "../navigation";
 import { PlatformPrimitives } from "../foundation";
@@ -10,6 +11,7 @@ import { buildViewCounts, filterRepositoryCatalog, describeFilter, OPERATOR_FILT
 import type { RepositoryCatalogFilterId } from "../server-state/filtering";
 import { RepositoryCatalogWorkspaceShell } from "../shells/RepositoryCatalogWorkspaceShell";
 import { DetailWorkspaceShell } from "../shells/DetailWorkspaceShell";
+import { RunDetailWorkspaceShell } from "../shells/RunDetailWorkspaceShell";
 import { WorkspacePageShell } from "../shells/WorkspacePageShell";
 import { StatusBadge } from "../shells/StatusBadge";
 import { useAsyncWorkflowCommandMachine } from "../workflow";
@@ -41,6 +43,7 @@ export function OperatorWorkbenchState({ message, tone }: OperatorWorkbenchState
 export function OperatorWorkbench({
   bootstrap,
   activeWorkspaceMode,
+  activeRunSlice,
   activeTenantId,
   hasExplicitCatalogSelection,
   activeViewId,
@@ -55,12 +58,14 @@ export function OperatorWorkbench({
   detail,
   changes,
   filteredChanges,
+  runsWorkspaceEntries,
   selectedRunApprovals,
   selectedRunEvents,
   realtimeNotice,
   toast,
   onSearchQueryChange,
   onWorkspaceModeChange,
+  onRunSliceChange,
   onCreateTenant,
   onCreateChange,
   onGlobalRunNext,
@@ -73,7 +78,7 @@ export function OperatorWorkbench({
   onSelectChange,
   onClearSelection,
   onClearSelectedRun,
-  onOpenRunStudio,
+  onOpenRuns,
   onEscalate,
   onBlockBySpec,
   onDeleteChange,
@@ -121,7 +126,28 @@ export function OperatorWorkbench({
     });
   }, [activeTenantId, repositoryCatalog]);
   const selectedRun = detail?.runs.find((run) => run.id === selectedRunId) ?? null;
+  const selectedRunChange = useMemo(() => {
+    if (!detail) {
+      return null;
+    }
+    const mandatoryGapCount = detail.change.gaps.filter((gap) => gap.mandatory && gap.status !== "closed").length;
+    return {
+      id: detail.change.id,
+      tenantId: detail.change.tenantId,
+      title: detail.change.title,
+      subtitle: detail.change.subtitle,
+      state: detail.change.state,
+      owner: detail.change.owner,
+      nextAction: detail.change.nextAction,
+      blocker: detail.change.blocker,
+      loopCount: detail.change.loopCount,
+      lastRunAgo: detail.change.lastRunAgo,
+      verificationStatus: detail.change.verificationStatus,
+      mandatoryGapCount,
+    };
+  }, [detail]);
   const isDetailWorkspaceOpen = Boolean(selectedChangeId) && dismissedChangeId !== selectedChangeId;
+  const isRunWorkspaceOpen = Boolean(selectedRunId);
   const isRepositoryCatalogWorkspaceOpen = Boolean(activeRepositoryCatalogEntry) && hasExplicitCatalogSelection;
   const hasVisibleContextualPrimaryAction = Boolean(selectedChangeId) && (!isCompactViewport || isDetailWorkspaceOpen);
 
@@ -172,7 +198,20 @@ export function OperatorWorkbench({
     handleWorkspaceModeChange("queue");
   }
 
-  const showRunStudio = Boolean(selectedRun);
+  const showRunDetail = Boolean(selectedRunId);
+  const runDetailPanel = (
+    <RunDetailPanel
+      panelId="selected-run-detail"
+      run={selectedRun}
+      change={selectedRunChange}
+      events={selectedRunEvents}
+      approvals={selectedRunApprovals}
+      closeLabel={activeWorkspaceMode === "runs" ? "Back to runs" : "Back to change detail"}
+      onApprovalDecision={onApprovalDecision}
+      onClose={onClearSelectedRun}
+      onOpenChange={activeWorkspaceMode === "runs" && selectedChangeId ? () => handleWorkspaceModeChange("queue") : null}
+    />
+  );
   const detailWorkspace = (
     <DetailWorkspaceShell
       isCompactViewport={false}
@@ -186,7 +225,7 @@ export function OperatorWorkbench({
           detail={detail}
           selectedRunId={selectedRunId}
           onRunNext={onRunNext}
-          onOpenRunStudio={onOpenRunStudio}
+          onOpenRuns={onOpenRuns}
           onEscalate={onEscalate}
           onBlockBySpec={onBlockBySpec}
           onDeleteChange={onDeleteChange}
@@ -198,15 +237,7 @@ export function OperatorWorkbench({
         />
       }
       runInspection={
-        showRunStudio ? (
-          <RunStudio
-            run={selectedRun}
-            events={selectedRunEvents}
-            approvals={selectedRunApprovals}
-            onApprovalDecision={onApprovalDecision}
-            onClose={onClearSelectedRun}
-          />
-        ) : null
+        showRunDetail ? runDetailPanel : null
       }
     />
   );
@@ -231,6 +262,7 @@ export function OperatorWorkbench({
       <div className="workbench-page" data-platform-surface="repository-catalog-workbench">
         <WorkbenchStatusStrip
           activeWorkspaceMode={activeWorkspaceMode}
+          activeRunSlice={activeRunSlice}
           activeTenantRepoPath={activeTenantRepoPath}
           activeTenantName={activeRepositoryCatalogEntry?.name ?? activeTenantId}
           activeViewLabel={activeViewLabel}
@@ -239,6 +271,8 @@ export function OperatorWorkbench({
           detail={detail}
           filteredChangeCount={filteredChanges.length}
           repositoryCatalog={repositoryCatalog}
+          runsWorkspaceEntries={runsWorkspaceEntries}
+          selectedRunId={selectedRunId}
         />
 
         <WorkbenchSection title="Repositories">
@@ -260,10 +294,53 @@ export function OperatorWorkbench({
         </WorkbenchSection>
       </div>
     )
+    : activeWorkspaceMode === "runs"
+      ? (
+        <div className="workbench-page" data-platform-surface="runs-workbench">
+          <WorkbenchStatusStrip
+            activeWorkspaceMode={activeWorkspaceMode}
+            activeRunSlice={activeRunSlice}
+            activeTenantRepoPath={activeTenantRepoPath}
+            activeTenantName={activeRepositoryCatalogEntry?.name ?? activeTenantId}
+            activeViewLabel={activeViewLabel}
+            activeFilterLabel={activeFilter.label}
+            searchQuery={searchQuery}
+            detail={detail}
+            filteredChangeCount={filteredChanges.length}
+            repositoryCatalog={repositoryCatalog}
+            runsWorkspaceEntries={runsWorkspaceEntries}
+            selectedRunId={selectedRunId}
+          />
+
+          <WorkbenchSection title="Runs">
+            <div className="reference-paired-stage" data-platform-surface="runs-detail-stage">
+              <RunsWorkspacePanel
+                entries={runsWorkspaceEntries}
+                activeRunSlice={activeRunSlice}
+                searchQuery={searchQuery}
+                selectedRunId={selectedRunId}
+                onRunSliceChange={onRunSliceChange}
+                onSelectRun={onSelectRun}
+                onClearSelection={onClearSelectedRun}
+              />
+              {!isCompactViewport ? (
+                <RunDetailWorkspaceShell
+                  isCompactViewport={false}
+                  isOpen={isRunWorkspaceOpen}
+                  selectedRunId={selectedRunId}
+                  onClose={onClearSelectedRun}
+                  detail={runDetailPanel}
+                />
+              ) : null}
+            </div>
+          </WorkbenchSection>
+        </div>
+      )
     : (
       <div className="workbench-page" data-platform-surface="operator-workbench">
         <WorkbenchStatusStrip
           activeWorkspaceMode={activeWorkspaceMode}
+          activeRunSlice={activeRunSlice}
           activeTenantRepoPath={activeTenantRepoPath}
           activeTenantName={activeRepositoryCatalogEntry?.name ?? activeTenantId}
           activeViewLabel={activeViewLabel}
@@ -272,6 +349,8 @@ export function OperatorWorkbench({
           detail={detail}
           filteredChangeCount={filteredChanges.length}
           repositoryCatalog={repositoryCatalog}
+          runsWorkspaceEntries={runsWorkspaceEntries}
+          selectedRunId={selectedRunId}
         />
 
         <WorkbenchSection title="Repositories">
@@ -350,6 +429,14 @@ export function OperatorWorkbench({
                   />
                 }
               />
+            ) : activeWorkspaceMode === "runs" ? (
+              <RunDetailWorkspaceShell
+                isCompactViewport
+                isOpen={isRunWorkspaceOpen}
+                selectedRunId={selectedRunId}
+                onClose={onClearSelectedRun}
+                detail={runDetailPanel}
+              />
             ) : (
               <DetailWorkspaceShell
                 isCompactViewport
@@ -363,7 +450,7 @@ export function OperatorWorkbench({
                     detail={detail}
                     selectedRunId={selectedRunId}
                     onRunNext={onRunNext}
-                    onOpenRunStudio={onOpenRunStudio}
+                    onOpenRuns={onOpenRuns}
                     onEscalate={onEscalate}
                     onBlockBySpec={onBlockBySpec}
                     onDeleteChange={onDeleteChange}
@@ -374,17 +461,7 @@ export function OperatorWorkbench({
                     onPromoteFact={onPromoteFact}
                   />
                 }
-                runInspection={
-                  showRunStudio ? (
-                    <RunStudio
-                      run={selectedRun}
-                      events={selectedRunEvents}
-                      approvals={selectedRunApprovals}
-                      onApprovalDecision={onApprovalDecision}
-                      onClose={onClearSelectedRun}
-                    />
-                  ) : null
-                }
+                runInspection={showRunDetail ? runDetailPanel : null}
               />
             )
           )

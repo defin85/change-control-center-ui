@@ -13,11 +13,12 @@ export const WORKFLOW_SURFACES: WorkflowSurfaceDescriptor[] = [
   {
     id: "run-execution",
     label: "Run execution commands and selected run context",
-    entrypoint: "Change Detail actions -> Run next step / Open run studio",
+    entrypoint: "Change Detail actions -> Run next step / Open runs",
     backendEntities: ["change", "run", "runtime events", "evidence"],
     currentEntrypoints: [
       "web/src/components/ChangeDetail.tsx",
-      "web/src/components/RunStudio.tsx",
+      "web/src/components/RunDetailPanel.tsx",
+      "web/src/components/RunsWorkspacePanel.tsx",
       "web/src/platform/server-state/useOperatorServerState.ts",
     ],
     reason:
@@ -29,10 +30,10 @@ export const WORKFLOW_SURFACES: WorkflowSurfaceDescriptor[] = [
   {
     id: "approval-resolution",
     label: "Approval resolution from run inspection",
-    entrypoint: "Run Studio approvals list",
+    entrypoint: "Selected run approvals list",
     backendEntities: ["approval", "run", "runtime events"],
     currentEntrypoints: [
-      "web/src/components/RunStudio.tsx",
+      "web/src/components/RunDetailPanel.tsx",
       "web/src/platform/server-state/useOperatorServerState.ts",
     ],
     reason:

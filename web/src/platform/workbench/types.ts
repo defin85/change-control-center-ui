@@ -6,14 +6,16 @@ import type {
   ChangeSummary,
   ClarificationAnswer,
   RepositoryCatalogEntry,
+  RunListEntry,
+  RunListSlice,
   RuntimeEvent,
 } from "../../types";
 import type { OperatorWorkspaceMode } from "../navigation";
 
 export type OperatorWorkbenchProps = {
   bootstrap: BootstrapResponse;
-  legacyWorkbenchEnabled: boolean;
   activeWorkspaceMode: OperatorWorkspaceMode;
+  activeRunSlice: RunListSlice;
   activeTenantId: string;
   hasExplicitCatalogSelection: boolean;
   activeViewId: string;
@@ -28,12 +30,14 @@ export type OperatorWorkbenchProps = {
   detail: ChangeDetailResponse | null;
   changes: ChangeSummary[];
   filteredChanges: ChangeSummary[];
+  runsWorkspaceEntries: RunListEntry[];
   selectedRunApprovals: ApprovalRecord[];
   selectedRunEvents: RuntimeEvent[];
   realtimeNotice?: string | null;
   toast?: string | null;
   onSearchQueryChange: (value: string) => void;
   onWorkspaceModeChange: (workspaceMode: OperatorWorkspaceMode) => void;
+  onRunSliceChange: (runSlice: RunListSlice) => void;
   onCreateTenant: (name: string, repoPath: string, description: string) => Promise<void>;
   onCreateChange: () => Promise<void>;
   onGlobalRunNext: () => Promise<void>;
@@ -46,13 +50,13 @@ export type OperatorWorkbenchProps = {
   onSelectChange: (changeId: string | null) => void;
   onClearSelection: () => void;
   onClearSelectedRun: () => void;
-  onOpenRunStudio: () => void;
+  onOpenRuns: () => void;
   onEscalate: () => Promise<void>;
   onBlockBySpec: () => Promise<void>;
   onDeleteChange: () => Promise<void>;
   onCreateClarificationRound: () => Promise<void>;
   onAnswerClarificationRound: (roundId: string, answers: ClarificationAnswer[]) => Promise<void>;
-  onSelectRun: (runId: string) => void;
+  onSelectRun: (runId: string, changeId?: string | null) => void;
   onSelectTab: (tabId: ChangeDetailTabId) => void;
   onPromoteFact: (title: string, body: string) => Promise<void>;
   onApprovalDecision: (approvalId: string, decision: "accept" | "decline") => Promise<void>;

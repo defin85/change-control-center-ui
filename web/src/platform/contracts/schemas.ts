@@ -53,6 +53,8 @@ const changeSummarySchema = strictObject({
   mandatoryGapCount: z.number(),
 });
 
+const runSliceSchema = z.enum(["attention", "all"]);
+
 const focusItemSchema = strictObject({
   id: z.string(),
   kind: z.string(),
@@ -115,6 +117,25 @@ const runRecordSchema = strictObject({
       items: z.array(focusItemSchema),
     }),
   }),
+});
+
+const runListEntrySchema = strictObject({
+  id: z.string(),
+  changeId: z.string(),
+  tenantId: z.string(),
+  kind: z.string(),
+  status: z.string(),
+  transport: z.string(),
+  threadId: optionalStringSchema,
+  turnId: optionalStringSchema,
+  result: z.string(),
+  duration: z.string(),
+  outcome: z.string(),
+  decision: z.string(),
+  recentActivity: z.string(),
+  pendingApprovalCount: z.number(),
+  requiresAttention: z.boolean(),
+  change: changeSummarySchema,
 });
 
 const approvalRecordSchema = strictObject({
@@ -288,6 +309,11 @@ export const runDetailResponseSchema = strictObject({
   run: runRecordSchema,
   events: z.array(runtimeEventSchema),
   approvals: z.array(approvalRecordSchema),
+});
+
+export const runsResponseSchema = strictObject({
+  slice: runSliceSchema,
+  runs: z.array(runListEntrySchema),
 });
 
 export const clarificationRoundResponseSchema = strictObject({

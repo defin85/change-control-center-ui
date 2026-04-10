@@ -13,6 +13,7 @@ import {
   fetchChangeDetail,
   fetchChanges,
   fetchRunDetail,
+  fetchRuns,
   promoteFact,
   runNext,
 } from "../../api";
@@ -23,15 +24,18 @@ import type {
   ChangeDetailTabId,
   ClarificationAnswer,
   RuntimeEvent,
+  RunListEntry,
 } from "../../types";
 import {
   buildOperatorRouteHref,
   DEFAULT_OPERATOR_FILTER_ID,
+  DEFAULT_OPERATOR_RUN_SLICE,
   DEFAULT_OPERATOR_TAB_ID,
   DEFAULT_OPERATOR_VIEW_ID,
   DEFAULT_OPERATOR_WORKSPACE_MODE,
   readOperatorRouteState,
   type OperatorRouteState,
+  type OperatorRunSlice,
   type OperatorWorkspaceMode,
 } from "../navigation";
 import { ControlApiError } from "../contracts";
@@ -96,12 +100,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
   const [initialRouteState] = useState(() => readOperatorRouteState(window.location.search));
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
   const [changes, setChanges] = useState<BootstrapResponse["changes"]>([]);
-  const [legacyWorkbenchEnabled, setLegacyWorkbenchEnabled] = useState(() => initialRouteState.legacyWorkbench ?? false);
   const [hasExplicitCatalogSelection, setHasExplicitCatalogSelection] = useState(
     () => initialRouteState.workspaceMode === "catalog" && Boolean(initialRouteState.tenantId),
   );
   const [activeWorkspaceMode, setActiveWorkspaceMode] = useState<OperatorWorkspaceMode>(
     initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE,
+  );
+  const [activeRunSlice, setActiveRunSlice] = useState<OperatorRunSlice>(
+    initialRouteState.runSlice ?? DEFAULT_OPERATOR_RUN_SLICE,
   );
   const [activeTenantId, setActiveTenantId] = useState<string | null>(initialRouteState.tenantId ?? null);
   const [activeViewId, setActiveViewId] = useState(initialRouteState.viewId ?? DEFAULT_OPERATOR_VIEW_ID);
@@ -111,20 +117,24 @@ export function useOperatorServerState(): OperatorServerStateResult {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(initialRouteState.runId ?? null);
   const [activeTabId, setActiveTabId] = useState<ChangeDetailTabId>(initialRouteState.tabId ?? DEFAULT_OPERATOR_TAB_ID);
   const [detail, setDetail] = useState<ChangeDetailResponse | null>(null);
+  const [runsWorkspaceEntries, setRunsWorkspaceEntries] = useState<RunListEntry[]>([]);
   const [runApprovals, setRunApprovals] = useState<Record<string, ApprovalRecord[]>>({});
   const [runEvents, setRunEvents] = useState<Record<string, RuntimeEvent[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [realtimeNotice, setRealtimeNotice] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const activeTenantRef = useRef<string | null>(null);
+  const activeWorkspaceModeRef = useRef<OperatorWorkspaceMode>(activeWorkspaceMode);
+  const activeRunSliceRef = useRef<OperatorRunSlice>(activeRunSlice);
   const selectedChangeRef = useRef<string | null>(null);
   const selectedRunRef = useRef<string | null>(null);
   const historyModeRef = useRef<"push" | "replace">("replace");
   const historyInitializedRef = useRef(false);
   const orchestrationVersionRef = useRef(0);
   const runRequestVersionRef = useRef(0);
+  const runListRequestVersionRef = useRef(0);
   const isCompactViewport = window.matchMedia("(max-width: 1080px)").matches;
-  const shouldAutoSelectChange = !isCompactViewport;
+  const shouldAutoSelectQueueChange = !isCompactViewport;
 
   function beginOrchestration() {
     orchestrationVersionRef.current += 1;
@@ -134,6 +144,11 @@ export function useOperatorServerState(): OperatorServerStateResult {
   function beginRunRequest() {
     runRequestVersionRef.current += 1;
     return runRequestVersionRef.current;
+  }
+
+  function beginRunListRequest() {
+    runListRequestVersionRef.current += 1;
+    return runListRequestVersionRef.current;
   }
 
   function isActiveOrchestration(version: number, tenantId: string, changeId?: string | null) {
@@ -160,16 +175,11 @@ export function useOperatorServerState(): OperatorServerStateResult {
     return reason instanceof ControlApiError && reason.kind === "http" && reason.status === 404;
   }
 
-  function selectionContext(
-    workspaceMode: OperatorWorkspaceMode,
-    viewId: string,
-    filterId: string,
-    currentSearchQuery: string,
-  ) {
+  function queueSelectionContext(viewId: string, filterId: string, currentSearchQuery: string) {
     return {
       activeViewId: viewId,
       activeFilterId: filterId,
-      searchQuery: workspaceMode === "catalog" ? "" : currentSearchQuery,
+      searchQuery: currentSearchQuery,
     };
   }
 
@@ -179,6 +189,27 @@ export function useOperatorServerState(): OperatorServerStateResult {
       return;
     }
     setBootstrap(payload);
+  }
+
+  async function refreshRunsWorkspace(targetTenantId: string, runSlice: OperatorRunSlice) {
+    const requestVersion = beginRunListRequest();
+    const payload = await fetchRuns(targetTenantId, runSlice);
+    if (
+      runListRequestVersionRef.current !== requestVersion ||
+      activeTenantRef.current !== targetTenantId ||
+      activeRunSliceRef.current !== runSlice
+    ) {
+      return;
+    }
+    setRunsWorkspaceEntries(payload.runs);
+    if (
+      activeWorkspaceModeRef.current === "runs" &&
+      selectedRunRef.current &&
+      !payload.runs.some((entry) => entry.id === selectedRunRef.current)
+    ) {
+      selectedRunRef.current = null;
+      setSelectedRunId(null);
+    }
   }
 
   function selectChange(changeId: string | null) {
@@ -246,9 +277,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
       setChanges(queueSnapshot);
       const nextSelectedChangeId = resolveVisibleChangeSelection(
         queueSnapshot,
-        selectionContext(activeWorkspaceMode, activeViewId, activeFilterId, searchQuery),
+        queueSelectionContext(activeViewId, activeFilterId, searchQuery),
         changeId,
-        shouldAutoSelectChange,
+        shouldAutoSelectQueueChange,
       );
       if (nextSelectedChangeId !== changeId) {
         selectChange(nextSelectedChangeId);
@@ -269,11 +300,12 @@ export function useOperatorServerState(): OperatorServerStateResult {
       }
       if (isMissingSelectedChange(reason)) {
         const fallbackChangeId = queueSnapshot
-          ? resolveVisibleChangeSelection(
+          ? resolveChangeSelectionForWorkspace(
               queueSnapshot,
-              selectionContext(activeWorkspaceMode, activeViewId, activeFilterId, searchQuery),
+              activeWorkspaceModeRef.current,
+              queueSelectionContext(activeViewId, activeFilterId, searchQuery),
               null,
-              shouldAutoSelectChange,
+              shouldAutoSelectQueueChange,
             )
           : null;
         selectChange(fallbackChangeId);
@@ -291,6 +323,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
   const selectChangeEvent = useEffectEvent(selectChange);
   const applyDetailPayloadEvent = useEffectEvent(applyDetailPayload);
+  const refreshRunsWorkspaceEvent = useEffectEvent(refreshRunsWorkspace);
 
   const applyNavigationState = useEffectEvent(async (routeState: OperatorRouteState) => {
     if (!bootstrap) {
@@ -301,22 +334,26 @@ export function useOperatorServerState(): OperatorServerStateResult {
     try {
       const nextTenantId = resolveTenantId(bootstrap, routeState.tenantId ?? activeTenantRef.current ?? bootstrap.activeTenantId);
       const nextWorkspaceMode = routeState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE;
+      const nextRunSlice = routeState.runSlice ?? DEFAULT_OPERATOR_RUN_SLICE;
       const nextViewId = resolveViewId(bootstrap, routeState.viewId ?? DEFAULT_OPERATOR_VIEW_ID, DEFAULT_OPERATOR_VIEW_ID);
       const nextFilterId = routeState.filterId ?? DEFAULT_OPERATOR_FILTER_ID;
       const nextSearchQuery = routeState.searchQuery ?? "";
-      setLegacyWorkbenchEnabled(routeState.legacyWorkbench ?? false);
       const queueSnapshot = (await fetchChanges(nextTenantId)).changes;
       if (orchestrationVersionRef.current !== flowVersion) {
         return;
       }
-      const nextSelectedChangeId = resolveVisibleChangeSelection(
+      const nextSelectedChangeId = resolveChangeSelectionForWorkspace(
         queueSnapshot,
-        selectionContext(nextWorkspaceMode, nextViewId, nextFilterId, nextSearchQuery),
+        nextWorkspaceMode,
+        queueSelectionContext(nextViewId, nextFilterId, nextSearchQuery),
         routeState.changeId,
-        shouldAutoSelectChange,
+        shouldAutoSelectQueueChange,
       );
 
       setActiveWorkspaceMode(nextWorkspaceMode);
+      activeWorkspaceModeRef.current = nextWorkspaceMode;
+      setActiveRunSlice(nextRunSlice);
+      activeRunSliceRef.current = nextRunSlice;
       setHasExplicitCatalogSelection(nextWorkspaceMode === "catalog" && Boolean(routeState.tenantId));
       setActiveTenantId(nextTenantId);
       activeTenantRef.current = nextTenantId;
@@ -365,19 +402,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
   );
 
   const activeSelectedChangeId = useMemo(() => {
-    const visibleChanges = filterChanges(
+    return resolveChangeSelectionForWorkspace(
       changes,
-      selectionContext(activeWorkspaceMode, activeViewId, activeFilterId, searchQuery),
+      activeWorkspaceMode,
+      queueSelectionContext(activeViewId, activeFilterId, searchQuery),
+      selectedChangeId,
+      shouldAutoSelectQueueChange,
     );
-
-    if (selectedChangeId && visibleChanges.some((change) => change.id === selectedChangeId)) {
-      return selectedChangeId;
-    }
-    if (!shouldAutoSelectChange) {
-      return null;
-    }
-    return visibleChanges[0]?.id ?? null;
-  }, [activeFilterId, activeViewId, activeWorkspaceMode, changes, searchQuery, selectedChangeId, shouldAutoSelectChange]);
+  }, [activeFilterId, activeViewId, activeWorkspaceMode, changes, searchQuery, selectedChangeId, shouldAutoSelectQueueChange]);
 
   const activeDetail = useMemo(() => {
     if (!activeSelectedChangeId) {
@@ -394,6 +426,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
   useEffect(() => {
     activeTenantRef.current = activeTenantId;
   }, [activeTenantId]);
+
+  useEffect(() => {
+    activeWorkspaceModeRef.current = activeWorkspaceMode;
+  }, [activeWorkspaceMode]);
+
+  useEffect(() => {
+    activeRunSliceRef.current = activeRunSlice;
+  }, [activeRunSlice]);
 
   useEffect(() => {
     selectedChangeRef.current = activeSelectedChangeId;
@@ -422,25 +462,25 @@ export function useOperatorServerState(): OperatorServerStateResult {
         }
 
         setBootstrap(payload);
-        setLegacyWorkbenchEnabled(initialRouteState.legacyWorkbench ?? false);
-        setActiveWorkspaceMode(initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE);
+        const initialWorkspaceMode = initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE;
+        setActiveWorkspaceMode(initialWorkspaceMode);
+        activeWorkspaceModeRef.current = initialWorkspaceMode;
+        const initialRunSlice = initialRouteState.runSlice ?? DEFAULT_OPERATOR_RUN_SLICE;
+        setActiveRunSlice(initialRunSlice);
+        activeRunSliceRef.current = initialRunSlice;
         setHasExplicitCatalogSelection(
-          (initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE) === "catalog" && Boolean(initialRouteState.tenantId),
+          initialWorkspaceMode === "catalog" && Boolean(initialRouteState.tenantId),
         );
         setActiveTenantId(initialTenantId);
         activeTenantRef.current = initialTenantId;
         setChanges(initialChanges);
         selectChangeEvent(
-          resolveVisibleChangeSelection(
+          resolveChangeSelectionForWorkspace(
             initialChanges,
-            selectionContext(
-              initialRouteState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE,
-              initialViewId,
-              initialFilterId,
-              initialSearchQuery,
-            ),
+            initialWorkspaceMode,
+            queueSelectionContext(initialViewId, initialFilterId, initialSearchQuery),
             initialRouteState.changeId,
-            shouldAutoSelectChange,
+            shouldAutoSelectQueueChange,
           ),
         );
         setActiveViewId(initialViewId);
@@ -454,7 +494,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
           setError(reason.message);
         }
       });
-  }, [initialRouteState, shouldAutoSelectChange]);
+  }, [initialRouteState, shouldAutoSelectQueueChange]);
 
   useEffect(() => {
     if (!bootstrap) {
@@ -505,8 +545,8 @@ export function useOperatorServerState(): OperatorServerStateResult {
     }
 
     const nextHref = buildOperatorRouteHref(window.location.pathname, {
-      legacyWorkbench: legacyWorkbenchEnabled,
       workspaceMode: activeWorkspaceMode,
+      runSlice: activeRunSlice,
       tenantId:
         activeWorkspaceMode === "catalog" && isCompactViewport && !hasExplicitCatalogSelection ? undefined : activeTenantId,
       viewId: activeViewId,
@@ -533,12 +573,12 @@ export function useOperatorServerState(): OperatorServerStateResult {
     activeSelectedRunId,
     activeTabId,
     activeTenantId,
+    activeRunSlice,
     activeViewId,
     activeWorkspaceMode,
     bootstrap,
     hasExplicitCatalogSelection,
     isCompactViewport,
-    legacyWorkbenchEnabled,
     searchQuery,
   ]);
 
@@ -586,6 +626,9 @@ export function useOperatorServerState(): OperatorServerStateResult {
         }
         if (shouldRefreshQueue || shouldRefreshSelectedChange) {
           await refreshBootstrapSnapshot(targetTenantId);
+        }
+        if (shouldRefreshQueue || shouldRefreshSelectedChange || shouldRefreshSelectedRun) {
+          await refreshRunsWorkspace(targetTenantId, activeRunSliceRef.current);
         }
         setRealtimeNotice(null);
       } catch (reason) {
@@ -645,6 +688,18 @@ export function useOperatorServerState(): OperatorServerStateResult {
   }, [activeSelectedRunId, activeTenantId]);
 
   useEffect(() => {
+    if (!activeTenantId) {
+      return;
+    }
+
+    void refreshRunsWorkspaceEvent(activeTenantId, activeRunSlice).catch((reason: Error) => {
+      if (activeTenantRef.current === activeTenantId && activeRunSliceRef.current === activeRunSlice) {
+        setError(reason.message);
+      }
+    });
+  }, [activeRunSlice, activeTenantId]);
+
+  useEffect(() => {
     if (!toast) {
       return;
     }
@@ -684,6 +739,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       onFailure: refreshFailureMode,
     });
     await refreshBootstrapSnapshot(targetTenantId);
+    await refreshRunsWorkspace(targetTenantId, activeRunSliceRef.current);
     historyModeRef.current = "replace";
     selectedRunRef.current = payload.run.id;
     setSelectedRunId(payload.run.id);
@@ -698,21 +754,25 @@ export function useOperatorServerState(): OperatorServerStateResult {
     await handleRunNext("throw");
   }
 
-  function handleOpenRunStudio() {
+  function handleOpenRunsWorkspace() {
     if (activeDetail?.runs.length) {
       const preferredRunId =
         activeSelectedRunId && activeDetail.runs.some((run) => run.id === activeSelectedRunId)
           ? activeSelectedRunId
           : activeDetail.runs[0].id;
+      beginOrchestration();
       beginRunRequest();
-      historyModeRef.current = "replace";
+      historyModeRef.current = "push";
+      setActiveWorkspaceMode("runs");
+      activeWorkspaceModeRef.current = "runs";
+      setActiveRunSlice("all");
+      activeRunSliceRef.current = "all";
+      setHasExplicitCatalogSelection(false);
+      setActiveTabId("runs");
       selectedRunRef.current = preferredRunId;
       setSelectedRunId(preferredRunId);
-      window.requestAnimationFrame(() => {
-        document.getElementById("run-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
     } else {
-      setToast("No backend-owned run is available yet. Start the next step before opening Run Studio.");
+      setToast("No backend-owned run is available yet. Start the next step before opening Runs.");
     }
   }
 
@@ -759,19 +819,17 @@ export function useOperatorServerState(): OperatorServerStateResult {
 
     setBootstrap(bootstrapPayload);
     setActiveWorkspaceMode("catalog");
+    activeWorkspaceModeRef.current = "catalog";
     setHasExplicitCatalogSelection(true);
     setActiveTenantId(payload.tenant.id);
     activeTenantRef.current = payload.tenant.id;
+    setRunsWorkspaceEntries([]);
     setChanges(changesPayload.changes);
     setActiveViewId(DEFAULT_OPERATOR_VIEW_ID);
     setActiveFilterId(DEFAULT_OPERATOR_FILTER_ID);
     setSearchQuery("");
     setActiveTabId(DEFAULT_OPERATOR_TAB_ID);
-    selectChange(resolveVisibleChangeSelection(changesPayload.changes, {
-      activeViewId: DEFAULT_OPERATOR_VIEW_ID,
-      activeFilterId: DEFAULT_OPERATOR_FILTER_ID,
-      searchQuery: "",
-    }, null, shouldAutoSelectChange));
+    selectChange(null);
     setToast(`Created repository ${payload.tenant.name}.`);
   }
 
@@ -784,6 +842,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     await escalateChange(targetTenantId, targetChangeId);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
     await refreshBootstrapSnapshot(targetTenantId);
+    await refreshRunsWorkspace(targetTenantId, activeRunSliceRef.current);
     setToast(`Escalated ${targetChangeId}.`);
   }
 
@@ -796,6 +855,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     await blockChangeBySpec(targetTenantId, targetChangeId);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
     await refreshBootstrapSnapshot(targetTenantId);
+    await refreshRunsWorkspace(targetTenantId, activeRunSliceRef.current);
     setToast(`Blocked ${targetChangeId} by spec.`);
   }
 
@@ -811,6 +871,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       missingSelectionToast: null,
     });
     await refreshBootstrapSnapshot(targetTenantId);
+    await refreshRunsWorkspace(targetTenantId, activeRunSliceRef.current);
     setToast(`Deleted ${targetChangeId}.`);
   }
 
@@ -823,6 +884,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     await createClarificationRound(targetTenantId, targetChangeId);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
     await refreshBootstrapSnapshot(targetTenantId);
+    await refreshRunsWorkspace(targetTenantId, activeRunSliceRef.current);
   }
 
   async function handleAnswerClarificationRound(roundId: string, answers: ClarificationAnswer[]) {
@@ -834,6 +896,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     await answerClarificationRound(targetTenantId, roundId, answers);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
     await refreshBootstrapSnapshot(targetTenantId);
+    await refreshRunsWorkspace(targetTenantId, activeRunSliceRef.current);
   }
 
   async function handlePromoteFact(title: string, body: string) {
@@ -845,6 +908,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     await promoteFact(targetTenantId, targetChangeId, title, body);
     await refreshCurrentChange(targetTenantId, targetChangeId, { onFailure: "throw" });
     await refreshBootstrapSnapshot(targetTenantId);
+    await refreshRunsWorkspace(targetTenantId, activeRunSliceRef.current);
   }
 
   async function handleApprovalDecision(approvalId: string, decision: "accept" | "decline") {
@@ -862,6 +926,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       ),
     }));
     await refreshRunDetail(targetTenantId, targetRunId);
+    await refreshRunsWorkspace(targetTenantId, activeRunSliceRef.current);
     setToast(`${decision === "accept" ? "Accepted" : "Declined"} ${approvalId}.`);
   }
 
@@ -871,6 +936,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
     setRealtimeNotice(null);
     setError(null);
     setChanges([]);
+    setRunsWorkspaceEntries([]);
     setActiveViewId(DEFAULT_OPERATOR_VIEW_ID);
     setActiveFilterId(DEFAULT_OPERATOR_FILTER_ID);
     setSearchQuery("");
@@ -884,7 +950,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       return;
     }
     setChanges(payload.changes);
-    selectChange(shouldAutoSelectChange ? payload.changes[0]?.id ?? null : null);
+    selectChange(shouldAutoSelectQueueChange ? payload.changes[0]?.id ?? null : null);
   }
 
   async function handleSelectCatalogTenant(tenantId: string) {
@@ -897,14 +963,16 @@ export function useOperatorServerState(): OperatorServerStateResult {
       return;
     }
     setActiveWorkspaceMode("catalog");
+    activeWorkspaceModeRef.current = "catalog";
     setHasExplicitCatalogSelection(true);
     setActiveTenantId(tenantId);
     activeTenantRef.current = tenantId;
+    setRunsWorkspaceEntries([]);
     setChanges(payload.changes);
     setActiveViewId(DEFAULT_OPERATOR_VIEW_ID);
     setActiveFilterId(DEFAULT_OPERATOR_FILTER_ID);
     setActiveTabId(DEFAULT_OPERATOR_TAB_ID);
-    selectChange(shouldAutoSelectChange ? payload.changes[0]?.id ?? null : null);
+    selectChange(null);
   }
 
   function handleSearchQueryChange(value: string) {
@@ -917,8 +985,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
     beginOrchestration();
     historyModeRef.current = "push";
     setActiveWorkspaceMode(workspaceMode);
+    activeWorkspaceModeRef.current = workspaceMode;
     setHasExplicitCatalogSelection(false);
-    setSearchQuery("");
+  }
+
+  function handleRunSliceChange(runSlice: OperatorRunSlice) {
+    historyModeRef.current = "push";
+    setActiveRunSlice(runSlice);
+    activeRunSliceRef.current = runSlice;
   }
 
   function handleClearCatalogSelection() {
@@ -959,10 +1033,20 @@ export function useOperatorServerState(): OperatorServerStateResult {
     setSelectedRunId(null);
   }
 
-  function handleSelectRun(runId: string) {
+  function handleSelectRun(runId: string, changeId?: string | null) {
+    beginOrchestration();
     beginRunRequest();
-    historyModeRef.current = "replace";
+    historyModeRef.current =
+      activeWorkspaceModeRef.current === "runs" || (changeId !== undefined && changeId !== selectedChangeRef.current)
+        ? "push"
+        : "replace";
+    if (changeId && changeId !== selectedChangeRef.current) {
+      selectedChangeRef.current = changeId;
+      setSelectedChangeId(changeId);
+      setDetail((current) => (current?.change.id === changeId ? current : null));
+    }
     selectedRunRef.current = runId;
+    setActiveTabId("runs");
     setSelectedRunId(runId);
   }
 
@@ -983,8 +1067,8 @@ export function useOperatorServerState(): OperatorServerStateResult {
     state: "ready",
     workbenchProps: {
       bootstrap,
-      legacyWorkbenchEnabled,
       activeWorkspaceMode,
+      activeRunSlice,
       activeTenantId: activeTenant.id,
       hasExplicitCatalogSelection,
       activeViewId,
@@ -999,12 +1083,14 @@ export function useOperatorServerState(): OperatorServerStateResult {
       detail: activeDetail,
       changes,
       filteredChanges,
+      runsWorkspaceEntries,
       selectedRunApprovals,
       selectedRunEvents,
       realtimeNotice,
       toast,
       onSearchQueryChange: handleSearchQueryChange,
       onWorkspaceModeChange: handleWorkspaceModeChange,
+      onRunSliceChange: handleRunSliceChange,
       onCreateTenant: handleCreateTenant,
       onCreateChange: handleCreateChange,
       onGlobalRunNext: handleGlobalRunNext,
@@ -1017,7 +1103,7 @@ export function useOperatorServerState(): OperatorServerStateResult {
       onSelectChange: handleSelectChange,
       onClearSelection: handleClearSelection,
       onClearSelectedRun: handleClearSelectedRun,
-      onOpenRunStudio: handleOpenRunStudio,
+      onOpenRuns: handleOpenRunsWorkspace,
       onEscalate: handleEscalate,
       onBlockBySpec: handleBlockBySpec,
       onDeleteChange: handleDeleteChange,
@@ -1029,6 +1115,30 @@ export function useOperatorServerState(): OperatorServerStateResult {
       onApprovalDecision: handleApprovalDecision,
     },
   };
+}
+
+function resolveChangeSelectionForWorkspace(
+  changes: BootstrapResponse["changes"],
+  workspaceMode: OperatorWorkspaceMode,
+  context: {
+    activeViewId: string;
+    activeFilterId: string;
+    searchQuery: string;
+  },
+  preferredChangeId: string | null | undefined,
+  shouldAutoSelectQueueChange: boolean,
+) {
+  if (workspaceMode === "queue") {
+    return resolveVisibleChangeSelection(changes, context, preferredChangeId, shouldAutoSelectQueueChange);
+  }
+
+  if (workspaceMode === "runs") {
+    if (preferredChangeId && changes.some((change) => change.id === preferredChangeId)) {
+      return preferredChangeId;
+    }
+  }
+
+  return null;
 }
 
 function buildRunCacheKey(tenantId: string, runId: string) {

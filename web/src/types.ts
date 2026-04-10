@@ -237,6 +237,27 @@ export type RunDetailResponse = {
   approvals: ApprovalRecord[];
 };
 
+export type RunListSlice = "attention" | "all";
+
+export type RunListEntry = {
+  id: string;
+  changeId: string;
+  tenantId: string;
+  kind: string;
+  status: string;
+  transport: string;
+  threadId?: string;
+  turnId?: string;
+  result: string;
+  duration: string;
+  outcome: string;
+  decision: string;
+  recentActivity: string;
+  pendingApprovalCount: number;
+  requiresAttention: boolean;
+  change: ChangeSummary;
+};
+
 export type BootstrapResponse = {
   tenants: Tenant[];
   repositoryCatalog: RepositoryCatalogEntry[];

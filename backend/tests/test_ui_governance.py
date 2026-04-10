@@ -73,7 +73,7 @@ def test_lint_blocks_disabled_platform_actions_with_silent_return_guards() -> No
           return (
             <PlatformPrimitives.Button
               type="button"
-              data-platform-action="open-run-studio"
+              data-platform-action="open-runs"
               disabled={!ready}
               onClick={() => {
                 if (!ready) {
@@ -82,7 +82,7 @@ def test_lint_blocks_disabled_platform_actions_with_silent_return_guards() -> No
                 console.log("opened");
               }}
             >
-              Open run studio
+              Open runs
             </PlatformPrimitives.Button>
           );
         }

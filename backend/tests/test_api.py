@@ -211,6 +211,61 @@ def test_queue_and_detail_share_same_canonical_owner_contract(client: TestClient
     assert queue_change["owner"] == detail_owner
 
 
+def test_tenant_run_list_defaults_to_attention_slice_with_change_handoff_fields(client: TestClient) -> None:
+    response = client.get("/api/tenants/tenant-demo/runs")
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["slice"] == "attention"
+    assert [run["id"] for run in payload["runs"]] == ["run-30"]
+
+    run_entry = payload["runs"][0]
+    assert run_entry["requiresAttention"] is True
+    assert run_entry["pendingApprovalCount"] == 0
+    assert run_entry["change"]["id"] == "ch-142"
+    assert run_entry["change"]["owner"] == {"id": "codex-chief", "label": "Codex Chief"}
+    assert run_entry["recentActivity"] == run_entry["change"]["lastRunAgo"]
+
+
+def test_tenant_run_list_supports_full_history_and_newest_first_ordering(client: TestClient) -> None:
+    store: SQLiteStore = client.app.state.store
+    store.create_run(
+        {
+            "id": "run-40",
+            "changeId": "ch-146",
+            "tenantId": "tenant-demo",
+            "kind": "apply",
+            "status": "completed",
+            "transport": "stdio",
+            "threadId": "thr_seed_146_40",
+            "turnId": "turn_seed_146_40",
+            "worktree": "wt-146-a",
+            "result": "success",
+            "duration": "04:10",
+            "outcome": "All checks passed",
+            "prompt": "/openspec-apply ch-146",
+            "checks": ["pytest targeted ✅", "ui smoke ✅"],
+            "decision": "Ready for merge.",
+            "memoryPacket": {
+                "tenantMemory": {"facts": []},
+                "changeContract": {"goal": "Start the first real apply run through the new stack."},
+                "changeMemory": {"summary": "Initial apply completed cleanly."},
+                "focusGraph": {"items": []},
+            },
+        }
+    )
+
+    attention_response = client.get("/api/tenants/tenant-demo/runs?slice=attention")
+    history_response = client.get("/api/tenants/tenant-demo/runs?slice=all")
+
+    assert attention_response.status_code == 200
+    assert history_response.status_code == 200
+    assert [run["id"] for run in attention_response.json()["runs"]] == ["run-30"]
+    assert [run["id"] for run in history_response.json()["runs"][:2]] == ["run-40", "run-30"]
+    assert history_response.json()["runs"][0]["requiresAttention"] is False
+
+
 @pytest.mark.parametrize(
     ("tenant_id", "expected_owner"),
     [

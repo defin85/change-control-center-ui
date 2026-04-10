@@ -16,13 +16,13 @@ type ChangeDetailProps = {
   selectedRunId: string | null;
   compactViewport?: boolean;
   onRunNext: () => Promise<void>;
-  onOpenRunStudio: () => void;
+  onOpenRuns: () => void;
   onEscalate: () => Promise<void>;
   onBlockBySpec: () => Promise<void>;
   onDeleteChange: () => Promise<void>;
   onCreateClarificationRound: () => Promise<void>;
   onAnswerClarificationRound: (roundId: string, answers: ClarificationAnswer[]) => Promise<void>;
-  onSelectRun: (runId: string) => void;
+  onSelectRun: (runId: string, changeId?: string | null) => void;
   onSelectTab: (tabId: ChangeDetailTabId) => void;
   onPromoteFact: (title: string, body: string) => Promise<void>;
 };
@@ -140,7 +140,7 @@ export function ChangeDetail({
   selectedRunId,
   compactViewport = false,
   onRunNext,
-  onOpenRunStudio,
+  onOpenRuns,
   onEscalate,
   onBlockBySpec,
   onDeleteChange,
@@ -193,7 +193,7 @@ export function ChangeDetail({
   const normalizedFactTitle = factTitle.trim();
   const normalizedFactBody = factBody.trim();
   const canPromoteFact = normalizedFactTitle.length > 0 && normalizedFactBody.length > 0;
-  const canOpenRunStudio = runs.length > 0;
+  const canOpenRuns = runs.length > 0;
   const openMandatoryGapCount = change.gaps.filter((gap) => gap.mandatory && gap.status !== "closed").length;
   const timelineEntries = change.timeline.length > 0
     ? change.timeline
@@ -227,13 +227,13 @@ export function ChangeDetail({
           <PlatformPrimitives.Button
             type="button"
             className="ghost-button"
-            data-platform-action="open-run-studio"
-            aria-controls="run-studio"
-            onClick={onOpenRunStudio}
-            disabled={actionWorkflow.isPending || !canOpenRunStudio}
-            title={canOpenRunStudio ? undefined : "Generate or select a backend-owned run before opening Run Studio."}
+            data-platform-action="open-runs"
+            aria-controls="selected-run-detail"
+            onClick={onOpenRuns}
+            disabled={actionWorkflow.isPending || !canOpenRuns}
+            title={canOpenRuns ? undefined : "Generate or select a backend-owned run before opening Runs."}
           >
-            Open run studio
+            Open runs
           </PlatformPrimitives.Button>
           <PlatformPrimitives.Button
             type="button"
@@ -339,9 +339,9 @@ export function ChangeDetail({
       {actionWorkflow.isPending ? (
         <div className="empty-state">{actionWorkflow.activeLabel ?? "Operator command in progress."}</div>
       ) : null}
-      {!canOpenRunStudio ? (
-        <p className="governance-note" data-platform-governance="run-studio-run-required">
-          Run the change once before opening runtime details.
+      {!canOpenRuns ? (
+        <p className="governance-note" data-platform-governance="runs-run-required">
+          Run the change once before opening canonical run details.
         </p>
       ) : null}
       <div className="status-bar reference-status-bar">

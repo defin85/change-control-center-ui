@@ -64,7 +64,7 @@ export function ReferenceRepositoryCatalogPage({
     searchQuery: searchQuery || undefined,
   });
   const liveWorkbenchHref = buildOperatorRouteHref(window.location.pathname, {
-    legacyWorkbench: true,
+    workspaceMode: "queue",
     tenantId: activeTenantId,
   });
 
@@ -92,7 +92,6 @@ export function ReferenceRepositoryCatalogPage({
 
   function handleOpenQueue() {
     const nextHref = buildOperatorRouteHref(window.location.pathname, {
-      legacyWorkbench: true,
       workspaceMode: "queue",
       tenantId: activeTenantId,
     });

@@ -11,4 +11,5 @@ export {
   promotedFactResponseSchema,
   runDetailResponseSchema,
   runMutationResponseSchema,
+  runsResponseSchema,
 } from "./schemas";

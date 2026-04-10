@@ -25,6 +25,14 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - Read [docs/architecture/overview.md](/home/egor/code/change-control-center-ui/docs/architecture/overview.md) for the active architecture and entrypoints.
 - Use [README.md](/home/egor/code/change-control-center-ui/README.md) for product overview and launcher basics.
 
+## Current UI Direction
+
+- The repository is actively migrating to the new canonical operator UI and away from the deprecated `legacyWorkbench=1` route.
+- Treat the new UI as the primary product path for planning, implementation, review, and verification unless a task explicitly says to work on migration scaffolding or legacy cleanup.
+- Do not use the hidden legacy workbench, legacy `Run Studio`, or preview-only fallback routes as the source of truth for new UX requirements.
+- Legacy UI paths may be consulted only for migration context, gap analysis, or parity checks while the new UI is being completed.
+- If a task would reintroduce dependency on the legacy workbench or preserve it as a supported operator path, stop and confirm scope through OpenSpec before coding.
+
 ## Issue Tracking
 
 - Use `bd` for all issue tracking; do not create markdown TODO lists.

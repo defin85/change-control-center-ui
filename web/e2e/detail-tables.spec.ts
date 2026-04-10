@@ -191,6 +191,13 @@ test("renders detail tabs through the approved table foundation @platform", asyn
   await page.route("**/api/tenants/tenant-demo/changes/ch-146", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailResponse) });
   });
+  await page.route("**/api/tenants/tenant-demo/runs?slice=attention", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ slice: "attention", runs: [] }),
+    });
+  });
   await page.route("**/api/tenants/tenant-demo/runs/run-30", async (route) => {
     await route.fulfill({
       status: 200,
@@ -251,6 +258,13 @@ test("renders labeled compact queue and detail rows on narrow viewports @platfor
   });
   await page.route("**/api/tenants/tenant-demo/changes/ch-146", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detailResponse) });
+  });
+  await page.route("**/api/tenants/tenant-demo/runs?slice=attention", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ slice: "attention", runs: [] }),
+    });
   });
   await page.route("**/api/tenants/tenant-demo/runs/run-30", async (route) => {
     await route.fulfill({

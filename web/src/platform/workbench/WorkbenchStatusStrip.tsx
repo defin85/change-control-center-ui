@@ -1,9 +1,10 @@
 import { formatStateLabel } from "../../lib";
-import type { ChangeDetailResponse, RepositoryCatalogEntry } from "../../types";
+import type { ChangeDetailResponse, RepositoryCatalogEntry, RunListEntry, RunListSlice } from "../../types";
 import type { OperatorWorkspaceMode } from "../navigation";
 
 type WorkbenchStatusStripProps = {
   activeWorkspaceMode: OperatorWorkspaceMode;
+  activeRunSlice: RunListSlice;
   activeTenantRepoPath: string;
   activeTenantName: string;
   activeViewLabel: string;
@@ -12,10 +13,13 @@ type WorkbenchStatusStripProps = {
   detail: ChangeDetailResponse | null;
   filteredChangeCount: number;
   repositoryCatalog: RepositoryCatalogEntry[];
+  runsWorkspaceEntries: RunListEntry[];
+  selectedRunId: string | null;
 };
 
 export function WorkbenchStatusStrip({
   activeWorkspaceMode,
+  activeRunSlice,
   activeTenantRepoPath,
   activeTenantName,
   activeViewLabel,
@@ -24,6 +28,8 @@ export function WorkbenchStatusStrip({
   detail,
   filteredChangeCount,
   repositoryCatalog,
+  runsWorkspaceEntries,
+  selectedRunId,
 }: WorkbenchStatusStripProps) {
   const mandatoryGapCount = detail?.change.gaps.filter((gap) => gap.mandatory && gap.status !== "closed").length ?? 0;
   const blockedRepositoryCount = repositoryCatalog.filter((entry) => entry.attentionState === "blocked").length;
@@ -33,6 +39,8 @@ export function WorkbenchStatusStrip({
   const quietRepositoryCount = repositoryCatalog.filter((entry) => entry.attentionState === "quiet").length;
   const selectedRunCount = detail?.runs.length ?? 0;
   const selectedClarificationCount = detail?.clarificationRounds.length ?? 0;
+  const pendingApprovalsCount = runsWorkspaceEntries.reduce((sum, entry) => sum + entry.pendingApprovalCount, 0);
+  const attentionRunCount = runsWorkspaceEntries.filter((entry) => entry.requiresAttention).length;
   const executionDenominator = Math.max(selectedRunCount, mandatoryGapCount, selectedClarificationCount, 1);
   const pressureDenominator = Math.max(
     blockedRepositoryCount,
@@ -121,6 +129,97 @@ export function WorkbenchStatusStrip({
               <div>
                 <dt>Search</dt>
                 <dd>{searchQuery.trim() || "No active query"}</dd>
+              </div>
+            </dl>
+          </article>
+        </div>
+      </section>
+    );
+  }
+
+  if (activeWorkspaceMode === "runs") {
+    return (
+      <section className="reference-overview" data-platform-surface="workbench-overview">
+        <div className="reference-page-header">
+          <div>
+            <p className="eyebrow">Run operations</p>
+            <h1>Tenant runs</h1>
+            <p className="subtitle">
+              Backend-owned run monitoring for {activeTenantName}.
+            </p>
+          </div>
+          <div className="reference-header-note">
+            <span className="reference-live-dot" aria-hidden="true" />
+            {activeRunSlice === "attention" ? "attention slice" : "full history"} · {activeTenantRepoPath}
+          </div>
+        </div>
+
+        <div className="reference-metrics-grid" aria-label="Tenant run metrics">
+          <MetricCard label="Visible runs" value={String(runsWorkspaceEntries.length)} meta="Current run slice for the active tenant" />
+          <MetricCard label="Needs attention" value={String(attentionRunCount)} meta="Running, failed, or approval-blocked runs" />
+          <MetricCard label="Pending approvals" value={String(pendingApprovalsCount)} meta="Requests still waiting for operator decision" />
+          <MetricCard
+            label="Selection"
+            value={selectedRunId ?? "No run selected"}
+            meta={detail ? detail.change.title : "Select a run to inspect linked change context"}
+          />
+        </div>
+
+        <div className="reference-support-grid">
+          <article className="reference-panel reference-panel--wide">
+            <div className="reference-panel-heading">
+              <div>
+                <h2>Run pressure</h2>
+                <p>Attention distribution for the active tenant worklist.</p>
+              </div>
+            </div>
+            <div className="reference-lane-stack">
+              <MetricLane
+                label="Attention-first"
+                detail={`${attentionRunCount} operational runs`}
+                percent={(attentionRunCount / Math.max(runsWorkspaceEntries.length, 1)) * 100}
+                tone="amber"
+              />
+              <MetricLane
+                label="Pending approvals"
+                detail={`${pendingApprovalsCount} waiting`}
+                percent={(pendingApprovalsCount / Math.max(pendingApprovalsCount, runsWorkspaceEntries.length, 1)) * 100}
+                tone="violet"
+              />
+              <MetricLane
+                label="Repository pressure"
+                detail={`${blockedRepositoryCount} blocked repositories`}
+                percent={(blockedRepositoryCount / pressureDenominator) * 100}
+                tone="blue"
+              />
+              <MetricLane
+                label="Current search"
+                detail={searchQuery.trim() || "No active query"}
+                percent={searchQuery.trim() ? 100 : 12}
+                tone="emerald"
+              />
+            </div>
+          </article>
+
+          <article className="reference-panel">
+            <div className="reference-panel-heading">
+              <div>
+                <h2>Selected context</h2>
+                <p>Run detail stays tied to backend-owned change context.</p>
+              </div>
+            </div>
+            <dl className="reference-fact-list">
+              <div>
+                <dt>Repository</dt>
+                <dd>{activeTenantName}</dd>
+              </div>
+              <div>
+                <dt>Run slice</dt>
+                <dd>{activeRunSlice === "attention" ? "Needs attention" : "All history"}</dd>
+              </div>
+              <div>
+                <dt>Owning change</dt>
+                <dd>{detail ? detail.change.id : "Awaiting run selection"}</dd>
               </div>
             </dl>
           </article>

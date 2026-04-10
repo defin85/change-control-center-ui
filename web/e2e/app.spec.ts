@@ -92,33 +92,33 @@ test("shows a normalized HTTP failure when bootstrap request fails @platform", a
   await expect(page.getByText(/bootstrap unavailable/i)).toBeVisible();
 });
 
-test("renders the shipped static preview and routes into repositories @smoke @platform", async ({ page }) => {
+test("renders the canonical live shell from the default route and routes into repositories @smoke @platform", async ({ page }) => {
   await gotoShippedApp(page);
 
-  await expect(page.locator('[data-platform-surface="operator-style-sample"]')).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Operator Shell Preview" })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="operator-workbench"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Operator workbench" })).toBeVisible();
   await expect(page.locator('[data-platform-action="workspace-catalog"]')).toBeVisible();
-  await expect(page.locator('[data-platform-surface="operator-workbench"]')).toHaveCount(0);
+  await expect(page.locator('[data-platform-surface="operator-style-sample"]')).toHaveCount(0);
 
   await page.locator('[data-platform-action="workspace-catalog"]').click();
 
   await expect(page).toHaveURL(/workspace=catalog/);
-  await expect(page.getByRole("heading", { name: "Repository Portfolio" })).toBeVisible();
-  await expect(page.locator('[data-platform-surface="repository-catalog-workspace"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Repository portfolio" })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-catalog-workbench"]')).toBeVisible();
 });
 
 test("renders the canonical repositories workspace and selected repository stage @smoke @platform", async ({ page }) => {
   await gotoShippedApp(page, "/?workspace=catalog");
 
   await expect(page.locator('[data-platform-shell="workspace-page"]')).toBeVisible();
-  await expect(page.locator('[data-platform-surface="repository-catalog-workspace"]')).toBeVisible();
-  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]')).toBeVisible();
-  await expect(page.locator('[data-platform-surface="repository-catalog-metrics"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-catalog-workbench"]')).toBeVisible();
+  await expect(page.locator("header").getByLabel("Search")).toBeVisible();
+  await expect(page.locator('[data-platform-surface="workbench-overview"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="repository-catalog"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="selected-repository-workspace"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("change-control-center-ui");
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
-  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]').getByLabel("Search")).toBeVisible();
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("header").getByLabel("Search")).toBeVisible();
 
   const sandboxRow = page.locator('[data-tenant-id="tenant-sandbox"]');
   await expect(sandboxRow).toContainText("sandbox-repo");
@@ -129,7 +129,7 @@ test("renders the canonical repositories workspace and selected repository stage
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("Open queue");
 });
 
-test("renders the legacy operator console surfaces and mandatory detail tabs @platform", async ({ page }) => {
+test("renders the canonical operator console surfaces and mandatory detail tabs @platform", async ({ page }) => {
   await gotoApp(page);
   const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
 
@@ -157,7 +157,7 @@ test("renders the legacy operator console surfaces and mandatory detail tabs @pl
   await expect(page.locator('[data-platform-surface="repository-overview"]').getByRole("button", { name: /change-control-center-ui/i })).toBeVisible();
   await expect(page.locator('[data-change-id="ch-142"]')).toContainText("Codex Chief");
   await expect(page.locator("header").getByRole("button", { name: "Run next step" })).toBeVisible();
-  await expect(detailActions.getByRole("button", { name: "Open run studio" })).toHaveAttribute("aria-controls", "run-studio");
+  await expect(detailActions.getByRole("button", { name: "Open runs" })).toHaveAttribute("aria-controls", "selected-run-detail");
   await expect(detailActions.getByRole("button", { name: "Escalate" })).toBeVisible();
   await expect(detailActions.getByRole("button", { name: "Mark blocked by spec" })).toBeVisible();
   await expect(page.locator(".tab-list").getByRole("tab", { name: "Traceability" })).toBeVisible();
@@ -213,7 +213,7 @@ test("creates a new repository from the shipped catalog utility bar @platform", 
   const repoPath = `/tmp/${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
   await gotoShippedApp(page, "/?workspace=catalog");
-  await page.locator('[data-platform-surface="repository-catalog-utility"]').getByRole("button", { name: "New repository" }).click();
+  await page.locator("header").getByRole("button", { name: "New repository" }).click();
 
   const dialog = page.getByRole("dialog", { name: "New repository" });
   await dialog.getByLabel("Repository name").fill(projectName);
@@ -223,7 +223,7 @@ test("creates a new repository from the shipped catalog utility bar @platform", 
 
   await expect(dialog).toHaveCount(0);
   await expect(page.locator(".toast")).toContainText(`Created repository ${projectName}.`);
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(projectName);
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(repoPath);
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("Create first change");
@@ -246,23 +246,23 @@ test("selects a repository from the shipped catalog and hands off into queue wor
 
   await page.locator('[data-platform-surface="repository-profile"]').getByRole("button", { name: "Open queue" }).click();
 
-  await expect(page).toHaveURL(/legacyWorkbench=1/);
+  await expect(page).not.toHaveURL(/legacyWorkbench=1/);
   await expect(page.locator("header").getByLabel("Repository")).toContainText("sandbox-repo");
-  await expect(page.getByRole("heading", { name: "Live queue" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Operator workbench" })).toBeVisible();
   await expect(page).not.toHaveURL(/workspace=catalog(&|$)/);
 });
 
 test("restores repository catalog route state after reload @platform", async ({ page }) => {
   await gotoShippedApp(page, "/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
 
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
-  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]').getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 
   await reloadApp(page);
 
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
-  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]').getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 });
 
@@ -270,15 +270,15 @@ test("restores compact repository catalog route state after reload @platform", a
   await page.setViewportSize({ width: 900, height: 1200 });
   await gotoShippedApp(page, "/?workspace=catalog&tenant=tenant-sandbox&q=sandbox");
 
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
-  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]').getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 
   await reloadApp(page);
 
-  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-current", "page");
-  await expect(page.locator('[data-platform-surface="repository-catalog-utility"]').getByLabel("Search")).toHaveValue("sandbox");
+  await expect(page.locator('[data-platform-action="workspace-catalog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("header").getByLabel("Search")).toHaveValue("sandbox");
   await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
   await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("sandbox-repo");
 });
@@ -362,24 +362,24 @@ test("aligns document language and form semantics on the backend-served shell @p
   await expect(page.getByLabel(/Additional clarification note:/).first()).toHaveAttribute("name", /clarification-note-/);
 });
 
-test("creates a run and shows runtime lineage in run studio @platform", async ({ page }) => {
+test("creates a run and shows runtime lineage in the selected run detail stage @platform", async ({ page }) => {
   await gotoApp(page);
 
   const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
-  const runStudio = page.locator("#run-studio");
+  const runDetail = page.locator("#selected-run-detail");
 
   await changeRow(page, "ch-142").click();
   await detailActions.getByRole("tab", { name: "Runs" }).click();
   await page.getByRole("button", { name: /run-30/i }).click();
 
-  await expect(runStudio.getByRole("heading", { name: "run-30" })).toBeVisible();
-  await expect(runStudio.getByText("thr_seed_142_30", { exact: true })).toBeVisible();
-  await expect(runStudio.getByText("turn_seed_142_30", { exact: true })).toBeVisible();
-  await expect(runStudio.getByText(/^stdio$/)).toBeVisible();
-  await expect(runStudio.getByText("Runtime Events", { exact: true })).toBeVisible();
-  await expect(runStudio.getByText("No runtime events captured for this run.", { exact: true })).toBeVisible();
-  await expect(runStudio.getByText("Approvals", { exact: true })).toBeVisible();
-  await expect(runStudio.getByText("No approvals captured for this run.", { exact: true })).toBeVisible();
+  await expect(runDetail.getByRole("heading", { name: "run-30" })).toBeVisible();
+  await expect(runDetail.getByText("thr_seed_142_30", { exact: true })).toBeVisible();
+  await expect(runDetail.getByText("turn_seed_142_30", { exact: true })).toBeVisible();
+  await expect(runDetail.getByText(/^stdio$/)).toBeVisible();
+  await expect(runDetail.getByText("Runtime events", { exact: true })).toBeVisible();
+  await expect(runDetail.getByText("No runtime events captured for this run.", { exact: true })).toBeVisible();
+  await expect(runDetail.getByText("Approvals", { exact: true })).toBeVisible();
+  await expect(runDetail.getByText("No approvals captured for this run.", { exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Evidence" }).click();
   await expect(page.getByText("Compact review output")).toBeVisible();
@@ -419,7 +419,7 @@ test("restores route-addressable operator context after reload @platform", async
 
   await expect(page.locator("header").getByLabel("Search")).toHaveValue("ch-142");
   await expect(page.locator(".tab-list [role=\"tab\"][aria-selected=\"true\"]")).toHaveText("Runs");
-  await expect(page.locator("#run-studio").getByRole("heading", { name: "run-30" })).toBeVisible();
+  await expect(page.locator("#selected-run-detail").getByRole("heading", { name: "run-30" })).toBeVisible();
 });
 
 test("restores route-addressable operator context through browser navigation @platform", async ({ page }) => {
@@ -445,7 +445,7 @@ test("restores route-addressable operator context through browser navigation @pl
   await expect(page).toHaveURL(/run=run-30/);
   await expect(page).toHaveURL(/tab=runs/);
   await expect(page.locator('[data-platform-foundation="base-ui-tabs"] [role="tab"][aria-selected="true"]')).toHaveText("Runs");
-  await expect(page.locator("#run-studio").getByRole("heading", { name: "run-30" })).toBeVisible();
+  await expect(page.locator("#selected-run-detail").getByRole("heading", { name: "run-30" })).toBeVisible();
 
   await page.goForward();
 
@@ -672,18 +672,18 @@ test("surfaces normalized failures for global header mutations @platform", async
   await expect(page.locator('[data-platform-governance="global-command-error"]')).toContainText(/header run unavailable/i);
 });
 
-test("fails closed on run studio entry until a backend-owned run exists @platform", async ({ page }) => {
-  await openIsolatedChange(page, "Run studio gate");
+test("fails closed on canonical run entry until a backend-owned run exists @platform", async ({ page }) => {
+  await openIsolatedChange(page, "Runs gate");
 
   const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
-  const openRunStudio = detailActions.getByRole("button", { name: "Open run studio" });
+  const openRuns = detailActions.getByRole("button", { name: "Open runs" });
 
-  await expect(openRunStudio).toBeDisabled();
-  await expect(page.locator('[data-platform-governance="run-studio-run-required"]').first()).toBeVisible();
+  await expect(openRuns).toBeDisabled();
+  await expect(page.locator('[data-platform-governance="runs-run-required"]').first()).toBeVisible();
 
   await changeRow(page, "ch-142").click();
 
-  await expect(openRunStudio).toBeEnabled();
+  await expect(openRuns).toBeEnabled();
 });
 
 test("deletes the selected change through an explicit confirmation flow @platform", async ({ page }) => {
@@ -802,10 +802,10 @@ test("promotes durable facts through the canonical backend flow @platform", asyn
   await expect(reloadedDetailPanel.getByText("Escalate after two repeated fingerprints.")).toBeVisible();
 });
 
-test("preserves the selected run when opening run studio from change detail @platform", async ({ page }) => {
-  await openIsolatedChange(page, "Run studio selection proof");
+test("preserves the selected run when opening runs from change detail @platform", async ({ page }) => {
+  await openIsolatedChange(page, "Runs selection proof");
   const detailActions = page.locator('[data-platform-shell="detail-panel"]').first();
-  const runStudio = page.locator("#run-studio");
+  const runDetail = page.locator("#selected-run-detail");
 
   await detailActions.getByRole("button", { name: "Run next step" }).click();
   await detailActions.getByRole("tab", { name: "Runs" }).click();
@@ -813,13 +813,15 @@ test("preserves the selected run when opening run studio from change detail @pla
   await expect(runRow).toBeVisible();
   await runRow.click();
 
-  const selectedRunHeading = runStudio.getByRole("heading").first();
+  const selectedRunHeading = runDetail.getByRole("heading").first();
   const selectedRunName = await selectedRunHeading.textContent();
   await expect(selectedRunHeading).toBeVisible();
 
-  await detailActions.getByRole("button", { name: "Open run studio" }).click();
+  await detailActions.getByRole("button", { name: "Open runs" }).click();
 
-  await expect(runStudio.getByRole("heading", { name: selectedRunName ?? "" })).toBeVisible();
+  await expect(page).toHaveURL(/workspace=runs/);
+  await expect(page).toHaveURL(/runSlice=all/);
+  await expect(runDetail.getByRole("heading", { name: selectedRunName ?? "" })).toBeVisible();
 });
 
 test("keeps the operator shell available when realtime subscription fails @platform", async ({ page }) => {
@@ -975,7 +977,7 @@ test("reconciles only the affected selected surfaces for tenant events @platform
   await changeRow(page, "ch-142").click();
   await page.getByRole("tab", { name: "Runs" }).click();
   await page.getByRole("button", { name: /run-30/i }).click();
-  await expect(page.locator("#run-studio").getByRole("heading", { name: "run-30" })).toBeVisible();
+  await expect(page.locator("#selected-run-detail").getByRole("heading", { name: "run-30" })).toBeVisible();
 
   const queueRequestsBeforeEvent = queueRequests;
   const detailRequestsBeforeEvent = selectedDetailRequests;
@@ -1041,16 +1043,16 @@ test("operator actions create a change, mutate its state, and resolve runtime ap
   const runDetailActions = await waitForDetailPanel(page, runChange.title);
   await runDetailActions.getByRole("button", { name: "Run next step" }).click();
 
-  const runStudio = page.locator("#run-studio");
-  await expect(runStudio.getByRole("button", { name: "Accept" })).toHaveAttribute(
+  const runDetail = page.locator("#selected-run-detail");
+  await expect(runDetail.getByRole("button", { name: "Accept" })).toHaveAttribute(
     "data-platform-foundation",
     "base-ui-approval-actions",
   );
-  await expect(runStudio.getByRole("button", { name: "Accept" })).toBeVisible();
-  await runStudio.getByRole("button", { name: "Accept" }).click();
+  await expect(runDetail.getByRole("button", { name: "Accept" })).toBeVisible();
+  await runDetail.getByRole("button", { name: "Accept" }).click();
 
-  await expect(runStudio.getByText(/accepted/i)).toBeVisible();
-  await expect(runStudio.getByText("serverRequest/resolved")).toBeVisible();
+  await expect(runDetail.getByText(/accepted/i)).toBeVisible();
+  await expect(runDetail.getByText("serverRequest/resolved")).toBeVisible();
 });
 
 test("surfaces normalized contract failures for change command mutations @platform", async ({ page }) => {

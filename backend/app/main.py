@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
@@ -110,6 +110,41 @@ def _summarize_change(change: dict[str, Any]) -> dict[str, Any]:
         "lastRunAgo": change["lastRunAgo"],
         "verificationStatus": change["verificationStatus"],
         "mandatoryGapCount": mandatory_gap_count,
+    }
+
+
+def _run_requires_attention(run: dict[str, Any], pending_approval_count: int) -> bool:
+    if pending_approval_count > 0:
+        return True
+
+    if run["status"] != "completed":
+        return True
+
+    return run["result"] not in {"success", "passed"}
+
+
+def _summarize_run_list_entry(
+    change: dict[str, Any],
+    run: dict[str, Any],
+    pending_approval_count: int,
+) -> dict[str, Any]:
+    return {
+        "id": run["id"],
+        "changeId": run["changeId"],
+        "tenantId": run["tenantId"],
+        "kind": run["kind"],
+        "status": run["status"],
+        "transport": run["transport"],
+        "threadId": run.get("threadId"),
+        "turnId": run.get("turnId"),
+        "result": run["result"],
+        "duration": run["duration"],
+        "outcome": run["outcome"],
+        "decision": run["decision"],
+        "recentActivity": change["lastRunAgo"],
+        "pendingApprovalCount": pending_approval_count,
+        "requiresAttention": _run_requires_attention(run, pending_approval_count),
+        "change": _summarize_change(change),
     }
 
 
@@ -289,6 +324,34 @@ def create_app(
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
         return {"changes": [_summarize_change(change) for change in store.list_changes(tenant_id)]}
+
+    @app.get("/api/tenants/{tenant_id}/runs")
+    def list_tenant_runs(
+        tenant_id: str,
+        run_slice: str = Query(default="attention", alias="slice"),
+    ) -> dict[str, Any]:
+        tenant = store.get_tenant(tenant_id)
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        if run_slice not in {"attention", "all"}:
+            raise HTTPException(status_code=422, detail="slice must be one of: attention, all")
+
+        changes_by_id = {change["id"]: change for change in store.list_changes(tenant_id)}
+        entries: list[dict[str, Any]] = []
+
+        for run in store.list_tenant_runs(tenant_id):
+            change = changes_by_id.get(run["changeId"])
+            if not change:
+                continue
+            pending_approval_count = sum(
+                1 for approval in store.list_approvals(run["id"]) if approval["status"] == "pending"
+            )
+            entry = _summarize_run_list_entry(change, run, pending_approval_count)
+            if run_slice == "attention" and not entry["requiresAttention"]:
+                continue
+            entries.append(entry)
+
+        return {"slice": run_slice, "runs": entries}
 
     @app.post("/api/tenants/{tenant_id}/changes", status_code=201)
     async def create_change_entry(tenant_id: str, request: ChangeCreateRequest) -> dict[str, Any]:

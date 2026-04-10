@@ -46,10 +46,21 @@ export function WorkbenchHeader({
   const shellSubtitle =
     activeWorkspaceMode === "catalog"
       ? "Portfolio-level repository catalog for choosing which workspace needs attention next."
-      : "Operational workbench for backend-owned changes, run lineage, and clarification rounds.";
+      : activeWorkspaceMode === "runs"
+        ? "Tenant-scoped run ledger for approvals, failures, and direct handoff back into change context."
+        : "Operational workbench for backend-owned changes, run lineage, and clarification rounds.";
   const searchPlaceholder =
-    activeWorkspaceMode === "catalog" ? "repository, path, attention" : "change, requirement, blocker";
-  const shellModeLabel = activeWorkspaceMode === "catalog" ? "portfolio review" : "live operational shell";
+    activeWorkspaceMode === "catalog"
+      ? "repository, path, attention"
+      : activeWorkspaceMode === "runs"
+        ? "run, change, outcome, approval"
+        : "change, requirement, blocker";
+  const shellModeLabel =
+    activeWorkspaceMode === "catalog"
+      ? "portfolio review"
+      : activeWorkspaceMode === "runs"
+        ? "tenant run operations"
+        : "live operational shell";
 
   return (
     <header className="topbar workbench-masthead" data-platform-surface="workbench-header">
@@ -88,7 +99,15 @@ export function WorkbenchHeader({
           >
             Repositories
           </PlatformPrimitives.Toolbar.Button>
-          <span className="workbench-nav-pill workbench-nav-pill--static">Runs</span>
+          <PlatformPrimitives.Toolbar.Button
+            type="button"
+            className={`workbench-nav-pill ${activeWorkspaceMode === "runs" ? "active" : ""}`}
+            data-platform-action="workspace-runs"
+            aria-pressed={activeWorkspaceMode === "runs"}
+            onClick={() => onWorkspaceModeChange("runs")}
+          >
+            Runs
+          </PlatformPrimitives.Toolbar.Button>
           <span className="workbench-nav-pill workbench-nav-pill--static">Governance</span>
         </PlatformPrimitives.Toolbar.Root>
         <div className="topbar-actions workbench-masthead-actions" data-platform-surface="global-actions">
@@ -105,7 +124,7 @@ export function WorkbenchHeader({
                 type="search"
               />
             </label>
-            {activeWorkspaceMode === "queue" ? (
+            {activeWorkspaceMode !== "catalog" ? (
               <div className="tenant-picker">
                 <span>Repository</span>
                 <PlatformPrimitives.Select.Root
