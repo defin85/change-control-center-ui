@@ -31,7 +31,7 @@ Legacy prototype вынесен в [legacy/prototype/README.md](/home/egor/code/
 - `backend/sidecar/main.py` — отдельный FastAPI sidecar для запуска `codex app-server`
 - `backend/sidecar/runner.py` — transport-specific handshake с `codex app-server`
 - `backend/app/domain.py` — change-centric workflow, curated memory packet, focus graph, clarification logic
-- `web/` — новый React/Vite shell с `Control Queue`, `Change Detail`, `Run Studio`, `Chief`, clarification flow, operator actions и approval handling
+- `web/` — новый React/Vite shell с `Control Queue`, `Change Detail`, `Runs`, `Chief`, clarification flow, operator actions и approval handling
 
 ## Локальный запуск
 
@@ -87,7 +87,7 @@ bash ./scripts/ccc stop all
 - `New change` создает backend-owned draft change и добавляет его в control queue
 - `Escalate` и `Mark blocked by spec` меняют состояние change через Control API
 - `Run next step` создает persisted run до старта runtime
-- `Run Studio` читает lineage, approvals, evidence и runtime events из backend-owned state
+- `Runs` workspace и selected run detail читают lineage, approvals, evidence и runtime events из backend-owned state
 - operator approvals и clarification flows идут через тот же backend-owned shell, без frontend-only fallback path
 
 ## Проверки

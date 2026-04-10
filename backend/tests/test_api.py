@@ -197,6 +197,20 @@ def test_change_detail_restores_contract_memory_and_focus(client: TestClient) ->
     assert payload["change"]["owner"] == {"id": "codex-chief", "label": "Codex Chief"}
 
 
+def test_seeded_demo_change_reflects_canonical_runs_shell_copy(client: TestClient) -> None:
+    response = client.get("/api/tenants/tenant-demo/changes/ch-142")
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert "run studio" not in payload["change"]["subtitle"].lower()
+    assert "legacy template" not in payload["change"]["gaps"][0]["summary"].lower()
+    assert "legacy entrypoint" not in payload["change"]["gaps"][0]["evidence"].lower()
+    assert "launcher" in payload["change"]["gaps"][0]["summary"].lower()
+    assert all("run studio" not in fact["body"].lower() for fact in payload["tenantMemory"])
+    assert all("legacy" not in focus.lower() for focus in payload["change"]["memory"]["activeFocus"])
+
+
 def test_queue_and_detail_share_same_canonical_owner_contract(client: TestClient) -> None:
     queue_response = client.get("/api/tenants/tenant-demo/changes")
     detail_response = client.get("/api/tenants/tenant-demo/changes/ch-142")

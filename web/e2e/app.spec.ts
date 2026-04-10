@@ -107,6 +107,15 @@ test("renders the canonical live shell from the default route and routes into re
   await expect(page.locator('[data-platform-surface="repository-catalog-workbench"]')).toBeVisible();
 });
 
+test("ignores legacy workbench route flags on the canonical shell @platform", async ({ page }) => {
+  await gotoShippedApp(page, "/?legacyWorkbench=1&workspace=runs&runSlice=all&change=ch-142&run=run-30&tab=runs");
+
+  await expect(page.locator('[data-platform-surface="runs-workbench"]')).toBeVisible();
+  await expect(page.locator("#selected-run-detail").getByRole("heading", { name: "run-30" })).toBeVisible();
+  await expect(page.locator('[data-platform-surface="operator-style-sample"]')).toHaveCount(0);
+  await expect.poll(() => page.url().includes("legacyWorkbench=1")).toBe(false);
+});
+
 test("renders the canonical repositories workspace and selected repository stage @smoke @platform", async ({ page }) => {
   await gotoShippedApp(page, "/?workspace=catalog");
 
@@ -422,6 +431,37 @@ test("restores route-addressable operator context after reload @platform", async
   await expect(page.locator("#selected-run-detail").getByRole("heading", { name: "run-30" })).toBeVisible();
 });
 
+test("restores top-level runs workspace state after reload @platform", async ({ page }) => {
+  await gotoApp(page);
+
+  await page.locator('[data-platform-action="workspace-runs"]').click();
+  await expect(page).toHaveURL(/workspace=runs/);
+  await expect(page.locator('[data-platform-surface="runs-workbench"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
+
+  await page.getByRole("button", { name: "All history" }).click();
+  await expect(page).toHaveURL(/runSlice=all/);
+
+  const runRow = page
+    .locator('[data-platform-surface="runs-worklist"]')
+    .getByRole("button", { name: /run-30/i })
+    .first();
+  await runRow.click();
+
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(page).toHaveURL(/run=run-30/);
+  await expect(page.locator("#selected-run-detail").getByRole("heading", { name: "run-30" })).toBeVisible();
+
+  await reloadApp(page);
+
+  await expect(page.locator('[data-platform-action="workspace-runs"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/workspace=runs/);
+  await expect(page).toHaveURL(/runSlice=all/);
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(page).toHaveURL(/run=run-30/);
+  await expect(page.locator("#selected-run-detail").getByRole("heading", { name: "run-30" })).toBeVisible();
+});
+
 test("restores route-addressable operator context through browser navigation @platform", async ({ page }) => {
   await gotoApp(page);
 
@@ -453,6 +493,28 @@ test("restores route-addressable operator context through browser navigation @pl
   await expect(page).toHaveURL(/tab=gaps/);
   await expect(page.locator('[data-platform-foundation="base-ui-tabs"] [role="tab"][aria-selected="true"]')).toHaveText("Gaps");
   await expect(page.getByText("Severity")).toBeVisible();
+});
+
+test("hands off from the runs workspace back into canonical change context @platform", async ({ page }) => {
+  await gotoApp(page, "/?workspace=runs&runSlice=all&change=ch-142&run=run-30&tab=runs");
+
+  await expect(page.locator('[data-platform-surface="runs-workbench"]')).toBeVisible();
+  await expect(page.locator("#selected-run-detail").getByRole("heading", { name: "run-30" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Open change" }).click();
+
+  await expect(page).not.toHaveURL(/workspace=runs/);
+  await expect(page).toHaveURL(/change=ch-142/);
+  await expect(page).toHaveURL(/run=run-30/);
+  await expect(page).toHaveURL(/tab=runs/);
+  await expect(page.getByRole("heading", { name: "Replace static template with real operator shell" })).toBeVisible();
+  await expect(page.locator('[data-platform-foundation="base-ui-tabs"] [role="tab"][aria-selected="true"]')).toHaveText("Runs");
+
+  await page.goBack();
+
+  await expect(page).toHaveURL(/workspace=runs/);
+  await expect(page).toHaveURL(/run=run-30/);
+  await expect(page.locator("#selected-run-detail").getByRole("heading", { name: "run-30" })).toBeVisible();
 });
 
 test("restores search query through browser navigation @platform", async ({ page }) => {
@@ -580,6 +642,33 @@ test("uses a drawer-style detail workspace on narrow viewports @platform", async
   await expect(page).toHaveURL(/change=ch-142/);
   await expect(selectedQueueRow).toHaveAttribute("aria-pressed", "true");
   await expect(selectedQueueRow).toBeFocused();
+});
+
+test("uses a drawer-style selected run workspace on narrow viewports @platform", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await gotoApp(page, "/?workspace=runs");
+
+  const runRow = page.locator('[data-platform-surface="runs-worklist"]').getByRole("button", { name: /run-30/i }).first();
+
+  await expect(page.locator('[data-platform-surface="runs-workbench"]')).toBeVisible();
+  await runRow.click();
+
+  const dialog = page.getByRole("dialog", { name: "Selected run" });
+  const closeWorkspace = dialog.getByLabel("Back to runs");
+
+  await expect(dialog).toBeVisible();
+  await expect(closeWorkspace).toBeVisible();
+  await expect(closeWorkspace).toBeFocused();
+
+  await page.keyboard.press("Tab");
+  await expect.poll(() => activeElementInsideDialog(page)).toBe(true);
+
+  await closeWorkspace.click();
+
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/workspace=runs/);
+  await expect(page).not.toHaveURL(/run=run-30/);
+  await expect(runRow).toBeFocused();
 });
 
 test("fails closed on the global run action when no change is selected @platform", async ({ page }) => {

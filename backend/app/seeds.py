@@ -25,7 +25,7 @@ SEED_FIXTURES = {
             "id": "fact-001",
             "tenantId": "tenant-demo",
             "title": "Operator IA is stable",
-            "body": "Control Queue, Change Detail, Run Studio, and Chief must remain first-class surfaces.",
+            "body": "Control Queue, Change Detail, Runs, and Chief must remain first-class surfaces.",
             "status": "approved",
         }
     ],
@@ -34,20 +34,20 @@ SEED_FIXTURES = {
             "id": "ch-142",
             "tenantId": "tenant-demo",
             "title": "Replace static template with real operator shell",
-            "subtitle": "Migration of queue/detail/run studio from legacy prototype",
+            "subtitle": "Migration of queue/detail/runs from the legacy prototype",
             "state": "review_pending",
             "owner": {"id": "codex-chief", "label": "Codex Chief"},
             "createdAt": "2026-03-27T10:00:00Z",
             "updatedAt": "2026-03-28T15:49:00Z",
             "lastRunAgo": "14m ago",
-            "blocker": "Recurring gap on runtime wiring",
-            "nextAction": "Create targeted fix run",
+            "blocker": "Launcher false-ready lifecycle masks local runtime health",
+            "nextAction": "Harden launcher health checks and rerun local proof",
             "requirementsLinked": 9,
             "requirementsTotal": 16,
             "loopCount": 2,
             "specStatus": "approved",
             "verificationStatus": "partial",
-            "summary": "Prototype workflows were ported into planning, but runtime and proof wiring are still incomplete.",
+            "summary": "The canonical operator shell is live, but launcher lifecycle proof still drifts under local dev restarts.",
             "policy": {
                 "maxAutoCycles": 3,
                 "escalationRule": "fingerprint repeated twice",
@@ -57,7 +57,7 @@ SEED_FIXTURES = {
                 {
                     "at": "15:49",
                     "title": "Chief routed change into compact review",
-                    "note": "Recurring runtime mismatch remained open after the last review run.",
+                    "note": "Canonical shell landed, but launcher false-ready remained open after the last review run.",
                 }
             ],
             "traceability": [
@@ -70,8 +70,8 @@ SEED_FIXTURES = {
                 },
                 {
                     "req": "R-14",
-                    "code": "web/src/App.tsx",
-                    "tests": "pending",
+                    "code": "scripts/lib/ccc/process.sh",
+                    "tests": "scripts launcher verification",
                     "evidence": "gap g-91",
                     "status": "gap open",
                 },
@@ -85,11 +85,11 @@ SEED_FIXTURES = {
                     "status": "open",
                     "recurrence": 2,
                     "fingerprint": "fp_8d21",
-                    "summary": "Default startup path still points at the legacy template.",
+                    "summary": "Launcher dev profile can report ready while managed processes are already stopped.",
                     "firstSeen": "run-28",
                     "lastSeen": "run-30",
                     "introducedByRun": "run-28",
-                    "evidence": "Operator shell exists, but the main startup path still resolves legacy entrypoint.",
+                    "evidence": "scripts/ccc start dev reported ready, but status immediately returned stopped and no listeners survived startup.",
                 }
             ],
             "git": {
@@ -134,7 +134,7 @@ SEED_FIXTURES = {
                 ],
                 "facts": [],
                 "activeFocus": [
-                    "Retire legacy entrypoint",
+                    "Stabilize launcher lifecycle proofs",
                     "Persist runtime lineage and approvals",
                 ],
             },
@@ -312,10 +312,10 @@ SEED_FIXTURES = {
             "worktree": "wt-142-c",
             "result": "partial",
             "duration": "08:12",
-            "outcome": "2 recurring gaps",
+            "outcome": "1 launcher lifecycle gap",
             "prompt": "/openspec-review-impl-vs-plan-compact ch-142",
-            "checks": ["pytest targeted ✅", "contract smoke ❌"],
-            "decision": "Keep loop active.",
+            "checks": ["pytest targeted ✅", "ui-platform ✅", "launcher lifecycle ❌"],
+            "decision": "Keep the hardening loop active.",
             "memoryPacket": {
                 "tenantMemory": {
                     "facts": [
@@ -323,14 +323,14 @@ SEED_FIXTURES = {
                             "id": "fact-001",
                             "tenantId": "tenant-demo",
                             "title": "Operator IA is stable",
-                            "body": "Control Queue, Change Detail, Run Studio, and Chief must remain first-class surfaces.",
+                            "body": "Control Queue, Change Detail, Runs, and Chief must remain first-class surfaces.",
                             "status": "approved",
                         }
                     ]
                 },
                 "changeContract": {"goal": "Replace the static prototype with a real application foundation."},
-                "changeMemory": {"summary": "Runtime mismatch still open."},
-                "focusGraph": {"items": [{"id": "gap-g91", "kind": "gap", "title": "Close runtime mismatch"}]},
+                "changeMemory": {"summary": "Launcher false-ready still open."},
+                "focusGraph": {"items": [{"id": "gap-g91", "kind": "gap", "title": "Close launcher false-ready drift"}]},
             },
         }
     ],
@@ -341,7 +341,7 @@ SEED_FIXTURES = {
             "runId": "run-30",
             "kind": "review report",
             "title": "Compact review output",
-            "body": "Overall status: partial. Runtime mismatch remains on the default startup path.",
+            "body": "Overall status: partial. Launcher can report ready while no managed listeners survive startup.",
         }
     ],
 }
