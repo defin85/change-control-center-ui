@@ -1276,19 +1276,16 @@ test("keeps gap inspection non-mutating until an explicit action is invoked @pla
 });
 
 test("uses approved platform foundations across required operator surfaces @platform", async ({ page }) => {
-  await gotoApp(page);
+  await gotoApp(page, "/?q=ch-142&change=ch-142");
 
   await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-view-action"]')).toHaveCount(5);
   await expect(page.locator('[data-platform-foundation="base-ui-operator-rail-filter-action"]')).toHaveCount(3);
   await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(1);
 
-  await page.locator("header").getByLabel("Search").fill("ch-142");
-  await changeRow(page, "ch-142").click();
-
   await expect(page.locator('[data-platform-foundation="base-ui-queue-row"]')).toHaveCount(1);
   await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(1);
 
-  const detailPanel = page.locator('[data-platform-shell="detail-panel"]').first();
+  const detailPanel = await waitForDetailPanel(page, "Replace static template with real operator shell");
   await detailPanel.getByRole("tab", { name: "Runs" }).click();
   await expect(page.getByRole("button", { name: /run-30/i })).toHaveAttribute("data-platform-foundation", "base-ui-run-row");
 

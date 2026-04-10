@@ -46,6 +46,14 @@ ccc_release_lock() {
   exec 9>&-
 }
 
+ccc_install_profile_cleanup_trap() {
+  local profile="$1"
+  local trap_cmd
+
+  printf -v trap_cmd 'ccc_stop_profile %q' "$profile"
+  trap "$trap_cmd" EXIT INT TERM
+}
+
 ccc_profile_dir() {
   printf '%s/%s' "$CCC_RUN_ROOT" "$1"
 }

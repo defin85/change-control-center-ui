@@ -20,6 +20,7 @@ PACKAGE_JSON_PATH = ROOT / "web/package.json"
 PLAYWRIGHT_CONFIG_PATH = ROOT / "web/playwright.config.ts"
 LAUNCHER_PATH = ROOT / "scripts/ccc"
 LAUNCHER_PROFILES_PATH = ROOT / "scripts/lib/ccc/profiles.sh"
+LAUNCHER_VERIFY_PATH = ROOT / "scripts/lib/ccc/verify.sh"
 
 
 def _require_text(label: str, text: str, snippets: list[str], errors: list[str]) -> None:
@@ -37,8 +38,10 @@ def collect_ui_readiness_errors(
     playwright_config_text: str,
     launcher_text: str,
     launcher_profiles_text: str,
+    launcher_verify_text: str,
 ) -> list[str]:
     errors: list[str] = []
+    launcher_surface_text = "\n".join([launcher_text, launcher_verify_text])
 
     docs_snippets = [
         "bash ./scripts/ccc verify ui-smoke",
@@ -124,21 +127,27 @@ def collect_ui_readiness_errors(
             "web/playwright.config.ts must not set reuseExistingServer: true because backend-entrypoint smoke must fail closed instead of reusing an already running stack"
         )
 
-    for snippet in [
-        "bash ./scripts/ccc build web",
-        "start <dev|served|e2e> [--foreground]",
-        "stop <dev|served|e2e|all>",
-        "restart <dev|served|e2e> [--foreground]",
-        "status [dev|served|e2e|all]",
-        "logs <dev|served|e2e> <sidecar|backend|vite> [-f]",
-        "verify <ui-smoke|ui-platform|ui-full>",
-        "uv run pytest backend/tests -q",
-        "npm run test:e2e",
-        "npm run test:e2e:platform",
-        "npm run test:e2e:full",
-    ]:
-        if snippet not in launcher_text:
-            errors.append(f"scripts/ccc must contain: {snippet}")
+    launcher_requirements = {
+        "bash ./scripts/ccc build web": ["bash ./scripts/ccc build web"],
+        "start <dev|served|e2e> [--foreground]": ["start <dev|served|e2e> [--foreground]"],
+        "stop <dev|served|e2e|all>": ["stop <dev|served|e2e|all>"],
+        "restart <dev|served|e2e> [--foreground]": ["restart <dev|served|e2e> [--foreground]"],
+        "status [dev|served|e2e|all]": ["status [dev|served|e2e|all]"],
+        "logs <dev|served|e2e> <sidecar|backend|vite> [-f]": [
+            "logs <dev|served|e2e> <sidecar|backend|vite> [-f]"
+        ],
+        "verify <ui-smoke|ui-platform|ui-full>": ["verify <ui-smoke|ui-platform|ui-full>"],
+        "uv run pytest backend/tests -q": ["uv run pytest backend/tests -q"],
+        "npm run test:e2e": ["npm run test:e2e", "ccc_run_verify_playwright_phase test:e2e"],
+        "npm run test:e2e:platform": [
+            "npm run test:e2e:platform",
+            "ccc_run_verify_playwright_phase test:e2e:platform",
+        ],
+        "npm run test:e2e:full": ["npm run test:e2e:full", "ccc_run_verify_playwright_phase test:e2e:full"],
+    }
+    for label, allowed_snippets in launcher_requirements.items():
+        if not any(snippet in launcher_surface_text for snippet in allowed_snippets):
+            errors.append(f"launcher sources must contain: {label}")
 
     for snippet in [
         "fake_stdio_app_server.py",
@@ -163,6 +172,7 @@ def collect_ui_readiness_runtime_errors() -> list[str]:
             str(ROOT / "scripts/lib/ccc/common.sh"),
             str(ROOT / "scripts/lib/ccc/process.sh"),
             str(ROOT / "scripts/lib/ccc/profiles.sh"),
+            str(LAUNCHER_VERIFY_PATH),
         ],
         cwd=ROOT,
         text=True,
@@ -216,6 +226,7 @@ def main() -> int:
         playwright_config_text=PLAYWRIGHT_CONFIG_PATH.read_text(encoding="utf-8"),
         launcher_text=LAUNCHER_PATH.read_text(encoding="utf-8"),
         launcher_profiles_text=LAUNCHER_PROFILES_PATH.read_text(encoding="utf-8"),
+        launcher_verify_text=LAUNCHER_VERIFY_PATH.read_text(encoding="utf-8"),
     )
     errors.extend(collect_ui_readiness_runtime_errors())
 

@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 COMMON_SH = ROOT / "scripts/lib/ccc/common.sh"
 PROCESS_SH = ROOT / "scripts/lib/ccc/process.sh"
+VERIFY_SH = ROOT / "scripts/lib/ccc/verify.sh"
 FAKE_HEALTH_SERVER = ROOT / "backend/tests/fake_health_server.py"
 FAKE_DETACHED_WRAPPER = ROOT / "backend/tests/fake_detached_wrapper.py"
 LAUNCHER_PROFILE = "launcher-test"
@@ -104,6 +105,88 @@ def test_ccc_wait_for_component_rejects_transient_health_process() -> None:
         assert result.returncode != 0
     finally:
         _stop_process(process)
+
+
+def test_ccc_install_profile_cleanup_trap_captures_profile_for_signal_cleanup(
+    tmp_path: Path,
+) -> None:
+    marker = tmp_path / "cleanup-profile.txt"
+    result = _run_shell(
+        f"""
+set -euo pipefail
+source "{COMMON_SH}"
+ccc_stop_profile() {{
+  printf '%s\\n' "$1" >"{marker}"
+}}
+ccc_install_profile_cleanup_trap "e2e"
+kill -TERM $$
+"""
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert marker.read_text(encoding="utf-8").strip() == "e2e"
+    assert "unbound variable" not in result.stderr
+
+
+def test_ccc_run_verify_playwright_phase_stops_e2e_before_and_after(tmp_path: Path) -> None:
+    marker = tmp_path / "verify-phase.log"
+    result = _run_shell(
+        f"""
+set -euo pipefail
+source "{COMMON_SH}"
+source "{VERIFY_SH}"
+ccc_with_lock() {{
+  "$@"
+}}
+ccc_stop_profile() {{
+  printf 'stop:%s\\n' "$1" >>"{marker}"
+}}
+ccc_run_in_dir() {{
+  local workdir="$1"
+  shift
+  printf 'run:%s:%s\\n' "$workdir" "$*" >>"{marker}"
+}}
+ccc_run_verify_playwright_phase "test:e2e"
+"""
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert marker.read_text(encoding="utf-8").splitlines() == [
+        "stop:e2e",
+        f"run:{ROOT / 'web'}:npm run test:e2e",
+        "stop:e2e",
+    ]
+
+
+def test_ccc_run_verify_playwright_phase_preserves_command_failure(tmp_path: Path) -> None:
+    marker = tmp_path / "verify-phase-failure.log"
+    result = _run_shell(
+        f"""
+set -euo pipefail
+source "{COMMON_SH}"
+source "{VERIFY_SH}"
+ccc_with_lock() {{
+  "$@"
+}}
+ccc_stop_profile() {{
+  printf 'stop:%s\\n' "$1" >>"{marker}"
+}}
+ccc_run_in_dir() {{
+  local workdir="$1"
+  shift
+  printf 'run:%s:%s\\n' "$workdir" "$*" >>"{marker}"
+  return 23
+}}
+ccc_run_verify_playwright_phase "test:e2e:platform"
+"""
+    )
+
+    assert result.returncode == 23, result.stderr or result.stdout
+    assert marker.read_text(encoding="utf-8").splitlines() == [
+        "stop:e2e",
+        f"run:{ROOT / 'web'}:npm run test:e2e:platform",
+        "stop:e2e",
+    ]
 
 
 def test_ccc_start_component_keeps_detached_group_alive_after_wrapper_exit() -> None:

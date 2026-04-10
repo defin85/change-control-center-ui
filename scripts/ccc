@@ -9,6 +9,8 @@ source "${SCRIPT_DIR}/lib/ccc/common.sh"
 source "${SCRIPT_DIR}/lib/ccc/process.sh"
 # shellcheck source=scripts/lib/ccc/profiles.sh
 source "${SCRIPT_DIR}/lib/ccc/profiles.sh"
+# shellcheck source=scripts/lib/ccc/verify.sh
+source "${SCRIPT_DIR}/lib/ccc/verify.sh"
 
 ccc_usage() {
   printf '%s\n' \
@@ -76,7 +78,7 @@ ccc_start_profile() {
   ccc_note "profile $profile is ready"
 
   if [[ "$foreground" == "1" ]]; then
-    trap 'ccc_stop_profile "$profile"' EXIT INT TERM
+    ccc_install_profile_cleanup_trap "$profile"
     ccc_wait_on_component "$profile" "$CCC_PROFILE_PRIMARY_COMPONENT"
   fi
 }
@@ -128,40 +130,6 @@ ccc_logs() {
   fi
 
   tail -n 200 "$log_file"
-}
-
-ccc_run_in_dir() {
-  local workdir="$1"
-  shift
-
-  (
-    cd "$workdir"
-    "$@"
-  )
-}
-
-ccc_verify() {
-  local suite="$1"
-
-  case "$suite" in
-    ui-smoke)
-      ccc_run_in_dir "$CCC_REPO_ROOT" uv run pytest backend/tests -q
-      ccc_run_in_dir "${CCC_REPO_ROOT}/web" npm run build
-      ccc_run_in_dir "${CCC_REPO_ROOT}/web" npm run test:e2e
-      ;;
-    ui-platform)
-      ccc_verify ui-smoke
-      ccc_run_in_dir "${CCC_REPO_ROOT}/web" npm run lint
-      ccc_run_in_dir "${CCC_REPO_ROOT}/web" npm run test:e2e:platform
-      ;;
-    ui-full)
-      ccc_verify ui-platform
-      ccc_run_in_dir "${CCC_REPO_ROOT}/web" npm run test:e2e:full
-      ;;
-    *)
-      ccc_die "unknown verify suite: ${suite:-<missing>}"
-      ;;
-  esac
 }
 
 ccc_with_lock() {

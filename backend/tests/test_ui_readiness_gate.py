@@ -5,6 +5,7 @@ from scripts.check_ui_readiness import (
     DOC_PATH,
     LAUNCHER_PATH,
     LAUNCHER_PROFILES_PATH,
+    LAUNCHER_VERIFY_PATH,
     PACKAGE_JSON_PATH,
     PLAYWRIGHT_CONFIG_PATH,
     README_PATH,
@@ -22,6 +23,7 @@ def _current_inputs() -> dict[str, str]:
         "playwright_config_text": PLAYWRIGHT_CONFIG_PATH.read_text(encoding="utf-8"),
         "launcher_text": LAUNCHER_PATH.read_text(encoding="utf-8"),
         "launcher_profiles_text": LAUNCHER_PROFILES_PATH.read_text(encoding="utf-8"),
+        "launcher_verify_text": LAUNCHER_VERIFY_PATH.read_text(encoding="utf-8"),
     }
 
 
