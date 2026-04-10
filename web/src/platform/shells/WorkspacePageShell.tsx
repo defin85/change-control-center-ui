@@ -16,16 +16,18 @@ export function WorkspacePageShell({
   toast,
 }: WorkspacePageShellProps) {
   return (
-    <main className="app-shell" data-platform-shell="workspace-page">
+    <main className="app-shell operator-style-sample operator-style-live-workbench" data-platform-shell="workspace-page">
       {header}
-      {hero ? (
-        <section className="hero-ribbon" data-platform-shell="status-strip">
-          {hero}
-        </section>
-      ) : null}
-      {workspace}
-      {detailWorkspace}
-      {toast}
+      <div className="operator-style-sample__page canonical-workbench-page">
+        {hero ? (
+          <section className="hero-ribbon" data-platform-shell="status-strip">
+            {hero}
+          </section>
+        ) : null}
+        {workspace}
+        {detailWorkspace}
+        {toast}
+      </div>
     </main>
   );
 }

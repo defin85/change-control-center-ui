@@ -3117,3 +3117,666 @@ textarea {
     padding: 16px;
   }
 }
+
+/* Canonical live shell visual refresh. */
+.operator-style-live-workbench {
+  color: var(--sample-text);
+}
+
+.operator-style-live-workbench.app-shell {
+  max-width: none;
+  margin: 0;
+  padding: 14px 16px 56px;
+  gap: 0;
+}
+
+.operator-style-live-workbench h1,
+.operator-style-live-workbench h2,
+.operator-style-live-workbench h3 {
+  font-family: "Archivo", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.operator-style-live-workbench .operator-style-sample__page.canonical-workbench-page {
+  width: min(1520px, calc(100vw - 32px));
+  margin: 24px auto 0;
+  padding-top: 18px;
+  display: grid;
+  gap: clamp(26px, 3vw, 40px);
+}
+
+.operator-style-live-workbench .workbench-masthead {
+  width: min(1520px, calc(100vw - 32px));
+  margin: 0 auto;
+  position: sticky;
+  top: 14px;
+  z-index: 24;
+  padding: 22px 24px;
+  border: 1px solid oklch(0.84 0.012 255 / 0.52);
+  border-radius: 30px;
+  background:
+    linear-gradient(180deg, oklch(0.992 0.002 255 / 0.88), oklch(0.982 0.01 255 / 0.82)),
+    radial-gradient(circle at top right, oklch(0.94 0.03 252 / 0.3), transparent 34%);
+  backdrop-filter: blur(20px) saturate(1.28);
+  box-shadow: 0 24px 48px rgba(24, 35, 52, 0.1);
+}
+
+.operator-style-live-workbench .workbench-masthead-row {
+  grid-template-columns: minmax(280px, 0.96fr) minmax(300px, auto) minmax(420px, 1.04fr);
+  gap: 24px;
+  align-items: center;
+}
+
+.operator-style-live-workbench .topbar-brand {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.operator-style-live-workbench .topbar-brand-mark {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  box-shadow:
+    inset 0 0 0 1px oklch(0.88 0.03 255),
+    0 18px 36px rgba(83, 102, 145, 0.12);
+}
+
+.operator-style-live-workbench .topbar-brand-copy {
+  gap: 8px;
+}
+
+.operator-style-live-workbench .topbar-brand-copy h1 {
+  max-width: 10ch;
+  font-size: clamp(2.6rem, 4.4vw, 4.35rem);
+  line-height: 0.92;
+}
+
+.operator-style-live-workbench .topbar-brand-copy .subtitle {
+  max-width: 54ch;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--sample-muted);
+}
+
+.operator-style-live-workbench .workbench-masthead-nav {
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--sample-line);
+  border-radius: 18px;
+  background: oklch(0.968 0.005 255 / 0.82);
+}
+
+.operator-style-live-workbench .workbench-nav-pill {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--sample-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.operator-style-live-workbench .workbench-nav-pill.active {
+  background: var(--sample-surface-strong);
+  color: var(--sample-text);
+  box-shadow: 0 1px 3px rgba(24, 35, 52, 0.08);
+}
+
+.operator-style-live-workbench .workbench-nav-pill--static {
+  margin-left: 4px;
+  padding-left: 18px;
+  border-radius: 0;
+  border-left: 1px solid var(--sample-line);
+  color: color-mix(in srgb, var(--sample-muted) 88%, white);
+}
+
+.operator-style-live-workbench .workbench-masthead-actions {
+  gap: 12px;
+}
+
+.operator-style-live-workbench .workbench-masthead-toolbar {
+  gap: 10px;
+}
+
+.operator-style-live-workbench .search-field span,
+.operator-style-live-workbench .tenant-picker span,
+.operator-style-live-workbench .metric-label,
+.operator-style-live-workbench .eyebrow,
+.operator-style-live-workbench .block-label {
+  color: var(--sample-muted);
+  letter-spacing: 0.12em;
+}
+
+.operator-style-live-workbench .toolbar-input,
+.operator-style-live-workbench .tenant-select-trigger,
+.operator-style-live-workbench .reference-queue-search-input,
+.operator-style-live-workbench .reference-queue-search-readout {
+  min-height: 46px;
+  border-radius: 16px;
+  border-color: var(--sample-line);
+  background: var(--sample-surface-strong);
+  color: var(--sample-text);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.82);
+}
+
+.operator-style-live-workbench .tenant-select-list {
+  border-color: var(--sample-line);
+  border-radius: 18px;
+}
+
+.operator-style-live-workbench .workbench-masthead-meta {
+  justify-content: flex-start;
+}
+
+.operator-style-live-workbench .workbench-ghost-chip {
+  min-height: 36px;
+  padding: 0 14px;
+  border-color: var(--sample-line);
+  border-radius: 999px;
+  background: oklch(0.97 0.004 255 / 0.82);
+  color: var(--sample-muted);
+}
+
+.operator-style-live-workbench .shell-notices .governance-note,
+.operator-style-live-workbench .hero-ribbon .governance-note {
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--danger) 12%, var(--sample-line));
+  background: linear-gradient(180deg, oklch(0.992 0.002 255 / 0.92), oklch(0.97 0.015 28 / 0.22));
+}
+
+.operator-style-live-workbench .workbench-page {
+  display: grid;
+  gap: clamp(24px, 3vw, 36px);
+}
+
+.operator-style-live-workbench .reference-overview {
+  gap: 20px;
+}
+
+.operator-style-live-workbench .reference-page-header {
+  align-items: end;
+  gap: 24px;
+}
+
+.operator-style-live-workbench .reference-page-header > div:first-child {
+  display: grid;
+  gap: 10px;
+}
+
+.operator-style-live-workbench .reference-page-header h1 {
+  max-width: 11ch;
+  font-size: clamp(2.55rem, 4vw, 4.15rem);
+  line-height: 0.92;
+}
+
+.operator-style-live-workbench .reference-page-header .subtitle {
+  max-width: 58ch;
+  font-size: 0.98rem;
+  color: var(--sample-muted);
+}
+
+.operator-style-live-workbench .reference-header-note {
+  min-height: 40px;
+  padding: 0 16px;
+  border-color: var(--sample-line);
+  background: oklch(0.98 0.002 255 / 0.9);
+  color: var(--sample-text);
+}
+
+.operator-style-live-workbench .reference-metrics-grid,
+.operator-style-live-workbench .reference-support-grid,
+.operator-style-live-workbench .reference-repository-grid,
+.operator-style-live-workbench .reference-paired-stage,
+.operator-style-live-workbench .reference-paired-stage--catalog {
+  gap: 18px;
+}
+
+.operator-style-live-workbench .reference-metric-card,
+.operator-style-live-workbench .reference-panel,
+.operator-style-live-workbench .reference-repository-card,
+.operator-style-live-workbench .reference-detail-card,
+.operator-style-live-workbench .reference-detail-block,
+.operator-style-live-workbench .reference-overview-card,
+.operator-style-live-workbench .detail-surface-panel,
+.operator-style-live-workbench .repository-profile-panel,
+.operator-style-live-workbench .queue-panel,
+.operator-style-live-workbench .run-inspection-panel {
+  border-color: var(--sample-line);
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, oklch(1 0 0 / 0.96), oklch(0.98 0.008 255 / 0.94)),
+    radial-gradient(circle at top right, oklch(0.95 0.03 252 / 0.2), transparent 34%);
+  box-shadow: 0 20px 44px rgba(24, 35, 52, 0.08);
+}
+
+.operator-style-live-workbench .reference-metric-card {
+  position: relative;
+  min-height: 170px;
+  gap: 12px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.operator-style-live-workbench .reference-metric-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 72px;
+  height: 4px;
+  border-radius: 0 0 999px 0;
+  background: linear-gradient(90deg, var(--sample-primary), oklch(0.72 0.11 194));
+}
+
+.operator-style-live-workbench .reference-metric-card:nth-child(2)::before {
+  background: linear-gradient(90deg, var(--sample-blue), oklch(0.76 0.1 220));
+}
+
+.operator-style-live-workbench .reference-metric-card:nth-child(3)::before {
+  background: linear-gradient(90deg, var(--sample-emerald), oklch(0.8 0.08 175));
+}
+
+.operator-style-live-workbench .reference-metric-card:nth-child(4)::before {
+  background: linear-gradient(90deg, var(--sample-orange), oklch(0.83 0.08 78));
+}
+
+.operator-style-live-workbench .reference-metric-card strong {
+  font-size: clamp(2rem, 3vw, 3.2rem);
+  line-height: 0.92;
+  letter-spacing: -0.05em;
+}
+
+.operator-style-live-workbench .reference-support-grid {
+  grid-template-columns: minmax(0, 1.08fr) minmax(330px, 0.92fr);
+}
+
+.operator-style-live-workbench .reference-panel,
+.operator-style-live-workbench .reference-repository-card,
+.operator-style-live-workbench .detail-surface-panel,
+.operator-style-live-workbench .repository-profile-panel,
+.operator-style-live-workbench .queue-panel,
+.operator-style-live-workbench .run-inspection-panel {
+  padding: 22px;
+}
+
+.operator-style-live-workbench .reference-panel-heading,
+.operator-style-live-workbench .reference-section-heading,
+.operator-style-live-workbench .reference-repository-head,
+.operator-style-live-workbench .reference-detail-block-head,
+.operator-style-live-workbench .reference-detail-head,
+.operator-style-live-workbench .reference-queue-row-heading,
+.operator-style-live-workbench .panel-header {
+  gap: 14px;
+}
+
+.operator-style-live-workbench .reference-panel-heading h2,
+.operator-style-live-workbench .reference-section-heading h2,
+.operator-style-live-workbench .reference-detail-head h2,
+.operator-style-live-workbench .panel-header h2 {
+  font-size: clamp(1.4rem, 1.9vw, 2rem);
+}
+
+.operator-style-live-workbench .reference-fact-list div,
+.operator-style-live-workbench .reference-detail-stats div,
+.operator-style-live-workbench .reference-repository-metrics div,
+.operator-style-live-workbench .run-facts-grid > div {
+  padding: 12px 14px;
+  border: 1px solid var(--sample-line);
+  border-radius: 18px;
+  background: oklch(0.978 0.006 255 / 0.92);
+}
+
+.operator-style-live-workbench .reference-fact-list {
+  gap: 12px;
+}
+
+.operator-style-live-workbench .reference-fact-list div {
+  padding-top: 12px;
+  border-top: 1px solid var(--sample-line);
+}
+
+.operator-style-live-workbench .reference-fact-list div:first-child {
+  padding-top: 12px;
+}
+
+.operator-style-live-workbench .reference-lane-track,
+.operator-style-live-workbench .reference-repository-bar-track {
+  height: 12px;
+  background: color-mix(in srgb, var(--sample-surface-soft) 86%, white);
+}
+
+.operator-style-live-workbench .reference-section {
+  gap: 18px;
+}
+
+.operator-style-live-workbench .reference-section-heading {
+  gap: 18px;
+}
+
+.operator-style-live-workbench .reference-section-rule {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--sample-line-strong) 92%, white), transparent);
+}
+
+.operator-style-live-workbench .reference-repository-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.operator-style-live-workbench .reference-repository-card {
+  gap: 16px;
+  text-align: left;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.operator-style-live-workbench .reference-repository-card:hover,
+.operator-style-live-workbench .reference-queue-row:hover {
+  transform: translateY(-2px);
+}
+
+.operator-style-live-workbench .reference-repository-card.active {
+  border-color: color-mix(in srgb, var(--sample-primary) 28%, var(--sample-line));
+  box-shadow: 0 28px 54px rgba(24, 35, 52, 0.12);
+}
+
+.operator-style-live-workbench .reference-repository-foot {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--sample-text) 84%, white);
+}
+
+.operator-style-live-workbench .reference-paired-stage,
+.operator-style-live-workbench .reference-paired-stage--catalog {
+  grid-template-columns: minmax(0, 1.16fr) minmax(350px, 0.84fr);
+  align-items: start;
+}
+
+.operator-style-live-workbench .reference-paired-stage > [data-platform-shell="detail-workspace"],
+.operator-style-live-workbench .reference-paired-stage > [data-platform-shell="run-detail-workspace"],
+.operator-style-live-workbench .reference-paired-stage > [data-platform-shell="repository-catalog-workspace"] {
+  position: sticky;
+  top: 114px;
+  align-self: start;
+}
+
+.operator-style-live-workbench .reference-chip-button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-color: var(--sample-line);
+  border-radius: 12px;
+  background: oklch(0.972 0.006 255 / 0.86);
+  color: var(--sample-muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+}
+
+.operator-style-live-workbench .reference-chip-button strong,
+.operator-style-live-workbench .reference-chip-button.active span {
+  color: var(--sample-text);
+}
+
+.operator-style-live-workbench .reference-chip-button.active {
+  border-color: color-mix(in srgb, var(--sample-primary) 24%, var(--sample-line));
+  background: var(--sample-surface-strong);
+  box-shadow: 0 1px 3px rgba(24, 35, 52, 0.08);
+}
+
+.operator-style-live-workbench .reference-queue-toolbar {
+  gap: 16px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--sample-line);
+}
+
+.operator-style-live-workbench .reference-queue-context-note {
+  gap: 6px;
+  padding: 16px;
+  border-color: var(--sample-line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, oklch(0.986 0.004 255 / 0.88), oklch(0.968 0.012 252 / 0.4));
+}
+
+.operator-style-live-workbench .reference-queue-list {
+  gap: 14px;
+}
+
+.operator-style-live-workbench .reference-queue-row {
+  position: relative;
+  grid-template-columns: minmax(0, 1.1fr) minmax(240px, 0.9fr);
+  gap: 20px;
+  padding: 20px;
+  border-color: var(--sample-line);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, oklch(0.997 0.002 255 / 0.94), oklch(0.982 0.008 255 / 0.95)),
+    radial-gradient(circle at top right, oklch(0.95 0.02 252 / 0.14), transparent 32%);
+  box-shadow: 0 16px 34px rgba(24, 35, 52, 0.06);
+  overflow: hidden;
+}
+
+.operator-style-live-workbench .reference-queue-row::before {
+  content: "";
+  position: absolute;
+  inset: 16px auto 16px 0;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--sample-primary), oklch(0.72 0.1 194));
+  opacity: 0.32;
+  transform: scaleY(0.36);
+  transform-origin: center;
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+.operator-style-live-workbench .reference-queue-row:hover::before,
+.operator-style-live-workbench .reference-queue-row.active::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.operator-style-live-workbench .reference-queue-row.active {
+  border-color: color-mix(in srgb, var(--sample-primary) 28%, var(--sample-line));
+  background:
+    linear-gradient(180deg, oklch(0.996 0.003 255 / 0.98), oklch(0.968 0.018 252 / 0.72)),
+    radial-gradient(circle at top right, oklch(0.94 0.03 252 / 0.24), transparent 30%);
+  box-shadow: 0 28px 52px rgba(24, 35, 52, 0.12);
+}
+
+.operator-style-live-workbench .reference-queue-row-heading strong {
+  font-size: 1.08rem;
+}
+
+.operator-style-live-workbench .reference-queue-row-meta,
+.operator-style-live-workbench .reference-queue-row-summary,
+.operator-style-live-workbench .reference-detail-actions {
+  gap: 10px;
+}
+
+.operator-style-live-workbench .reference-queue-row-meta span,
+.operator-style-live-workbench .reference-queue-row-summary span,
+.operator-style-live-workbench .reference-detail-actions span {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--sample-line) 96%, white);
+  background: oklch(0.972 0.006 255 / 0.92);
+  color: color-mix(in srgb, var(--sample-text) 70%, white);
+}
+
+.operator-style-live-workbench .detail-surface-panel,
+.operator-style-live-workbench .run-inspection-panel,
+.operator-style-live-workbench .repository-profile-panel {
+  padding: 22px;
+}
+
+.operator-style-live-workbench .panel-header {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--sample-line);
+}
+
+.operator-style-live-workbench .reference-detail-card,
+.operator-style-live-workbench .reference-detail-block,
+.operator-style-live-workbench .reference-overview-card {
+  box-shadow: none;
+}
+
+.operator-style-live-workbench .reference-detail-card,
+.operator-style-live-workbench .reference-detail-block {
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.operator-style-live-workbench .reference-detail-stats {
+  gap: 12px;
+}
+
+.operator-style-live-workbench .reference-run-studio {
+  display: grid;
+  gap: 16px;
+  padding-top: 0;
+}
+
+.operator-style-live-workbench .reference-run-studio-facts {
+  padding: 0;
+  border-color: var(--sample-line);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, oklch(0.992 0.002 255 / 0.96), oklch(0.972 0.012 252 / 0.34));
+}
+
+.operator-style-live-workbench .run-facts-grid {
+  border-color: var(--sample-line);
+  border-radius: 24px;
+  background: transparent;
+}
+
+.operator-style-live-workbench .artifact-disclosure summary {
+  padding: 12px 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--sample-muted);
+}
+
+.operator-style-live-workbench .run-artifact-card {
+  border-radius: 20px;
+  background: oklch(0.985 0.004 255 / 0.94);
+}
+
+.operator-style-live-workbench .reference-overview-card {
+  padding: 18px;
+}
+
+.operator-style-live-workbench .timeline,
+.operator-style-live-workbench .reference-timeline {
+  gap: 14px;
+}
+
+.operator-style-live-workbench .timeline-event,
+.operator-style-live-workbench .reference-timeline-row {
+  padding: 0;
+}
+
+.operator-style-live-workbench .timeline-dot,
+.operator-style-live-workbench .reference-timeline-dot {
+  box-shadow: 0 0 0 5px oklch(0.94 0.03 252 / 0.24);
+}
+
+@media (max-width: 1380px) {
+  .operator-style-live-workbench .workbench-masthead-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .operator-style-live-workbench .workbench-masthead-nav,
+  .operator-style-live-workbench .workbench-masthead-toolbar,
+  .operator-style-live-workbench .workbench-masthead-meta {
+    justify-content: flex-start;
+  }
+
+  .operator-style-live-workbench .reference-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .operator-style-live-workbench .reference-support-grid,
+  .operator-style-live-workbench .reference-repository-grid,
+  .operator-style-live-workbench .reference-paired-stage,
+  .operator-style-live-workbench .reference-paired-stage--catalog {
+    grid-template-columns: 1fr;
+  }
+
+  .operator-style-live-workbench .reference-paired-stage > [data-platform-shell="detail-workspace"],
+  .operator-style-live-workbench .reference-paired-stage > [data-platform-shell="run-detail-workspace"],
+  .operator-style-live-workbench .reference-paired-stage > [data-platform-shell="repository-catalog-workspace"] {
+    position: static;
+  }
+}
+
+@media (max-width: 1080px) {
+  .operator-style-live-workbench.app-shell {
+    padding: 10px 12px 40px;
+  }
+
+  .operator-style-live-workbench .workbench-masthead,
+  .operator-style-live-workbench .operator-style-sample__page.canonical-workbench-page {
+    width: min(100%, calc(100vw - 24px));
+  }
+
+  .operator-style-live-workbench .operator-style-sample__page.canonical-workbench-page {
+    margin-top: 18px;
+    padding-top: 12px;
+    gap: 24px;
+  }
+
+  .operator-style-live-workbench .workbench-masthead {
+    top: 10px;
+    padding: 18px;
+    border-radius: 24px;
+  }
+
+  .operator-style-live-workbench .topbar-brand-copy h1,
+  .operator-style-live-workbench .reference-page-header h1 {
+    max-width: none;
+    font-size: clamp(2.05rem, 10vw, 3rem);
+  }
+
+  .operator-style-live-workbench .reference-page-header,
+  .operator-style-live-workbench .reference-panel-heading,
+  .operator-style-live-workbench .reference-panel-heading--queue,
+  .operator-style-live-workbench .reference-detail-head,
+  .operator-style-live-workbench .reference-section-heading,
+  .operator-style-live-workbench .panel-header {
+    display: grid;
+  }
+
+  .operator-style-live-workbench .reference-metrics-grid,
+  .operator-style-live-workbench .reference-support-grid,
+  .operator-style-live-workbench .reference-repository-grid,
+  .operator-style-live-workbench .reference-detail-stats,
+  .operator-style-live-workbench .reference-paired-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .operator-style-live-workbench .reference-queue-row {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .operator-style-live-workbench .reference-panel,
+  .operator-style-live-workbench .reference-repository-card,
+  .operator-style-live-workbench .detail-surface-panel,
+  .operator-style-live-workbench .repository-profile-panel,
+  .operator-style-live-workbench .queue-panel,
+  .operator-style-live-workbench .run-inspection-panel {
+    padding: 18px;
+    border-radius: 22px;
+  }
+}

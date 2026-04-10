@@ -33,8 +33,8 @@ SEED_FIXTURES = {
         {
             "id": "ch-142",
             "tenantId": "tenant-demo",
-            "title": "Replace static template with real operator shell",
-            "subtitle": "Migration of queue/detail/runs from the legacy prototype",
+            "title": "Land the canonical operator shell",
+            "subtitle": "Queue, detail, and runs now live on the served operator workspace",
             "state": "review_pending",
             "owner": {"id": "codex-chief", "label": "Codex Chief"},
             "createdAt": "2026-03-27T10:00:00Z",

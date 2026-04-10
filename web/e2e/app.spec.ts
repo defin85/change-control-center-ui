@@ -2,6 +2,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { gotoApp, gotoShippedApp, reloadApp } from "./support/navigation";
 
+const CANONICAL_CHANGE_TITLE = "Land the canonical operator shell";
+
 function uniqueTitle(prefix: string) {
   return `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
@@ -507,7 +509,7 @@ test("hands off from the runs workspace back into canonical change context @plat
   await expect(page).toHaveURL(/change=ch-142/);
   await expect(page).toHaveURL(/run=run-30/);
   await expect(page).toHaveURL(/tab=runs/);
-  await expect(page.getByRole("heading", { name: "Replace static template with real operator shell" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: CANONICAL_CHANGE_TITLE })).toBeVisible();
   await expect(page.locator('[data-platform-foundation="base-ui-tabs"] [role="tab"][aria-selected="true"]')).toHaveText("Runs");
 
   await page.goBack();
@@ -540,7 +542,7 @@ test("keeps selected operator context inside the visible filtered queue slice @p
 
   await changeRow(page, "ch-142").click();
   await expect(page).toHaveURL(/change=ch-142/);
-  await expect(page.getByRole("heading", { name: "Replace static template with real operator shell" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: CANONICAL_CHANGE_TITLE })).toBeVisible();
 
   const search = page.locator("header").getByLabel("Search");
   await search.fill("ch-146");
@@ -555,7 +557,7 @@ test("keeps selected operator context inside the visible filtered queue slice @p
 
   await expect(search).toHaveValue("");
   await expect(page).toHaveURL(/change=ch-142/);
-  await expect(page.getByRole("heading", { name: "Replace static template with real operator shell" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: CANONICAL_CHANGE_TITLE })).toBeVisible();
 });
 
 test("rehydrates queue context from backend state during same-tenant browser navigation @platform", async ({ page }) => {
@@ -1285,7 +1287,7 @@ test("uses approved platform foundations across required operator surfaces @plat
   await expect(page.locator('[data-platform-foundation="base-ui-queue-row"]')).toHaveCount(1);
   await expect(page.locator('[data-platform-foundation="base-ui-queue-actions"]')).toHaveCount(1);
 
-  const detailPanel = await waitForDetailPanel(page, "Replace static template with real operator shell");
+  const detailPanel = await waitForDetailPanel(page, CANONICAL_CHANGE_TITLE);
   await detailPanel.getByRole("tab", { name: "Runs" }).click();
   await expect(page.getByRole("button", { name: /run-30/i })).toHaveAttribute("data-platform-foundation", "base-ui-run-row");
 
