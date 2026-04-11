@@ -15,9 +15,9 @@ This change restores command workflows through explicit pending and error handli
 - Affected specs: `operator-ui-platform`
 - Affected code: `web/src/App.tsx`, `web/src/platform/workflow/useAsyncWorkflowCommandMachine.ts`, `web/src/platform/workbench/RepositoryAuthoringDialog.tsx`, `web/src/reference/*`, `web/e2e/*`, `backend/tests/test_api.py`
 - Dependencies:
-  - `rebaseline-operator-ui-platform-after-static-reset`
-  - `add-shell-bootstrap-and-route-state-controller`
-  - `add-functional-repository-catalog-workspace`
-  - `add-functional-tenant-queue-workspace`
-  - `add-selected-change-detail-workspace`
-  - `add-runs-workspace-and-run-detail-handoff`
+  - `01-rebaseline-operator-ui-platform-after-static-reset`
+  - `02-add-shell-bootstrap-and-route-state-controller`
+  - `03-add-functional-repository-catalog-workspace`
+  - `04-add-functional-tenant-queue-workspace`
+  - `05-add-selected-change-detail-workspace`
+  - `06-add-runs-workspace-and-run-detail-handoff`

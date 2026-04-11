@@ -15,10 +15,10 @@ Realtime should be added only after functional workspaces exist, so the shell ca
 - Affected specs: `operator-ui-platform`
 - Affected code: `web/src/platform/realtime/*`, `web/src/App.tsx`, `web/src/reference/*`, `web/e2e/*`, `backend/tests/test_api.py`
 - Dependencies:
-  - `rebaseline-operator-ui-platform-after-static-reset`
-  - `add-shell-bootstrap-and-route-state-controller`
-  - `add-functional-tenant-queue-workspace`
-  - `add-selected-change-detail-workspace`
-  - `add-runs-workspace-and-run-detail-handoff`
-  - `add-operator-command-workflows`
-  - `add-clarification-approval-and-memory-flows`
+  - `01-rebaseline-operator-ui-platform-after-static-reset`
+  - `02-add-shell-bootstrap-and-route-state-controller`
+  - `04-add-functional-tenant-queue-workspace`
+  - `05-add-selected-change-detail-workspace`
+  - `06-add-runs-workspace-and-run-detail-handoff`
+  - `07-add-operator-command-workflows`
+  - `08-add-clarification-approval-and-memory-flows`

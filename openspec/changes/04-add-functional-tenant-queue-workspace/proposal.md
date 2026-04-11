@@ -15,6 +15,6 @@ A live queue workspace is the prerequisite for meaningful change selection, prio
 - Affected specs: `operator-ui-platform`
 - Affected code: `web/src/App.tsx`, `web/src/platform/navigation/*`, `web/src/platform/server-state/filtering.ts`, `web/src/reference/OperatorStyleSamplePage.tsx`, `web/e2e/*`, `backend/tests/test_api.py`
 - Dependencies:
-  - `rebaseline-operator-ui-platform-after-static-reset`
-  - `add-shell-bootstrap-and-route-state-controller`
-  - `add-functional-repository-catalog-workspace`
+  - `01-rebaseline-operator-ui-platform-after-static-reset`
+  - `02-add-shell-bootstrap-and-route-state-controller`
+  - `03-add-functional-repository-catalog-workspace`

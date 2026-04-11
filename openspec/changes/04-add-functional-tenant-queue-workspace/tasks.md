@@ -8,4 +8,4 @@
 
 ## 3. Proof
 - [ ] 3.1 Add browser coverage for queue hydration, search, filtering, tenant switching, and selected-change handoff.
-- [ ] 3.2 Run `openspec validate add-functional-tenant-queue-workspace --strict --no-interactive`.
+- [ ] 3.2 Run `openspec validate 04-add-functional-tenant-queue-workspace --strict --no-interactive`.

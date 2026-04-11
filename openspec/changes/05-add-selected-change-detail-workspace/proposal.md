@@ -15,6 +15,6 @@ Restoring selected-change detail gives the codex-lb shell a real primary working
 - Affected specs: `operator-ui-platform`
 - Affected code: `web/src/App.tsx`, `web/src/reference/OperatorStyleSamplePage.tsx`, `web/src/platform/shells/*`, `web/src/platform/workbench/types.ts`, `web/e2e/*`, `backend/tests/test_web_contract_boundary.py`
 - Dependencies:
-  - `rebaseline-operator-ui-platform-after-static-reset`
-  - `add-shell-bootstrap-and-route-state-controller`
-  - `add-functional-tenant-queue-workspace`
+  - `01-rebaseline-operator-ui-platform-after-static-reset`
+  - `02-add-shell-bootstrap-and-route-state-controller`
+  - `04-add-functional-tenant-queue-workspace`

@@ -7,4 +7,4 @@
 - [ ] 2.2 Verify readiness and workflow-contract checks still describe the static baseline honestly.
 
 ## 3. Validation
-- [ ] 3.1 Run `openspec validate rebaseline-operator-ui-platform-after-static-reset --strict --no-interactive`.
+- [ ] 3.1 Run `openspec validate 01-rebaseline-operator-ui-platform-after-static-reset --strict --no-interactive`.

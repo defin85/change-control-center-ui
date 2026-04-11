@@ -15,5 +15,5 @@ Turning `Repositories` into a real workspace gives the shell live tenant context
 - Affected specs: `operator-ui-platform`
 - Affected code: `web/src/App.tsx`, `web/src/reference/ReferenceRepositoryCatalogPage.tsx`, `web/src/platform/navigation/*`, `web/src/platform/workbench/RepositoryAuthoringDialog.tsx`, `web/src/platform/workbench/RepositoryCatalogProfile.tsx`, `web/e2e/*`
 - Dependencies:
-  - `rebaseline-operator-ui-platform-after-static-reset`
-  - `add-shell-bootstrap-and-route-state-controller`
+  - `01-rebaseline-operator-ui-platform-after-static-reset`
+  - `02-add-shell-bootstrap-and-route-state-controller`

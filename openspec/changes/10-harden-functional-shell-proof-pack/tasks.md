@@ -7,4 +7,4 @@
 - [ ] 2.2 Update readiness drift checks and docs to match the new verification matrix.
 
 ## 3. Validation
-- [ ] 3.1 Run `openspec validate harden-functional-shell-proof-pack --strict --no-interactive`.
+- [ ] 3.1 Run `openspec validate 10-harden-functional-shell-proof-pack --strict --no-interactive`.

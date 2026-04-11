@@ -8,4 +8,4 @@
 
 ## 3. Proof
 - [ ] 3.1 Add browser coverage for selected-change hydration, tab switching, stale-context handling, and compact behavior.
-- [ ] 3.2 Run `openspec validate add-selected-change-detail-workspace --strict --no-interactive`.
+- [ ] 3.2 Run `openspec validate 05-add-selected-change-detail-workspace --strict --no-interactive`.

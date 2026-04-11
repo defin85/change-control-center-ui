@@ -8,4 +8,4 @@
 
 ## 3. Proof
 - [ ] 3.1 Add browser coverage for catalog hydration, repository selection, compact behavior, and queue handoff.
-- [ ] 3.2 Run `openspec validate add-functional-repository-catalog-workspace --strict --no-interactive`.
+- [ ] 3.2 Run `openspec validate 03-add-functional-repository-catalog-workspace --strict --no-interactive`.

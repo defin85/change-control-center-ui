@@ -15,4 +15,4 @@ Every later functional workspace depends on one authoritative shell controller. 
 - Affected specs: `application-foundation`, `operator-ui-platform`
 - Affected code: `web/src/App.tsx`, `web/src/platform/contracts/*`, `web/src/platform/navigation/*`, `web/src/platform/*`, `web/e2e/*`, `backend/tests/test_web_contract_boundary.py`
 - Dependencies:
-  - `rebaseline-operator-ui-platform-after-static-reset`
+  - `01-rebaseline-operator-ui-platform-after-static-reset`

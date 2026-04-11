@@ -8,4 +8,4 @@
 
 ## 3. Proof
 - [ ] 3.1 Add browser coverage for realtime reconciliation, degradation visibility, and stale-response protection.
-- [ ] 3.2 Run `openspec validate add-realtime-reconciliation-and-degradation-visibility --strict --no-interactive`.
+- [ ] 3.2 Run `openspec validate 09-add-realtime-reconciliation-and-degradation-visibility --strict --no-interactive`.

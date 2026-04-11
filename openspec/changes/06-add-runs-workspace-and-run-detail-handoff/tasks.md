@@ -8,4 +8,4 @@
 
 ## 3. Proof
 - [ ] 3.1 Add browser coverage for runs workspace hydration, run selection, compact behavior, and change handoff.
-- [ ] 3.2 Run `openspec validate add-runs-workspace-and-run-detail-handoff --strict --no-interactive`.
+- [ ] 3.2 Run `openspec validate 06-add-runs-workspace-and-run-detail-handoff --strict --no-interactive`.

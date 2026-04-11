@@ -15,12 +15,12 @@ This hardening change should land last so it can prove the real functional shell
 - Affected specs: `ui-delivery-validation`
 - Affected code: `web/e2e/*`, `backend/tests/test_ui_*`, `scripts/ccc`, `scripts/check_ui_readiness.py`, `docs/agent/verification.md`, `README.md`
 - Dependencies:
-  - `rebaseline-operator-ui-platform-after-static-reset`
-  - `add-shell-bootstrap-and-route-state-controller`
-  - `add-functional-repository-catalog-workspace`
-  - `add-functional-tenant-queue-workspace`
-  - `add-selected-change-detail-workspace`
-  - `add-runs-workspace-and-run-detail-handoff`
-  - `add-operator-command-workflows`
-  - `add-clarification-approval-and-memory-flows`
-  - `add-realtime-reconciliation-and-degradation-visibility`
+  - `01-rebaseline-operator-ui-platform-after-static-reset`
+  - `02-add-shell-bootstrap-and-route-state-controller`
+  - `03-add-functional-repository-catalog-workspace`
+  - `04-add-functional-tenant-queue-workspace`
+  - `05-add-selected-change-detail-workspace`
+  - `06-add-runs-workspace-and-run-detail-handoff`
+  - `07-add-operator-command-workflows`
+  - `08-add-clarification-approval-and-memory-flows`
+  - `09-add-realtime-reconciliation-and-degradation-visibility`

@@ -8,4 +8,4 @@
 
 ## 3. Proof
 - [ ] 3.1 Add contract and browser coverage for clarification history, approval decisions, and tenant-memory promotion.
-- [ ] 3.2 Run `openspec validate add-clarification-approval-and-memory-flows --strict --no-interactive`.
+- [ ] 3.2 Run `openspec validate 08-add-clarification-approval-and-memory-flows --strict --no-interactive`.

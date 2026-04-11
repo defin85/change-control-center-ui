@@ -8,4 +8,4 @@
 
 ## 3. Proof
 - [ ] 3.1 Add browser and contract coverage for successful bootstrap hydration, route restoration, and explicit bootstrap failure handling.
-- [ ] 3.2 Run `openspec validate add-shell-bootstrap-and-route-state-controller --strict --no-interactive`.
+- [ ] 3.2 Run `openspec validate 02-add-shell-bootstrap-and-route-state-controller --strict --no-interactive`.

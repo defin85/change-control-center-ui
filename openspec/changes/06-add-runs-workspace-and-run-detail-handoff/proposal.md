@@ -15,7 +15,7 @@ The next step is a dedicated runs workspace that remains tied to tenant and chan
 - Affected specs: `operator-ui-platform`
 - Affected code: `web/src/App.tsx`, `web/src/platform/navigation/*`, `web/src/platform/shells/*`, `web/src/reference/OperatorStyleSamplePage.tsx`, `web/e2e/*`, `backend/tests/test_api.py`
 - Dependencies:
-  - `rebaseline-operator-ui-platform-after-static-reset`
-  - `add-shell-bootstrap-and-route-state-controller`
-  - `add-functional-tenant-queue-workspace`
-  - `add-selected-change-detail-workspace`
+  - `01-rebaseline-operator-ui-platform-after-static-reset`
+  - `02-add-shell-bootstrap-and-route-state-controller`
+  - `04-add-functional-tenant-queue-workspace`
+  - `05-add-selected-change-detail-workspace`

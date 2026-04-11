@@ -8,4 +8,4 @@
 
 ## 3. Proof
 - [ ] 3.1 Add contract and browser coverage for command success, command failure, and post-mutation state reconciliation.
-- [ ] 3.2 Run `openspec validate add-operator-command-workflows --strict --no-interactive`.
+- [ ] 3.2 Run `openspec validate 07-add-operator-command-workflows --strict --no-interactive`.
