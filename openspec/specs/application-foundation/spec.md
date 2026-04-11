@@ -13,12 +13,12 @@ The system SHALL provide a production-oriented application skeleton composed of 
 - **AND** Codex execution is reached through a backend-owned runtime layer
 
 ### Requirement: Legacy Template Replacement
-The system SHALL replace the current static prototype/template as the primary product entrypoint while preserving the existing operator workflows validated in the prototype.
+The system SHALL replace the old filesystem-level static prototype as the primary product entrypoint while allowing the shipped backend-served shell itself to remain a static reference composition.
 
 #### Scenario: Operator opens the new application
 - **WHEN** an operator opens the main application entrypoint
-- **THEN** the operator sees the product shell rather than the legacy static template
-- **AND** the workflows for `Control Queue`, `Change Detail`, `Run Studio`, and `Chief` remain available
+- **THEN** the operator sees the backend-served static reference shell rather than the old standalone prototype/template
+- **AND** the same application deployment still provides the backend-owned Control API and runtime foundation behind that shipped shell
 
 ### Requirement: Backend-Owned Change State
 The system SHALL keep `change`, `run`, `gap`, `traceability`, and `evidence` as backend-owned persistent state rather than deriving product state from Codex thread history alone.
@@ -222,4 +222,3 @@ The system SHALL model each change `owner` as a structured backend-owned orchest
 - **THEN** the durable `owner.id` for the change remains stable
 - **AND** runtime session lineage remains separate from the `owner` contract
 - **AND** a session restart does not require the UI to reinterpret change ownership from transport metadata
-

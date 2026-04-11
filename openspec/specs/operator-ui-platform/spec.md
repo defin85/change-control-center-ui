@@ -20,13 +20,12 @@ The system SHALL require route-level and workspace-level operator surfaces to co
 - **AND** raw primitive components remain implementation details inside the platform layer or feature internals rather than the primary route-composition mechanism
 
 ### Requirement: Route-Addressable Operator Context
-The system SHALL keep active operator context in route-addressable navigation state so the UI can restore queue, selected change, selected run, active workspace context, and explicit hidden-shell choice after reload or browser navigation.
+The system SHALL keep the shipped backend-served shell on one canonical static route and SHALL normalize unsupported live-workbench query state away from that route.
 
-#### Scenario: Operator reloads while using the hidden legacy shell
-- **WHEN** the operator has selected queue or detail context open through the internal legacy-shell fallback
-- **AND** the operator reloads the page or returns through browser navigation
-- **THEN** the shell restores the same operator context together with the explicit legacy-shell choice from navigation state
-- **AND** the default route still resolves to the simple-reference shell when that flag is absent
+#### Scenario: Operator opens an old bookmarked live-shell URL
+- **WHEN** the operator opens the default backend-served entrypoint with stale query params such as `legacyWorkbench`, `workspace`, `runSlice`, `change`, `run`, or similar live-shell state
+- **THEN** the app renders the canonical static reference shell
+- **AND** the browser URL is normalized to the supported static entrypoint without those unsupported params
 
 ### Requirement: Shared Web Contract Boundary
 The system SHALL route Control API traffic through a shared web contract boundary that centralizes request execution, response validation, error normalization, and transport or authentication failure handling.
@@ -61,18 +60,12 @@ The system SHALL model complex operator workflow transitions through explicit wo
 - **AND** simple presentational toggles or single-field drafts are not forced into the same workflow layer when that would add unnecessary complexity
 
 ### Requirement: Workflow-Oriented Operator Workbench Surfaces
-The system SHALL expose workflow-oriented operator workbench surfaces through the hidden legacy fallback while the default route remains the shipped simple-reference preview.
+The system SHALL not expose workflow-oriented live workbench surfaces through the shipped backend-served route while the static reference shell is the canonical default.
 
 #### Scenario: Operator opens the main shell on desktop
-- **WHEN** the operator opens the main application entrypoint on a desktop viewport without the internal legacy-shell flag
-- **THEN** the shell shows the static simple-reference preview instead of the live workflow workbench
-- **AND** the deprecated live workflow workbench is not rendered unless the internal legacy-shell flag is present
-
-#### Scenario: Operator inspects a selected change
-- **WHEN** a change is inspected through the hidden legacy workbench path
-- **THEN** the contextual workspace still provides tabs for `Overview`, `Traceability`, `Runs`, `Gaps`, `Evidence`, `Git`, `Chief`, and `Clarifications`
-- **AND** the contextual workspace still exposes actions for `Run next step`, `Open run studio`, `Escalate`, and `Mark blocked by spec`
-- **AND** those workflow surfaces remain available only in the hidden live workbench rather than on the default static preview route
+- **WHEN** the operator opens the main application entrypoint on a desktop viewport
+- **THEN** the shell renders the static reference composition instead of a live workflow workbench
+- **AND** the shipped route does not expose a supported toggle, bridge link, or fallback into the removed live or legacy workbench
 
 ### Requirement: Governed Operator Authoring and Responsive Detail Flows
 The system SHALL provide canonical platform-approved entry points for operator authoring and responsive detail workflows.
@@ -279,33 +272,29 @@ The system SHALL route repository creation and repository selection from the cat
 ### Requirement: Operational Operator Visual Hierarchy
 The system SHALL present the default operator workbench through a codex-lb-inspired operational visual hierarchy with restrained translucent chrome, bordered work panels, concise semantic accents, and a clearly dominant selected-change workspace.
 
-#### Scenario: Operator opens the canonical shell on desktop
-- **WHEN** the operator opens the default backend-served desktop shell
-- **THEN** the selected-change workspace reads as the primary action surface
-- **AND** shell chrome, repository context, search, and summary signals are framed through compact supporting surfaces rather than a document-like hero treatment
-- **AND** the shell does not preserve the legacy editorial visual contract as a parallel or fallback presentation mode
-
-#### Scenario: Operator scans the control queue in the operational shell
-- **WHEN** the operator scans the queue for the next change to inspect
-- **THEN** queue rows read as a disciplined operational worklist optimized for scanning state, blocker, orchestrator owner label, and next-step context
-- **AND** concise status treatments, compact metadata, and bordered row or panel framing make repetitive queue slices easier to scan
-- **AND** queue context remains visible without repeating the same information through multiple equally prominent summary blocks
-
 #### Scenario: Operator drills into run inspection from the operational shell
-- **WHEN** the operator opens run studio from the selected change context
-- **THEN** the run-inspection surface remains available without overtaking the selected-change workspace as a second competing dashboard
+- **WHEN** the operator opens the `Runs` workspace or selects a run from change detail
+- **THEN** the run-focused surface remains available without turning the shell into a second competing dashboard
 - **AND** the run surface shares the same operational visual system as the surrounding shell
 - **AND** raw runtime payloads remain visually demoted behind higher-signal operational context
 
 ### Requirement: Single Canonical Operational Shell
-The system SHALL ship one canonical backend-served operator shell in the operational style and SHALL retire preview-only or editorial shell variants from the default application entrypoint.
+The system SHALL ship one canonical static reference shell on the backend-served default route and SHALL not keep a supported live-shell fallback in product navigation.
 
 #### Scenario: Operator opens the default served entrypoint
-- **WHEN** the operator opens the backend-served default application entrypoint
-- **THEN** the operator receives the canonical operational shell directly
-- **AND** the default entrypoint does not depend on a preview-only route or opt-in visual mode to reach the approved shell
-- **AND** the served application does not keep the retired editorial shell as a supported fallback
-- **AND** any retained static sample remains a non-shipped reference artifact outside the default served application path
+- **WHEN** the operator opens the default application entrypoint
+- **THEN** the operator receives the static reference shell directly
+- **AND** the default route does not depend on bootstrap, queue, run, or repository live-shell state to render
+- **AND** supported navigation state does not include `legacyWorkbench=1`, `workspace=runs`, or an equivalent live-shell compatibility toggle
+
+### Requirement: Shipped Static Reference Preview Default Shell
+The system SHALL ship the exact simple reference as the default backend-served shell and SHALL treat it as the only supported shipped operator route.
+
+#### Scenario: Operator opens the default backend-served route
+- **WHEN** the operator opens the default application entrypoint
+- **THEN** the shell renders the literal simple-reference cadence of masthead, page header, metrics, supporting overview panels, repositories, and the preview queue plus selected-change stage
+- **AND** the shell may render static copy and arrays from the shipped reference component
+- **AND** the shell does not expose a user-facing link into a live workbench path
 
 ### Requirement: Operational Shell Signal Framing
 The system SHALL frame shell-level operator signals through compact operational summary treatments that support decision-making without becoming a parallel dashboard.
@@ -338,21 +327,68 @@ The system SHALL retire the current intermediate dashboard chrome from the canon
 - **THEN** that context appears inside the masthead, overview, repository, queue, or selected-change sections of the reference-parity shell
 - **AND** the canonical queue workspace does not rely on a separate permanent operator rail, summary strip, or queue-context dashboard band as first-class structural layers
 
-### Requirement: Shipped Static Reference Preview Default Shell
-The system SHALL ship the exact simple reference as the default backend-served shell, even when that default route is a static preview rather than a live-data operator workbench.
+### Requirement: Canonical Repositories Workspace
+The system SHALL expose `Repositories` as a canonical route-addressable operator workspace under `workspace=catalog` instead of treating it as static navigation chrome.
 
-#### Scenario: Operator opens the default backend-served route
-- **WHEN** the operator opens the default application entrypoint without an internal legacy-shell flag
-- **THEN** the shell renders the literal simple-reference cadence of masthead, page header, metrics, supporting overview panels, repositories, and the preview queue plus selected-change stage
-- **AND** the default route may render static preview copy and arrays from the shipped reference component
-- **AND** the default route does not render the deprecated legacy workbench shell
+#### Scenario: Operator opens the repository workspace on desktop
+- **WHEN** the operator activates the `Repositories` workspace or loads a route with `workspace=catalog`
+- **THEN** the shell renders a repository-focused page flow with a page header, utility bar, compact metrics row, repository worklist, and selected repository stage
+- **AND** all visible repository data comes from backend-owned catalog and tenant state
+- **AND** the canonical shipped path does not rely on deprecated legacy-workbench catalog wrappers
 
-### Requirement: Hidden Legacy Workbench Fallback
-The system SHALL keep the previous workbench available only as a hidden deprecated fallback while the default route remains the shipped static reference preview.
+#### Scenario: Operator selects a repository from the catalog
+- **WHEN** the operator selects a repository from the worklist
+- **THEN** the shell updates the active tenant through shared orchestration
+- **AND** the selected repository stage surfaces the repository note, current pressure, featured change handoff, and the next canonical action for that repository
+- **AND** the operator can move into queue work for the same repository without losing backend-owned tenant context
 
-#### Scenario: Internal route explicitly requests the deprecated shell
-- **WHEN** navigation state includes the internal legacy-shell flag
-- **THEN** the app may render the deprecated legacy workbench shell for compatibility or comparison
-- **AND** reload and browser history preserve that explicit shell choice
-- **AND** the shipped reference page may still expose a controlled link into that hidden live workbench path
+### Requirement: Scan-Optimized Repository Worklist
+The system SHALL present repository catalog entries as a scan-optimized worklist that emphasizes the few signals most useful for deciding where repository attention should move next.
 
+#### Scenario: Operator scans a portfolio slice with many repositories
+- **WHEN** the visible repository slice contains many repositories with repetitive descriptive text
+- **THEN** each repository row still highlights attention state, path, current load, last activity, next recommendation, and featured change context
+- **AND** the list does not force every catalog field into equal-weight dashboard cards or wide table columns
+- **AND** operators can distinguish one repository from another without reading a long repeated narrative in every row
+
+### Requirement: Responsive Repository Selection Workspace
+The system SHALL adapt the selected repository stage into an approved compact overlay path on narrow viewports instead of treating desktop side-by-side layout as the only usable interaction mode.
+
+#### Scenario: Operator selects a repository on a compact viewport
+- **WHEN** the operator opens repository context on a compact viewport
+- **THEN** the selected repository stage appears through a platform-approved drawer or dialog interaction
+- **AND** focus moves into the active repository stage and can return to the same repository list context after close
+- **AND** the compact presentation preserves the same backend-owned repository signals and primary actions as the desktop stage
+
+### Requirement: Route-Addressable Runs Workspace
+The system SHALL provide a tenant-scoped top-level `Runs` workspace in the canonical operator UI for cross-change run monitoring and inspection.
+
+#### Scenario: Operator opens the runs workspace
+- **WHEN** the operator selects `Runs` from the top-level workspace navigation
+- **THEN** the shell sets route state to `workspace=runs`
+- **AND** the shell preserves the active tenant context and operator search or filter context where still valid
+- **AND** the runs workspace restores after reload or browser navigation without requiring a legacy route
+
+### Requirement: Scan-Optimized Runs Workspace Surface
+The system SHALL present tenant-scoped runs as a scan-optimized operational worklist rather than as a payload-first inspection dump.
+
+#### Scenario: Operator scans runs that need attention
+- **WHEN** the active tenant has multiple recent runs
+- **THEN** the runs workspace defaults to an attention-first slice that surfaces running, failed, approval-blocked, or otherwise operator-relevant runs before full history
+- **AND** each run row exposes run identity, linked change identity, run kind, concise status, outcome or next-step context, and recent activity in a small number of readable regions
+- **AND** the workspace still offers an explicit way to switch into fuller history without leaving the canonical shell
+
+#### Scenario: Operator uses the runs workspace on a compact viewport
+- **WHEN** the operator opens the runs workspace on a compact viewport
+- **THEN** the run list remains readable as stacked rows or cards
+- **AND** selecting a run opens its detail through a platform-approved overlay, drawer, or paired-stage path
+- **AND** the compact runs workspace does not depend on horizontal overflow as the primary interaction mode
+
+### Requirement: Canonical Run Detail Handoff
+The system SHALL keep selected run inspection tied to backend-owned change context even when the operator enters from the top-level runs workspace.
+
+#### Scenario: Operator selects a run from the runs workspace
+- **WHEN** the operator selects a run in the top-level runs workspace
+- **THEN** the shell reveals a selected run detail stage with linked change identity, approvals, evidence or events, and normalized run artifacts
+- **AND** the run detail stage provides an explicit handoff back to the owning change
+- **AND** choosing that handoff restores canonical change context through route-addressable state instead of redirecting into a legacy-only run surface
