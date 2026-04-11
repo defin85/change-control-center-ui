@@ -1,7 +1,7 @@
 # ui-delivery-validation Specification
 
 ## Purpose
-Define the backend-served UI delivery and verification contract for the bootstrap-hydrated shell baseline, including the shipped functional repository catalog workspace, artifact delivery, browser smoke tiers, and fail-closed readiness alignment.
+Define the backend-served UI delivery and verification contract for the bootstrap-hydrated shell baseline, including the shipped functional tenant queue on `/`, the shipped repository catalog workspace, artifact delivery, browser smoke tiers, and fail-closed readiness alignment.
 
 ## Requirements
 ### Requirement: Canonical UI Verification Workflow
@@ -28,7 +28,7 @@ The system SHALL verify critical shipped-shell behavior through browser automati
 #### Scenario: Browser smoke runs against the real shipped shell
 - **WHEN** browser smoke verification is executed
 - **THEN** the browser targets the backend entrypoint that exposes both Control API behavior and built UI assets
-- **AND** the smoke suite proves the functional shell hydrates through backend bootstrap on the default route
+- **AND** the smoke suite proves the functional shell hydrates through backend bootstrap on the default route and then renders backend-owned tenant queue summaries
 - **AND** the smoke suite proves the functional repository catalog route restores backend-owned search/filter/selection context while unsupported live-workbench params are normalized away
 - **AND** a passing frontend-only development server is not treated as sufficient evidence for backend-served UI health
 
@@ -38,6 +38,7 @@ The system SHALL keep a deeper platform browser gate for shell-governance and de
 #### Scenario: Contributor verifies a platform or backend-served shell change
 - **WHEN** the operator UI platform gate is executed
 - **THEN** the platform suite proves bootstrap failure handling is explicit and fail-closed
+- **AND** the platform suite proves queue selected-change handoff, stale-selection repair, filtering, and tenant switching on the shipped default workspace
 - **AND** the platform suite proves repository selection, compact detail behavior, and queue handoff on the shipped catalog workspace
 - **AND** a passing smoke suite alone is not treated as sufficient evidence for platform integrity
 - **AND** deeper shell proofs remain routed through repo-owned verification entrypoints rather than ad hoc browser commands

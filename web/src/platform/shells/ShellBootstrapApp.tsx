@@ -2,6 +2,7 @@ import type { ChangeEvent, ReactNode } from "react";
 
 import "../../reference/OperatorStyleSamplePage.css";
 import { ReferenceRepositoryCatalogPage } from "../../reference/ReferenceRepositoryCatalogPage";
+import { ReferenceTenantQueuePage } from "../../reference/ReferenceTenantQueuePage";
 import "./ShellBootstrapApp.css";
 
 import { useShellBootstrapController, type OperatorWorkspaceMode } from "../navigation";
@@ -9,7 +10,7 @@ import { useShellBootstrapController, type OperatorWorkspaceMode } from "../navi
 import { WorkspacePageShell } from "./WorkspacePageShell";
 
 const WORKSPACE_META: Record<
-  OperatorWorkspaceMode,
+  Exclude<OperatorWorkspaceMode, "queue">,
   {
     pageTitle: string;
     pageDescription: string;
@@ -18,17 +19,10 @@ const WORKSPACE_META: Record<
     rolloutChangeId: string;
   }
 > = {
-  queue: {
-    pageTitle: "Functional Workbench",
-    pageDescription: "The backend-owned shell bootstrap is live. Repositories now ship as the first functional workspace, while queue rows and selected-change hydration land in the next rollout steps.",
-    panelTitle: "Queue scaffold",
-    panelBody:
-      "Tenant, workspace, query, and repository handoff state already hydrate from the backend bootstrap contract. The live queue worklist and selected-change workspace land in 04 and 05.",
-    rolloutChangeId: "04-add-functional-tenant-queue-workspace",
-  },
   catalog: {
     pageTitle: "Repository Portfolio",
-    pageDescription: "Repositories now ship as the first backend-owned functional workspace inside the codex-lb shell.",
+    pageDescription:
+      "Repositories now ship as a backend-owned functional workspace inside the codex-lb shell.",
     panelTitle: "Functional catalog",
     panelBody:
       "Repository selection, authoring, and queue handoff now stay inside the shared shell controller and backend-owned bootstrap contract.",
@@ -53,7 +47,7 @@ const ROLLOUT_STEPS = [
   {
     id: "04-add-functional-tenant-queue-workspace",
     title: "Queue",
-    detail: "Attach the default workbench to tenant-scoped backend change summaries and canonical queue selection.",
+    detail: "Shipped: default workbench is now backed by tenant-scoped queue summaries and canonical selected-change state.",
   },
   {
     id: "05-add-selected-change-detail-workspace",
@@ -115,6 +109,26 @@ export function ShellBootstrapApp() {
         onSelectCatalogTenant={controller.selectCatalogTenant}
         onClearCatalogSelection={controller.clearCatalogSelection}
         onSelectFilter={controller.setCatalogFilter}
+      />
+    );
+  }
+
+  if (routeState.workspaceMode === "queue") {
+    return (
+      <ReferenceTenantQueuePage
+        activeTenant={activeTenant}
+        activeTenantId={routeState.tenantId}
+        buildWorkspaceHref={controller.buildWorkspaceHref}
+        queueWorkspace={controller.queueWorkspace}
+        tenants={bootstrap.tenants}
+        views={bootstrap.views}
+        onWorkspaceModeChange={controller.setWorkspaceMode}
+        onTenantChange={controller.setTenantId}
+        onSearchQueryChange={controller.setSearchQuery}
+        onSelectQueueView={controller.setQueueView}
+        onSelectQueueFilter={controller.setQueueFilter}
+        onSelectQueueChange={controller.selectQueueChange}
+        onClearQueueSelection={controller.clearQueueSelection}
       />
     );
   }
@@ -297,13 +311,13 @@ export function ShellBootstrapApp() {
                 </div>
                 <div className="bootstrap-shell-chip-row">
                   <span className="bootstrap-shell-chip bootstrap-shell-chip--active">{formatWorkspaceLabel(routeState.workspaceMode)}</span>
-                  <span className="bootstrap-shell-chip">Tenant: {visibleTenantLabel}</span>
-                  <span className="bootstrap-shell-chip">Next change: {workspaceMeta.rolloutChangeId}</span>
-                </div>
-                <div className="empty-state">
-                  This build establishes one shared hydration and route-state controller. Workspace-specific data surfaces arrive in later ordered changes.
-                </div>
-              </section>
+              <span className="bootstrap-shell-chip">Tenant: {visibleTenantLabel}</span>
+              <span className="bootstrap-shell-chip">Next change: {workspaceMeta.rolloutChangeId}</span>
+            </div>
+            <div className="empty-state">
+                  This build keeps the shared hydration and route-state controller ready for later workspace slices.
+            </div>
+          </section>
 
               <section className="reference-panel bootstrap-shell-stage-card" data-platform-surface="workspace-guardrails">
                 <div className="reference-panel-heading">
@@ -320,7 +334,7 @@ export function ShellBootstrapApp() {
                   </div>
                   <div>
                     <dt>Supported route params</dt>
-                    <dd>workspace, tenant, filter, q</dd>
+                    <dd>workspace, tenant, view, filter, q, change</dd>
                   </div>
                   <div>
                     <dt>Unsupported params</dt>

@@ -11,6 +11,7 @@ export {
   REPOSITORY_CATALOG_FILTERS,
   resolveChangeSelection,
   resolveTenantId,
+  resolveVisibleChangeSelection,
   resolveViewId,
 } from "./filtering";
 export type { RepositoryCatalogFilterId } from "./filtering";

@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 APP_ENTRY = ROOT / "web/src/App.tsx"
 BOOTSTRAP_CONTROLLER = ROOT / "web/src/platform/navigation/useShellBootstrapController.ts"
 BOOTSTRAP_SHELL = ROOT / "web/src/platform/shells/ShellBootstrapApp.tsx"
+REFERENCE_QUEUE_PAGE = ROOT / "web/src/reference/ReferenceTenantQueuePage.tsx"
 REFERENCE_CATALOG_PAGE = ROOT / "web/src/reference/ReferenceRepositoryCatalogPage.tsx"
 STATIC_REFERENCE = ROOT / "web/src/reference/OperatorStyleSamplePage.tsx"
 REMOVED_LEGACY_FILES = [
@@ -46,11 +47,17 @@ def test_shell_bootstrap_controller_uses_shared_control_api_and_canonical_route_
     source = _read(BOOTSTRAP_CONTROLLER)
 
     assert 'requestControlApi(BOOTSTRAP_ENDPOINT, bootstrapResponseSchema)' in source
+    assert "changesResponseSchema" in source
     assert "createTenantResponseSchema" in source
     assert "createChangeResponseSchema" in source
     assert "readOperatorRouteState" in source
     assert "buildOperatorRouteHref" in source
+    assert "viewId" in source
     assert "filterId" in source
+    assert "changeId" in source
+    assert "setQueueView" in source
+    assert "setQueueFilter" in source
+    assert "selectQueueChange" in source
     assert "setCatalogFilter" in source
     assert "selectCatalogTenant" in source
     assert "window.history.replaceState" in source
@@ -65,6 +72,16 @@ def test_bootstrap_shell_surfaces_explicit_loading_and_failure_states() -> None:
     assert "functional shell" in source
 
 
+def test_bootstrap_shell_routes_queue_workspace_into_backend_owned_reference_page() -> None:
+    source = _read(BOOTSTRAP_SHELL)
+
+    assert "ReferenceTenantQueuePage" in source
+    assert 'if (routeState.workspaceMode === "queue")' in source
+    assert "queueWorkspace={controller.queueWorkspace}" in source
+    assert "onSelectQueueView={controller.setQueueView}" in source
+    assert "onSelectQueueChange={controller.selectQueueChange}" in source
+
+
 def test_bootstrap_shell_routes_catalog_workspace_into_backend_owned_reference_page() -> None:
     source = _read(BOOTSTRAP_SHELL)
 
@@ -73,6 +90,18 @@ def test_bootstrap_shell_routes_catalog_workspace_into_backend_owned_reference_p
     assert "onCreateTenant={controller.createTenant}" in source
     assert "onCreateChange={controller.createChange}" in source
     assert "onSelectFilter={controller.setCatalogFilter}" in source
+
+
+def test_reference_queue_page_is_wired_for_live_queue_navigation_and_selected_change_handoff() -> None:
+    source = _read(REFERENCE_QUEUE_PAGE)
+
+    assert "buildWorkspaceHref" in source
+    assert "queueWorkspace" in source
+    assert "onSelectQueueView" in source
+    assert "onSelectQueueFilter" in source
+    assert "onSelectQueueChange" in source
+    assert "backend-owned queue" in source
+    assert "window.location.assign" not in source
 
 
 def test_reference_catalog_page_is_wired_for_live_workspace_navigation_and_authoring() -> None:

@@ -11,6 +11,10 @@ export { useShellBootstrapController } from "./useShellBootstrapController";
 export type { OperatorRouteState, OperatorRunSlice, OperatorWorkspaceMode } from "./operatorRouteState";
 export type {
   FunctionalShellRouteState,
+  QueueWorkspaceState,
+  QueueWorkspaceStateError,
+  QueueWorkspaceStateLoading,
+  QueueWorkspaceStateReady,
   ShellBootstrapController,
   ShellBootstrapControllerError,
   ShellBootstrapControllerLoading,

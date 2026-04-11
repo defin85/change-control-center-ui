@@ -23,10 +23,10 @@ The system SHALL replace the old filesystem-level static prototype as the primar
 ### Requirement: Truthful Shipped Shell Baseline
 The system SHALL keep the current shipped backend-served shell baseline aligned across product docs, readiness gates, and future functional rollout proposals.
 
-#### Scenario: Contributor plans follow-up UI functionality after the shell bootstrap rollout
+#### Scenario: Contributor plans follow-up UI functionality after the tenant-queue rollout
 - **WHEN** a contributor reads repository docs, current specs, or a new UI change proposal
-- **THEN** the current shipped backend-served route is described as a bootstrap-hydrated functional shell with a live `Repositories` workspace on `workspace=catalog`
-- **AND** later queue, detail, runs, command, approval, clarification, or realtime workspaces are presented as planned follow-up work rather than already shipped behavior
+- **THEN** the current shipped backend-served route is described as a bootstrap-hydrated functional shell with a live `Queue` workspace on `/` and a live `Repositories` workspace on `workspace=catalog`
+- **AND** later full selected-change detail, runs, command, approval, clarification, or realtime workspaces are presented as planned follow-up work rather than already shipped behavior
 - **AND** readiness guidance does not treat removed live-shell behavior as current product truth
 
 ### Requirement: Backend-Served Shell Bootstrap Contract
@@ -35,7 +35,8 @@ The system SHALL hydrate the functional backend-served operator shell through ba
 #### Scenario: Operator opens the first functional shell build
 - **WHEN** the operator opens a functional backend-served shell entrypoint
 - **THEN** the shell requests and validates the backend bootstrap contract before rendering functional workspace state
-- **AND** tenant and repository-catalog context come from backend-owned data rather than hard-coded sample arrays
+- **AND** tenant, queue-summary, and repository-catalog context come from backend-owned data rather than hard-coded sample arrays
+- **AND** the shipped `Queue` workspace renders from backend-owned tenant change summaries and canonical route state instead of static sample content
 - **AND** the shipped `Repositories` workspace renders from that backend-owned catalog contract rather than static sample content
 - **AND** bootstrap contract failure is surfaced explicitly instead of silently falling back to client-only shell truth
 

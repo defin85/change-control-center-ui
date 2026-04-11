@@ -239,6 +239,15 @@ def test_bootstrap_schema_accepts_real_backend_payload(client: TestClient) -> No
     assert result["issues"] == []
 
 
+def test_changes_schema_accepts_real_backend_payload(client: TestClient) -> None:
+    payload = client.get("/api/tenants/tenant-demo/changes").json()
+
+    result = _validate_against_schema("changesResponseSchema", payload)
+
+    assert result["success"] is True
+    assert result["issues"] == []
+
+
 def test_create_tenant_schema_accepts_real_backend_payload(client: TestClient) -> None:
     unique_suffix = uuid.uuid4().hex[:8]
     response = client.post(
