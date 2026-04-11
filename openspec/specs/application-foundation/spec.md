@@ -25,8 +25,8 @@ The system SHALL keep the current shipped backend-served shell baseline aligned 
 
 #### Scenario: Contributor plans follow-up UI functionality after the shell bootstrap rollout
 - **WHEN** a contributor reads repository docs, current specs, or a new UI change proposal
-- **THEN** the current shipped backend-served route is described as the first functional shell scaffold hydrated from backend bootstrap data
-- **AND** later interactive workspaces or workflows are presented as planned follow-up work rather than already shipped behavior
+- **THEN** the current shipped backend-served route is described as a bootstrap-hydrated functional shell with a live `Repositories` workspace on `workspace=catalog`
+- **AND** later queue, detail, runs, command, approval, clarification, or realtime workspaces are presented as planned follow-up work rather than already shipped behavior
 - **AND** readiness guidance does not treat removed live-shell behavior as current product truth
 
 ### Requirement: Backend-Served Shell Bootstrap Contract
@@ -36,6 +36,7 @@ The system SHALL hydrate the functional backend-served operator shell through ba
 - **WHEN** the operator opens a functional backend-served shell entrypoint
 - **THEN** the shell requests and validates the backend bootstrap contract before rendering functional workspace state
 - **AND** tenant and repository-catalog context come from backend-owned data rather than hard-coded sample arrays
+- **AND** the shipped `Repositories` workspace renders from that backend-owned catalog contract rather than static sample content
 - **AND** bootstrap contract failure is surfaced explicitly instead of silently falling back to client-only shell truth
 
 ### Requirement: Backend-Owned Change State

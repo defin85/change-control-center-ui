@@ -1,10 +1,10 @@
 # Change Control Center
 
-Репо сейчас держит backend-owned foundation stack, а default backend-served UI уже переведён в первый functional shell scaffold, который гидратится через backend-owned bootstrap:
+Репо сейчас держит backend-owned foundation stack, а default backend-served UI уже переведён в bootstrap-hydrated functional shell, где `Repositories` шипится как первый живой workspace:
 
 - `FastAPI` backend как source of truth для `tenant`, `change`, `run`, `evidence`, `clarification rounds`
 - отдельный runtime sidecar для `codex app-server` с поддержкой `stdio` и `websocket`
-- shipped `React/Vite` shell на `/` это bootstrap-hydrated scaffold в `web/src/platform/shells/ShellBootstrapApp.tsx`
+- shipped `React/Vite` shell на `/` это bootstrap-hydrated shell в `web/src/platform/shells/ShellBootstrapApp.tsx`, а `?workspace=catalog` рендерит backend-owned repository workspace
 - `web/src/reference/OperatorStyleSamplePage.tsx` остаётся visual reference artifact, а не default shipped route
 - persistent state в `sqlite`
 
@@ -32,7 +32,7 @@ Legacy prototype вынесен в [legacy/prototype/README.md](/home/egor/code/
 - `backend/sidecar/main.py` — отдельный FastAPI sidecar для запуска `codex app-server`
 - `backend/sidecar/runner.py` — transport-specific handshake с `codex app-server`
 - `backend/app/domain.py` — change-centric workflow, curated memory packet, focus graph, clarification logic
-- `web/` — React/Vite shell, где `web/src/platform/*` шипит current functional shell scaffold, а `web/src/reference/*` хранит visual reference artifacts и rollout scaffolds
+- `web/` — React/Vite shell, где `web/src/platform/*` шипит current functional shell, а `web/src/reference/*` хранит visual reference artifacts и route-level compositions для rollout slices
 
 ## Локальный запуск
 
@@ -85,11 +85,12 @@ bash ./scripts/ccc stop all
 
 ## Что сейчас шипится на default route
 
-- `http://127.0.0.1:8000/` рендерит first functional shell scaffold, который сначала запрашивает `/api/bootstrap`
-- shell route поддерживает canonical `workspace`, `tenant` и `q`, а stale params вроде `legacyWorkbench=1`, `change=...`, `run=...` и `tab=...` нормализуются fail-closed
+- `http://127.0.0.1:8000/` рендерит bootstrap-hydrated functional shell, который сначала запрашивает `/api/bootstrap`
+- `http://127.0.0.1:8000/?workspace=catalog` рендерит backend-owned `Repositories` workspace с live catalog, selection, compact drawer и queue handoff
+- shell route поддерживает canonical `workspace`, `tenant`, catalog `filter` и `q`, а stale params вроде `legacyWorkbench=1`, `change=...`, `run=...` и `tab=...` нормализуются fail-closed
 - shipped shell больше не показывает user-facing bridge в live/legacy workbench path и не падает обратно в client-only sample truth при bootstrap failure
-- `Repositories`, `Queue`, `Selected change`, `Runs`, command, approval, clarification и realtime surfaces остаются sequenced follow-up rollout, а не уже полностью shipped behavior на default route
-- текущая последовательность follow-up changes начинается с `03-add-functional-repository-catalog-workspace` и заканчивается `10-harden-functional-shell-proof-pack`
+- `Queue`, `Selected change`, `Runs`, command, approval, clarification и realtime surfaces остаются sequenced follow-up rollout, а не уже полностью shipped behavior на default route
+- текущая последовательность follow-up changes начинается с `04-add-functional-tenant-queue-workspace` и заканчивается `10-harden-functional-shell-proof-pack`
 
 ## Проверки
 

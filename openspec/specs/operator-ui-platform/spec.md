@@ -1,7 +1,7 @@
 # operator-ui-platform Specification
 
 ## Purpose
-Define the current operator UI platform truth after the shell-bootstrap rollout: approved UI foundations, project-owned composition and contract boundaries, the shared backend-owned shell bootstrap controller, the first functional shell scaffold on the default route, and the governance that sequences later workspace rollout.
+Define the current operator UI platform truth after the repository-catalog rollout: approved UI foundations, project-owned composition and contract boundaries, the shared backend-owned shell bootstrap controller, the bootstrap-hydrated default route, the shipped functional `Repositories` workspace, and the governance that sequences later workspace rollout.
 
 ## Requirements
 ### Requirement: Single Operator UI Foundation Stack
@@ -38,7 +38,7 @@ The system SHALL model complex operator workflow transitions through explicit wo
 - **AND** simple presentational toggles or single-field drafts are not forced into the same workflow layer when that would add unnecessary complexity
 
 ### Requirement: Shared Shell Bootstrap And Route Controller
-The system SHALL manage tenant, workspace, search, and selection context through one shared shell bootstrap and route-state controller.
+The system SHALL manage tenant, workspace, search, repository-catalog filter, and selection context through one shared shell bootstrap and route-state controller.
 
 #### Scenario: Operator reloads a supported functional shell route
 - **WHEN** the operator reloads a supported route with tenant, workspace, or query context
@@ -50,9 +50,9 @@ The system SHALL manage tenant, workspace, search, and selection context through
 The system SHALL keep the shipped backend-served shell on one canonical functional route and SHALL normalize unsupported live-workbench query state away from that route while preserving supported shell context.
 
 #### Scenario: Operator opens an old bookmarked live-shell URL
-- **WHEN** the operator opens the default backend-served entrypoint with stale query params such as `legacyWorkbench`, `change`, `run`, `tab`, `runSlice`, `view`, `filter`, or similar pre-rollout live-shell state
-- **THEN** the app hydrates the canonical functional shell scaffold
-- **AND** supported `workspace`, `tenant`, and `q` state is preserved when valid
+- **WHEN** the operator opens the default backend-served entrypoint with stale query params such as `legacyWorkbench`, `change`, `run`, `tab`, `runSlice`, `view`, or similar pre-rollout live-shell state
+- **THEN** the app hydrates the canonical functional shell route
+- **AND** supported `workspace`, `tenant`, catalog `filter`, and `q` state is preserved when valid
 - **AND** the browser URL is normalized to the supported shell route without those unsupported params
 
 ### Requirement: First Functional Shell Default Route
@@ -63,6 +63,20 @@ The system SHALL ship the first functional shell scaffold on the backend-served 
 - **THEN** the shell requests backend bootstrap data before declaring the route ready
 - **AND** the default route renders backend-owned shell chrome instead of the old static reference page
 - **AND** the shipped route does not expose a supported toggle, bridge link, or fallback into the removed live or legacy workbench
+
+### Requirement: Functional Repository Catalog Workspace
+The system SHALL provide `Repositories` as a functional route-addressable workspace backed by the backend-owned repository catalog.
+
+#### Scenario: Operator opens the repository catalog workspace
+- **WHEN** the operator activates `Repositories` from the shell navigation or loads a supported catalog route
+- **THEN** the shell renders backend-owned repository catalog entries rather than static placeholder rows
+- **AND** repository selection updates active tenant context through the shared shell controller
+- **AND** the workspace exposes supported handoffs for `New repository`, `New change`, and opening the selected repository's queue
+
+#### Scenario: Operator selects a repository on a compact viewport
+- **WHEN** the operator opens repository context on a compact viewport
+- **THEN** the selected repository stage appears through an approved overlay or drawer interaction
+- **AND** the operator can return to the same repository list context after close
 
 ### Requirement: Explicit Bootstrap Failure Visibility
 The system SHALL surface bootstrap hydration failures explicitly instead of silently falling back to client-owned shell truth.

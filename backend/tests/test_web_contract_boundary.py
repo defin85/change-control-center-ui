@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from copy import deepcopy
 from pathlib import Path
 
@@ -233,6 +234,34 @@ def test_bootstrap_schema_accepts_real_backend_payload(client: TestClient) -> No
     payload = client.get("/api/bootstrap").json()
 
     result = _validate_against_schema("bootstrapResponseSchema", payload)
+
+    assert result["success"] is True
+    assert result["issues"] == []
+
+
+def test_create_tenant_schema_accepts_real_backend_payload(client: TestClient) -> None:
+    unique_suffix = uuid.uuid4().hex[:8]
+    response = client.post(
+        "/api/tenants",
+        json={
+            "name": f"repo-{unique_suffix}",
+            "repoPath": f"/tmp/repo-{unique_suffix}",
+            "description": "Backend-owned repository workspace",
+        },
+    )
+    assert response.status_code == 201
+
+    result = _validate_against_schema("createTenantResponseSchema", response.json())
+
+    assert result["success"] is True
+    assert result["issues"] == []
+
+
+def test_create_change_schema_accepts_real_backend_payload(client: TestClient) -> None:
+    response = client.post("/api/tenants/tenant-demo/changes", json={})
+    assert response.status_code == 201
+
+    result = _validate_against_schema("createChangeResponseSchema", response.json())
 
     assert result["success"] is True
     assert result["issues"] == []

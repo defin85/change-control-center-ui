@@ -1,6 +1,7 @@
 import type { ChangeEvent, ReactNode } from "react";
 
 import "../../reference/OperatorStyleSamplePage.css";
+import { ReferenceRepositoryCatalogPage } from "../../reference/ReferenceRepositoryCatalogPage";
 import "./ShellBootstrapApp.css";
 
 import { useShellBootstrapController, type OperatorWorkspaceMode } from "../navigation";
@@ -19,18 +20,18 @@ const WORKSPACE_META: Record<
 > = {
   queue: {
     pageTitle: "Functional Workbench",
-    pageDescription: "The backend-owned shell bootstrap is live. Queue rows and selected-change hydration land in the next rollout steps.",
+    pageDescription: "The backend-owned shell bootstrap is live. Repositories now ship as the first functional workspace, while queue rows and selected-change hydration land in the next rollout steps.",
     panelTitle: "Queue scaffold",
     panelBody:
-      "Tenant, workspace, and query state already hydrate from the backend bootstrap contract. The live queue worklist and selected-change workspace land in 04 and 05.",
+      "Tenant, workspace, query, and repository handoff state already hydrate from the backend bootstrap contract. The live queue worklist and selected-change workspace land in 04 and 05.",
     rolloutChangeId: "04-add-functional-tenant-queue-workspace",
   },
   catalog: {
-    pageTitle: "Repository Route Scaffold",
-    pageDescription: "The shell can now restore canonical repository workspace context without reviving the removed legacy catalog path.",
-    panelTitle: "Repositories scaffold",
+    pageTitle: "Repository Portfolio",
+    pageDescription: "Repositories now ship as the first backend-owned functional workspace inside the codex-lb shell.",
+    panelTitle: "Functional catalog",
     panelBody:
-      "The shared shell controller already preserves supported catalog route state. Backend-owned repository worklist, selection, and authoring flows land in 03.",
+      "Repository selection, authoring, and queue handoff now stay inside the shared shell controller and backend-owned bootstrap contract.",
     rolloutChangeId: "03-add-functional-repository-catalog-workspace",
   },
   runs: {
@@ -47,7 +48,7 @@ const ROLLOUT_STEPS = [
   {
     id: "03-add-functional-repository-catalog-workspace",
     title: "Repositories",
-    detail: "Turn the preserved catalog route into a backend-owned repository workspace with selection and authoring flows.",
+    detail: "Shipped: backend-owned repository workspace with selection, authoring, compact drawer behavior, and queue handoff.",
   },
   {
     id: "04-add-functional-tenant-queue-workspace",
@@ -87,7 +88,37 @@ export function ShellBootstrapApp() {
     );
   }
 
-  const { bootstrap, routeState, activeRepositoryEntry, activeTenant } = controller;
+  const {
+    bootstrap,
+    routeState,
+    activeRepositoryEntry,
+    activeTenant,
+    hasExplicitCatalogSelection,
+    toast,
+  } = controller;
+
+  if (routeState.workspaceMode === "catalog") {
+    return (
+      <ReferenceRepositoryCatalogPage
+        activeTenantId={routeState.tenantId}
+        activeFilterId={routeState.filterId}
+        buildWorkspaceHref={controller.buildWorkspaceHref}
+        hasExplicitCatalogSelection={hasExplicitCatalogSelection}
+        repositoryCatalog={bootstrap.repositoryCatalog}
+        searchQuery={routeState.searchQuery}
+        toast={toast}
+        onWorkspaceModeChange={controller.setWorkspaceMode}
+        onCreateTenant={controller.createTenant}
+        onCreateChange={controller.createChange}
+        onOpenQueue={() => controller.setWorkspaceMode("queue")}
+        onSearchQueryChange={controller.setSearchQuery}
+        onSelectCatalogTenant={controller.selectCatalogTenant}
+        onClearCatalogSelection={controller.clearCatalogSelection}
+        onSelectFilter={controller.setCatalogFilter}
+      />
+    );
+  }
+
   const workspaceMeta = WORKSPACE_META[routeState.workspaceMode];
   const visibleTenantLabel = activeTenant?.name ?? routeState.tenantId;
   const shellContextFacts = [
@@ -289,7 +320,7 @@ export function ShellBootstrapApp() {
                   </div>
                   <div>
                     <dt>Supported route params</dt>
-                    <dd>workspace, tenant, q</dd>
+                    <dd>workspace, tenant, filter, q</dd>
                   </div>
                   <div>
                     <dt>Unsupported params</dt>

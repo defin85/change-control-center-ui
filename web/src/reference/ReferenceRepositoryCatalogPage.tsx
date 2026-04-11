@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
-  buildOperatorRouteHref,
   filterRepositoryCatalog,
-  OperatorWorkbenchProps,
   PlatformPrimitives,
   REPOSITORY_CATALOG_FILTERS,
   RepositoryAuthoringDialog,
   RepositoryCatalogProfile,
   RepositoryCatalogWorkspaceShell,
   StatusBadge,
+  type OperatorWorkspaceMode,
   type RepositoryCatalogFilterId,
   useAsyncWorkflowCommandMachine,
   WorkspacePageShell,
@@ -28,17 +27,20 @@ type CatalogMetric = {
 export function ReferenceRepositoryCatalogPage({
   activeTenantId,
   activeFilterId,
+  buildWorkspaceHref,
   hasExplicitCatalogSelection,
   repositoryCatalog,
   searchQuery,
   toast,
+  onWorkspaceModeChange,
   onCreateTenant,
   onCreateChange,
+  onOpenQueue,
   onSearchQueryChange,
   onSelectCatalogTenant,
   onClearCatalogSelection,
   onSelectFilter,
-}: OperatorWorkbenchProps) {
+}: ReferenceRepositoryCatalogPageProps) {
   const [isCompactViewport, setIsCompactViewport] = useState(() => window.matchMedia("(max-width: 1080px)").matches);
   const [isCreateTenantDialogOpen, setIsCreateTenantDialogOpen] = useState(false);
   const catalogSelectionWorkflow = useAsyncWorkflowCommandMachine();
@@ -57,12 +59,7 @@ export function ReferenceRepositoryCatalogPage({
   const metrics = buildCatalogMetrics(filteredEntries);
   const selectedTenantId = isCompactViewport && !hasExplicitCatalogSelection ? null : activeTenantId;
   const isRepositoryWorkspaceOpen = Boolean(activeEntry) && hasExplicitCatalogSelection;
-  const catalogHref = buildOperatorRouteHref(window.location.pathname, {
-    workspaceMode: "catalog",
-    tenantId: hasExplicitCatalogSelection ? activeTenantId : undefined,
-    filterId: catalogFilterId === "all" ? undefined : catalogFilterId,
-    searchQuery: searchQuery || undefined,
-  });
+
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 1080px)");
     const handleChange = (event: MediaQueryListEvent) => setIsCompactViewport(event.matches);
@@ -71,26 +68,18 @@ export function ReferenceRepositoryCatalogPage({
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
-  async function handleSelectRepository(tenantId: string) {
+  function handleSelectRepository(tenantId: string) {
     if (tenantId === activeTenantId && hasExplicitCatalogSelection) {
       catalogSelectionWorkflow.clearError();
       return;
     }
 
-    await catalogSelectionWorkflow.runCommand({
+    catalogSelectionWorkflow.runCommand({
       label: `Open repository ${repositoryCatalog.find((entry) => entry.tenantId === tenantId)?.name ?? tenantId}`,
       execute: async () => {
         await onSelectCatalogTenant(tenantId);
       },
     });
-  }
-
-  function handleOpenQueue() {
-    const nextHref = buildOperatorRouteHref(window.location.pathname, {
-      workspaceMode: "queue",
-      tenantId: activeTenantId,
-    });
-    window.location.assign(nextHref);
   }
 
   const repositoryWorkspace = (
@@ -105,7 +94,7 @@ export function ReferenceRepositoryCatalogPage({
       detail={
         <RepositoryCatalogProfile
           entry={activeEntry}
-          onOpenQueue={handleOpenQueue}
+          onOpenQueue={onOpenQueue}
           onCreateChange={onCreateChange}
           onOpenCreateTenant={() => setIsCreateTenantDialogOpen(true)}
         />
@@ -126,27 +115,49 @@ export function ReferenceRepositoryCatalogPage({
                 </div>
                 <div>
                   <strong>Change Control Center</strong>
-                  <p>Repository portfolio</p>
+                  <p>Functional repository portfolio</p>
                 </div>
               </div>
               <nav className="operator-style-sample__nav" aria-label="Primary sections">
-                <a className="operator-style-sample__nav-pill" data-platform-action="workspace-queue" href={window.location.pathname}>
+                <a
+                  className="operator-style-sample__nav-pill"
+                  data-platform-action="workspace-queue"
+                  href={buildWorkspaceHref("queue")}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onWorkspaceModeChange("queue");
+                  }}
+                >
                   Workbench
                 </a>
                 <a
                   className="operator-style-sample__nav-pill operator-style-sample__nav-pill--active"
                   data-platform-action="workspace-catalog"
                   aria-current="page"
-                  href={catalogHref}
+                  href={buildWorkspaceHref("catalog")}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onWorkspaceModeChange("catalog");
+                  }}
                 >
                   Repositories
                 </a>
-                <span className="operator-style-sample__nav-pill">Runs</span>
+                <a
+                  className="operator-style-sample__nav-pill"
+                  data-platform-action="workspace-runs"
+                  href={buildWorkspaceHref("runs")}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onWorkspaceModeChange("runs");
+                  }}
+                >
+                  Runs
+                </a>
                 <span className="operator-style-sample__nav-pill">Governance</span>
               </nav>
               <div className="operator-style-sample__actions">
-                <span className="operator-style-sample__ghost-chip">codex-lb style</span>
-                <span className="operator-style-sample__ghost-chip">static catalog reference</span>
+                <span className="operator-style-sample__ghost-chip">functional shell</span>
+                <span className="operator-style-sample__ghost-chip">backend-owned catalog</span>
               </div>
             </div>
           </header>
@@ -229,7 +240,7 @@ export function ReferenceRepositoryCatalogPage({
                   selectionPendingLabel={catalogSelectionWorkflow.activeLabel}
                   onOpenCreateTenant={() => setIsCreateTenantDialogOpen(true)}
                   onSelectTenant={(tenantId) => {
-                    void handleSelectRepository(tenantId);
+                    handleSelectRepository(tenantId);
                   }}
                 />
                 {!isCompactViewport ? repositoryWorkspace : null}
@@ -262,6 +273,24 @@ export function ReferenceRepositoryCatalogPage({
     />
   );
 }
+
+type ReferenceRepositoryCatalogPageProps = {
+  activeTenantId: string;
+  activeFilterId: string;
+  buildWorkspaceHref: (workspaceMode: OperatorWorkspaceMode) => string;
+  hasExplicitCatalogSelection: boolean;
+  repositoryCatalog: RepositoryCatalogEntry[];
+  searchQuery: string;
+  toast?: string | null;
+  onWorkspaceModeChange: (workspaceMode: OperatorWorkspaceMode) => void;
+  onCreateTenant: (name: string, repoPath: string, description: string) => Promise<void>;
+  onCreateChange: () => Promise<void>;
+  onOpenQueue: () => void;
+  onSearchQueryChange: (value: string) => void;
+  onSelectCatalogTenant: (tenantId: string) => Promise<void>;
+  onClearCatalogSelection: () => void;
+  onSelectFilter: (filterId: string) => void;
+};
 
 type RepositoryWorklistProps = {
   activeFilterLabel: string;

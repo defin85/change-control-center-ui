@@ -82,7 +82,7 @@ npm run test:e2e:platform
 - `npm run lint` и `npm run test:e2e:platform` обязательны дополнительно, когда change трогает operator UI platform contract.
 - Browser smoke дополнительно rebuild-ит web artifact перед стартом backend stack, чтобы smoke path не зависел от старого `web/dist`.
 - Расширенные shipped-shell доказательства, такие как explicit bootstrap failure handling и fail-closed route normalization, живут в `npm run test:e2e:platform` или `npm run test:e2e:full`, а не в минимальном smoke suite.
-- Текущие smoke/platform suites доказывают именно first functional shell scaffold baseline; они не являются доказательством того, что functional catalog, queue, detail, runs, command, approval, clarification, или realtime shell уже полностью ship'ятся на default route.
+- Текущие smoke/platform suites доказывают bootstrap-hydrated shell baseline и shipped `Repositories` workspace; они не являются доказательством того, что queue, detail, runs, command, approval, clarification, или realtime shell уже полностью ship'ятся на default route.
 - Smoke path считается пройденным только после всех трёх шагов.
 - Уже существующий `web/dist` не считается достаточным доказательством: smoke всегда начинается с нового `npm run build`.
 

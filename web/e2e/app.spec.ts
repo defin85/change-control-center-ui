@@ -17,6 +17,19 @@ async function expectFunctionalShell(page: Page, heading: string, tenantLabel: s
   await expect(page.getByText("Backend-served default shell")).toHaveCount(0);
 }
 
+async function expectRepositoryCatalogWorkspace(page: Page, selectedRepository: string, searchQuery: string) {
+  await expect(page.locator('[data-platform-surface="repository-catalog-workspace"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Repository Portfolio" })).toBeVisible();
+  await expect(page.getByText("Served repository mode")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary sections" })).toContainText("Workbench");
+  await expect(page.getByRole("navigation", { name: "Primary sections" })).toContainText("Repositories");
+  await expect(page.getByRole("navigation", { name: "Primary sections" })).toContainText("Runs");
+  await expect(page.getByRole("navigation", { name: "Primary sections" })).toContainText("Governance");
+  await expect(page.getByLabel("Search")).toHaveValue(searchQuery);
+  await expect(page.getByText(`Repository: ${selectedRepository}`)).toBeVisible();
+  await expect(page.getByText("backend-owned catalog", { exact: true })).toBeVisible();
+}
+
 test("renders the first functional shell from backend bootstrap on the default route @smoke @platform", async ({ page }) => {
   let bootstrapRequests = 0;
 
@@ -35,21 +48,43 @@ test("renders the first functional shell from backend bootstrap on the default r
   await expect.poll(() => bootstrapRequests).toBe(1);
 });
 
-test("restores supported functional route state and strips unsupported params @smoke @platform", async ({ page }) => {
-  await gotoShippedApp(page, "/?legacyWorkbench=1&workspace=catalog&tenant=tenant-sandbox&q=sandbox&change=ch-142&run=run-30&tab=runs");
+test("restores supported catalog route state and strips unsupported params @smoke @platform", async ({ page }) => {
+  await gotoShippedApp(
+    page,
+    "/?legacyWorkbench=1&workspace=catalog&tenant=tenant-sandbox&filter=active&q=sandbox&change=ch-142&run=run-30&tab=runs",
+  );
 
-  await expectFunctionalShell(page, "Repository Route Scaffold", "sandbox-repo");
-  await expect(page.getByLabel("Tenant")).toHaveValue("tenant-sandbox");
-  await expect(page.getByLabel("Search")).toHaveValue("sandbox");
-  await expect(page).toHaveURL(/\?workspace=catalog&tenant=tenant-sandbox&q=sandbox$/);
+  await expectRepositoryCatalogWorkspace(page, "sandbox-repo", "sandbox");
+  await expect(page.locator('[data-tenant-id="tenant-sandbox"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/\?workspace=catalog&tenant=tenant-sandbox&filter=active&q=sandbox$/);
   await expect(page).not.toHaveURL(/legacyWorkbench|change=|run=|tab=/);
 
   await reloadApp(page);
 
-  await expectFunctionalShell(page, "Repository Route Scaffold", "sandbox-repo");
-  await expect(page.getByLabel("Tenant")).toHaveValue("tenant-sandbox");
-  await expect(page.getByLabel("Search")).toHaveValue("sandbox");
-  await expect(page).toHaveURL(/\?workspace=catalog&tenant=tenant-sandbox&q=sandbox$/);
+  await expectRepositoryCatalogWorkspace(page, "sandbox-repo", "sandbox");
+  await expect(page.locator('[data-tenant-id="tenant-sandbox"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/\?workspace=catalog&tenant=tenant-sandbox&filter=active&q=sandbox$/);
+});
+
+test("catalog workspace supports selection, compact detail, and queue handoff @platform", async ({ page }) => {
+  await gotoShippedApp(page, "/?workspace=catalog");
+
+  await page.locator('[data-tenant-id="tenant-demo"]').click();
+  await expect(page.locator('[data-platform-surface="selected-repository-workspace"]')).toHaveAttribute("data-platform-open", "true");
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText("change-control-center-ui");
+  await page.getByRole("button", { name: "Open queue" }).click();
+
+  await expectFunctionalShell(page, "Functional Workbench", "change-control-center-ui");
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.setViewportSize({ width: 960, height: 900 });
+  await gotoShippedApp(page, "/?workspace=catalog");
+
+  await page.locator('[data-tenant-id="tenant-demo"]').click();
+  await expect(page.getByRole("button", { name: "Back to repositories" })).toBeVisible();
+  await page.getByRole("button", { name: "Back to repositories" }).click();
+  await expect(page.getByRole("button", { name: "Back to repositories" })).toHaveCount(0);
+  await expect(page.locator('[data-platform-shell="repository-catalog-workspace"]')).toHaveAttribute("data-platform-open", "false");
 });
 
 test("surfaces bootstrap failure explicitly without falling back to client-only shell truth @platform", async ({ page }) => {

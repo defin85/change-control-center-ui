@@ -1,4 +1,5 @@
 import { StatusBadge } from "../shells/StatusBadge";
+import { useAsyncWorkflowCommandMachine } from "../workflow";
 import type { RepositoryCatalogEntry } from "../../types";
 
 type RepositoryCatalogProfileProps = {
@@ -14,6 +15,8 @@ export function RepositoryCatalogProfile({
   onCreateChange,
   onOpenCreateTenant,
 }: RepositoryCatalogProfileProps) {
+  const createChangeWorkflow = useAsyncWorkflowCommandMachine();
+
   if (!entry) {
     return (
       <section className="repository-profile-panel reference-panel" data-platform-surface="repository-profile">
@@ -38,6 +41,17 @@ export function RepositoryCatalogProfile({
   }
 
   const primaryActionLabel = entry.changeCount === 0 ? "Create first change" : "Open queue";
+  const isCreateChangePending = createChangeWorkflow.isPending;
+  const selectedEntry = entry;
+
+  function handleCreateChange() {
+    createChangeWorkflow.runCommand({
+      label: `Create change for ${selectedEntry.name}`,
+      execute: async () => {
+        await onCreateChange();
+      },
+    });
+  }
 
   return (
     <section className="repository-profile-panel reference-panel reference-detail-panel" data-platform-surface="repository-profile">
@@ -66,13 +80,28 @@ export function RepositoryCatalogProfile({
           </div>
         </div>
         <div className="reference-detail-actions">
-          <button type="button" className="primary-button" onClick={entry.changeCount === 0 ? onCreateChange : onOpenQueue}>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={isCreateChangePending}
+            onClick={entry.changeCount === 0 ? handleCreateChange : onOpenQueue}
+          >
             {primaryActionLabel}
           </button>
-          <button type="button" className="ghost-button" onClick={onCreateChange}>
+          <button type="button" className="ghost-button" disabled={isCreateChangePending} onClick={handleCreateChange}>
             New change
           </button>
         </div>
+        {createChangeWorkflow.error ? (
+          <p className="governance-note" data-platform-governance="create-change-error">
+            <strong>Change creation failed.</strong> {createChangeWorkflow.error}
+          </p>
+        ) : null}
+        {isCreateChangePending ? (
+          <p className="governance-note" data-platform-governance="create-change-pending">
+            {createChangeWorkflow.activeLabel ?? "Creating repository change..."}
+          </p>
+        ) : null}
       </div>
 
       <div className="reference-detail-block">
