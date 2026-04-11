@@ -1,10 +1,11 @@
 # Change Control Center
 
-Новый primary path в репо это не статический prototype, а реальный foundation stack:
+Репо сейчас держит backend-owned foundation stack, но default backend-served UI намеренно закреплён как статический codex-lb-derived reference shell:
 
 - `FastAPI` backend как source of truth для `tenant`, `change`, `run`, `evidence`, `clarification rounds`
 - отдельный runtime sidecar для `codex app-server` с поддержкой `stdio` и `websocket`
-- `React/Vite` operator shell поверх backend-only contracts
+- shipped `React/Vite` shell на `/` это статический reference в `web/src/reference/OperatorStyleSamplePage.tsx`
+- internal operator foundation в `web/src/platform/*` остаётся в репо, но не является default shipped route
 - persistent state в `sqlite`
 
 Быстрый doc map для агентов и новых контрибьюторов:
@@ -12,7 +13,7 @@
 - [docs/agent/index.md](/home/egor/code/change-control-center-ui/docs/agent/index.md) — authoritative map по docs, scoped instructions и repo-owned skills
 - [docs/architecture/overview.md](/home/egor/code/change-control-center-ui/docs/architecture/overview.md) — короткая карта runtime, entrypoints и verification contours
 
-Legacy prototype вынесен в [legacy/prototype/README.md](/home/egor/code/change-control-center-ui/legacy/prototype/README.md). Оставшиеся reference artifacts больше не лежат в корне и не являются основным entrypoint.
+Legacy prototype вынесен в [legacy/prototype/README.md](/home/egor/code/change-control-center-ui/legacy/prototype/README.md). Shipped default route больше не использует hidden legacy/live fallback path.
 
 ## UI platform baseline
 
@@ -31,7 +32,7 @@ Legacy prototype вынесен в [legacy/prototype/README.md](/home/egor/code/
 - `backend/sidecar/main.py` — отдельный FastAPI sidecar для запуска `codex app-server`
 - `backend/sidecar/runner.py` — transport-specific handshake с `codex app-server`
 - `backend/app/domain.py` — change-centric workflow, curated memory packet, focus graph, clarification logic
-- `web/` — новый React/Vite shell с `Control Queue`, `Change Detail`, `Runs`, `Chief`, clarification flow, operator actions и approval handling
+- `web/` — React/Vite shell, где `web/src/reference/*` шипится по умолчанию, а `web/src/platform/*` хранит internal operator foundation
 
 ## Локальный запуск
 
@@ -82,13 +83,12 @@ bash ./scripts/ccc stop served
 bash ./scripts/ccc stop all
 ```
 
-## Что уже работает на shipped operator path
+## Что сейчас шипится на default route
 
-- `New change` создает backend-owned draft change и добавляет его в control queue
-- `Escalate` и `Mark blocked by spec` меняют состояние change через Control API
-- `Run next step` создает persisted run до старта runtime
-- `Runs` workspace и selected run detail читают lineage, approvals, evidence и runtime events из backend-owned state
-- operator approvals и clarification flows идут через тот же backend-owned shell, без frontend-only fallback path
+- `http://127.0.0.1:8000/` рендерит codex-lb-derived static reference shell
+- shipped route не зависит от `api/bootstrap` или live workbench state, чтобы показать default UI
+- stale query params вроде `legacyWorkbench=1`, `workspace=runs`, `change=...` и `run=...` нормализуются обратно к каноническому `/`
+- shipped shell больше не показывает user-facing bridge в live/legacy workbench path
 
 ## Проверки
 

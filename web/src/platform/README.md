@@ -47,19 +47,14 @@
 - `platform/contracts/controlApi.ts`
 - `platform/navigation/operatorRouteState.ts`
 - `platform/realtime/useTenantRealtimeBoundary.ts`
-- `platform/server-state/useOperatorServerState.ts`
-- `platform/workflow/surfaces.ts`
+- `platform/server-state/filtering.ts`
 - `platform/workflow/useAsyncWorkflowCommandMachine.ts`
-- `platform/workbench/OperatorWorkbench.tsx`
+- `platform/workbench/RepositoryAuthoringDialog.tsx`
+- `platform/workbench/RepositoryCatalogProfile.tsx`
 - `platform/index.ts`
 
 ## Workflow boundary catalog
 
-- `platform/workflow/surfaces.ts`
-  - Workflow-heavy surfaces currently shipped behind explicit state boundaries:
-    - `run-execution` command lifecycle via `useAsyncWorkflowCommandMachine`, with selected-run context preserved in shared server-state orchestration
-    - `approval-resolution`
-    - `clarification-rounds`
-  - Presentational state that should stay outside the workflow layer:
-    - queue slice/search/filter context
-    - selected detail tab and contextual workspace visibility
+- `platform/workflow/useAsyncWorkflowCommandMachine.ts`
+  - Retained for bounded async command lifecycles inside shipped static-reference adjunct flows such as repository selection and authoring dialogs.
+  - It is no longer evidence that a live operator workbench ships on the default backend-served route.

@@ -146,8 +146,8 @@ const PREVIEW_TIMELINE = [
     detail: "Static shell reuses workbench language but shifts into codex-lb style density and tone.",
   },
   {
-    title: "Smoke proof pending",
-    detail: "Need backend-served Playwright proof before merging into the active workbench path.",
+    title: "Default route pinned",
+    detail: "This static reference now defines the shipped backend-served entrypoint.",
   },
 ];
 
@@ -274,11 +274,6 @@ function PreviewMetricCard({ metric }: { metric: PreviewMetric }) {
 }
 
 export function OperatorStyleSamplePage() {
-  const liveHref =
-    (window as typeof window & { __CCC_LIVE_WORKBENCH_URL__?: string }).__CCC_LIVE_WORKBENCH_URL__ ??
-    window.location.pathname;
-  const repositoriesHref = `${window.location.pathname}?workspace=catalog`;
-
   return (
     <div className="operator-style-sample" data-platform-surface="operator-style-sample">
       <header className="operator-style-sample__masthead">
@@ -289,31 +284,23 @@ export function OperatorStyleSamplePage() {
             </div>
             <div>
               <strong>Change Control Center</strong>
-              <p>Static operator preview</p>
+              <p>Default operator shell</p>
             </div>
           </div>
-          <nav className="operator-style-sample__nav" aria-label="Preview sections">
+          <nav className="operator-style-sample__nav" aria-label="Primary sections">
             <span
               className="operator-style-sample__nav-pill operator-style-sample__nav-pill--active"
               data-platform-action="workspace-queue"
             >
               Workbench
             </span>
-            <a
-              className="operator-style-sample__nav-pill"
-              data-platform-action="workspace-catalog"
-              href={repositoriesHref}
-            >
-              Repositories
-            </a>
+            <span className="operator-style-sample__nav-pill">Repositories</span>
             <span className="operator-style-sample__nav-pill">Runs</span>
             <span className="operator-style-sample__nav-pill">Governance</span>
           </nav>
           <div className="operator-style-sample__actions">
             <span className="operator-style-sample__ghost-chip">codex-lb style</span>
-            <a className="operator-style-sample__ghost-chip operator-style-sample__ghost-chip--link" href={liveHref}>
-              Open live workbench
-            </a>
+            <span className="operator-style-sample__ghost-chip">static default</span>
           </div>
         </div>
       </header>
@@ -321,7 +308,7 @@ export function OperatorStyleSamplePage() {
       <main className="operator-style-sample__page">
         <section className="operator-style-sample__page-header">
           <div>
-            <h1>Operator Shell Preview</h1>
+            <h1>Operator Shell</h1>
             <p>
               Static composition of the Change Control Center workbench reinterpreted with the calmer,
               denser codex-lb visual language.
@@ -329,11 +316,11 @@ export function OperatorStyleSamplePage() {
           </div>
           <div className="operator-style-sample__header-note">
             <span className="operator-style-sample__live-dot" aria-hidden="true" />
-            Served-mode reference only
+            Backend-served default shell
           </div>
         </section>
 
-        <section className="operator-style-sample__metrics-grid" aria-label="Preview metrics">
+        <section className="operator-style-sample__metrics-grid" aria-label="Shell metrics">
           {PREVIEW_METRICS.map((metric) => (
             <PreviewMetricCard key={metric.label} metric={metric} />
           ))}
@@ -556,8 +543,8 @@ export function OperatorStyleSamplePage() {
           <span>
             <span className="operator-style-sample__live-dot" aria-hidden="true" /> Last sync: 21:18 MSK
           </span>
-          <span>Mode: Served preview</span>
-          <span>Artifact: static style reference</span>
+          <span>Mode: Default shell</span>
+          <span>Artifact: shipped static reference</span>
         </div>
       </footer>
     </div>

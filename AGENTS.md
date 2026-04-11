@@ -27,11 +27,11 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Current UI Direction
 
-- The repository is actively migrating to the new canonical operator UI and away from the deprecated `legacyWorkbench=1` route.
-- Treat the new UI as the primary product path for planning, implementation, review, and verification unless a task explicitly says to work on migration scaffolding or legacy cleanup.
-- Do not use the hidden legacy workbench, legacy `Run Studio`, or preview-only fallback routes as the source of truth for new UX requirements.
-- Legacy UI paths may be consulted only for migration context, gap analysis, or parity checks while the new UI is being completed.
-- If a task would reintroduce dependency on the legacy workbench or preserve it as a supported operator path, stop and confirm scope through OpenSpec before coding.
+- The default backend-served UI is the codex-lb-derived static reference shell in `web/src/reference/OperatorStyleSamplePage.tsx`.
+- Treat that shipped static shell as the source of truth for default-route behavior, browser proofs, and backend-served UX copy unless a task explicitly says to work on internal foundation code.
+- Do not assume `legacyWorkbench=1`, `workspace=runs`, or other live-workbench route state is a supported product path.
+- Internal platform/workbench modules may still exist in the repo, but they are not the default shipped route.
+- If a task would restore a supported live-workbench fallback or replace the static default shell again, confirm scope through OpenSpec before coding.
 
 ## Issue Tracking
 

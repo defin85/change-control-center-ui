@@ -63,11 +63,6 @@ export function ReferenceRepositoryCatalogPage({
     filterId: catalogFilterId === "all" ? undefined : catalogFilterId,
     searchQuery: searchQuery || undefined,
   });
-  const liveWorkbenchHref = buildOperatorRouteHref(window.location.pathname, {
-    workspaceMode: "queue",
-    tenantId: activeTenantId,
-  });
-
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 1080px)");
     const handleChange = (event: MediaQueryListEvent) => setIsCompactViewport(event.matches);
@@ -151,9 +146,7 @@ export function ReferenceRepositoryCatalogPage({
               </nav>
               <div className="operator-style-sample__actions">
                 <span className="operator-style-sample__ghost-chip">codex-lb style</span>
-                <a className="operator-style-sample__ghost-chip operator-style-sample__ghost-chip--link" href={liveWorkbenchHref}>
-                  Open live workbench
-                </a>
+                <span className="operator-style-sample__ghost-chip">static catalog reference</span>
               </div>
             </div>
           </header>

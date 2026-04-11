@@ -81,7 +81,7 @@ npm run test:e2e:platform
 - Предпочитайте repo-owned verification entrypoints `bash ./scripts/ccc verify ui-smoke`, `bash ./scripts/ccc verify ui-platform` и `bash ./scripts/ccc verify ui-full` вместо ручного воспроизведения команды по памяти.
 - `npm run lint` и `npm run test:e2e:platform` обязательны дополнительно, когда change трогает operator UI platform contract.
 - Browser smoke дополнительно rebuild-ит web artifact перед стартом backend stack, чтобы smoke path не зависел от старого `web/dist`.
-- Расширенные operator-contract доказательства, такие как route-addressable context across history, platform foundation conformance, run lineage, и broader workbench scenarios, живут в `npm run test:e2e:platform` или `npm run test:e2e:full`, а не в минимальном smoke suite.
+- Расширенные shipped-shell доказательства, такие как canonical static-shell cadence, удаление live-bridge affordances и нормализация stale query state, живут в `npm run test:e2e:platform` или `npm run test:e2e:full`, а не в минимальном smoke suite.
 - Smoke path считается пройденным только после всех трёх шагов.
 - Уже существующий `web/dist` не считается достаточным доказательством: smoke всегда начинается с нового `npm run build`.
 

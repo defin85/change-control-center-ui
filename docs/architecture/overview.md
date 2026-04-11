@@ -2,10 +2,10 @@
 
 ## System Map
 
-Change Control Center is a backend-owned operator console. The browser UI is never the source of truth.
+Change Control Center is a backend-owned operator console. The browser UI is never the source of truth, and the default backend-served route is currently pinned to a shipped static reference shell.
 
 ```text
-Browser UI (React/Vite shell)
+Browser UI (static reference shell by default)
   -> FastAPI product backend
       -> SQLite product state
       -> runtime sidecar HTTP client
@@ -20,8 +20,9 @@ Browser UI (React/Vite shell)
 - [backend/app/store.py](/home/egor/code/change-control-center-ui/backend/app/store.py) — SQLite persistence for tenants, changes, runs, evidence, approvals, clarifications.
 - [backend/sidecar/main.py](/home/egor/code/change-control-center-ui/backend/sidecar/main.py) — runtime sidecar process boundary.
 - [backend/sidecar/runner.py](/home/egor/code/change-control-center-ui/backend/sidecar/runner.py) — transport-specific handshake with `codex app-server`.
-- [web/src/App.tsx](/home/egor/code/change-control-center-ui/web/src/App.tsx) — top-level operator shell.
-- [web/src/platform/index.ts](/home/egor/code/change-control-center-ui/web/src/platform/index.ts) — approved route/workspace composition boundary.
+- [web/src/App.tsx](/home/egor/code/change-control-center-ui/web/src/App.tsx) — shipped static shell entrypoint.
+- [web/src/reference/OperatorStyleSamplePage.tsx](/home/egor/code/change-control-center-ui/web/src/reference/OperatorStyleSamplePage.tsx) — codex-lb-derived default backend-served shell.
+- [web/src/platform/index.ts](/home/egor/code/change-control-center-ui/web/src/platform/index.ts) — internal operator foundation and composition boundary retained in the repo.
 - [scripts/ccc](/home/egor/code/change-control-center-ui/scripts/ccc) — repo-owned launcher for `dev`, `served`, `e2e` and verification entrypoints.
 
 ## Code Map
@@ -29,7 +30,8 @@ Browser UI (React/Vite shell)
 - `backend/app/*` — product APIs, orchestration, storage, backend-owned state.
 - `backend/sidecar/*` — transport-specific runtime communication with `codex app-server`.
 - `backend/tests/*` — backend contracts, UI governance/readiness drift checks, runtime adapter tests.
-- `web/src/platform/*` — route-level shells, platform contracts, workflow boundaries, shared primitives.
+- `web/src/reference/*` — shipped static reference shell artifacts.
+- `web/src/platform/*` — internal route-level shells, platform contracts, workflow boundaries, shared primitives.
 - `web/src/components/*` — feature internals used by the platform shell.
 - `web/e2e/*` — backend-entrypoint Playwright coverage.
 - `scripts/*` — repo-owned launcher and drift guards.

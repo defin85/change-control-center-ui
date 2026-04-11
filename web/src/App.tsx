@@ -1,25 +1,22 @@
-import {
-  OperatorWorkbenchState,
-  SimpleReferenceWorkbench,
-  useOperatorServerState,
-} from "./platform";
+import { useEffect } from "react";
+
+import { OperatorStyleSamplePage } from "./reference/OperatorStyleSamplePage";
 
 import "./styles.css";
 
-function OperatorApp() {
-  const operatorServerState = useOperatorServerState();
+function StaticShellApp() {
+  useEffect(() => {
+    if (!window.location.search) {
+      return;
+    }
 
-  if (operatorServerState.state === "error") {
-    return <OperatorWorkbenchState tone="error" message={operatorServerState.message} />;
-  }
+    const normalizedUrl = `${window.location.pathname}${window.location.hash}`;
+    window.history.replaceState(window.history.state, "", normalizedUrl);
+  }, []);
 
-  if (operatorServerState.state === "loading") {
-    return <OperatorWorkbenchState tone="loading" message={operatorServerState.message} />;
-  }
-
-  return <SimpleReferenceWorkbench {...operatorServerState.workbenchProps} />;
+  return <OperatorStyleSamplePage />;
 }
 
 export default function App() {
-  return <OperatorApp />;
+  return <StaticShellApp />;
 }

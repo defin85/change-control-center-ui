@@ -14,4 +14,3 @@ export {
   resolveViewId,
 } from "./filtering";
 export type { RepositoryCatalogFilterId } from "./filtering";
-export { useOperatorServerState } from "./useOperatorServerState";
