@@ -43,6 +43,7 @@ Browser UI (static reference shell by default)
 - UI reads normalized backend state and must not talk directly to Codex transport endpoints.
 - Sidecar hides `stdio` vs `websocket`; transport choice is internal deployment configuration.
 - Launcher profiles are the only approved local lifecycle path for backend-served UI checks.
+- The default backend-served route is still the shipped static shell; functional catalog, queue, detail, runs, command, and realtime work remain sequenced follow-up changes rather than current product truth.
 
 ## Verification Map
 

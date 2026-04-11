@@ -20,6 +20,15 @@ The system SHALL replace the old filesystem-level static prototype as the primar
 - **THEN** the operator sees the backend-served static reference shell rather than the old standalone prototype/template
 - **AND** the same application deployment still provides the backend-owned Control API and runtime foundation behind that shipped shell
 
+### Requirement: Truthful Shipped Shell Baseline
+The system SHALL keep the current shipped backend-served shell baseline aligned across product docs, readiness gates, and future functional rollout proposals.
+
+#### Scenario: Contributor plans follow-up UI functionality after the static reset
+- **WHEN** a contributor reads repository docs, current specs, or a new UI change proposal
+- **THEN** the current shipped backend-served route is described as the static reference shell
+- **AND** later interactive workspaces or workflows are presented as planned follow-up work rather than already shipped behavior
+- **AND** readiness guidance does not treat removed live-shell behavior as current product truth
+
 ### Requirement: Backend-Owned Change State
 The system SHALL keep `change`, `run`, `gap`, `traceability`, and `evidence` as backend-owned persistent state rather than deriving product state from Codex thread history alone.
 

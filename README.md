@@ -89,6 +89,8 @@ bash ./scripts/ccc stop all
 - shipped route не зависит от `api/bootstrap` или live workbench state, чтобы показать default UI
 - stale query params вроде `legacyWorkbench=1`, `workspace=runs`, `change=...` и `run=...` нормализуются обратно к каноническому `/`
 - shipped shell больше не показывает user-facing bridge в live/legacy workbench path
+- functional catalog, queue, detail, runs, command и realtime surfaces остаются planned follow-up rollout, а не shipped behavior на default route
+- текущая последовательность follow-up changes начинается с `02-add-shell-bootstrap-and-route-state-controller` и заканчивается `10-harden-functional-shell-proof-pack`
 
 ## Проверки
 

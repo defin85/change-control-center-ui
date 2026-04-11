@@ -1,7 +1,8 @@
 # ui-delivery-validation Specification
 
 ## Purpose
-TBD - created by archiving change add-ui-delivery-validation-contract. Update Purpose after archive.
+Define the backend-served UI delivery and verification contract for the shipped static-shell baseline, including artifact delivery, browser smoke tiers, and fail-closed readiness alignment.
+
 ## Requirements
 ### Requirement: Canonical UI Verification Workflow
 The system SHALL publish one canonical verification workflow for UI-affecting or backend-served UI changes, including a default smoke path and explicitly separate deeper validation tiers.
@@ -22,13 +23,22 @@ The system SHALL treat the built web bundle as an explicit artifact for backend-
 - **AND** missing build output causes an explicit failure rather than silently passing through a frontend-only or partial shell path
 
 ### Requirement: Backend-Entrypoint Operator Browser Smoke
-The system SHALL verify critical operator UI flows through browser automation against the backend-served application entrypoint.
+The system SHALL verify critical shipped-shell behavior through browser automation against the backend-served application entrypoint.
 
-#### Scenario: Browser smoke runs against the real operator shell
+#### Scenario: Browser smoke runs against the real shipped shell
 - **WHEN** browser smoke verification is executed
 - **THEN** the browser targets the backend entrypoint that exposes both Control API behavior and built UI assets
-- **AND** the smoke suite exercises queue/detail navigation plus at least one persisted operator workflow such as run handling, approval resolution, or clarification persistence
+- **AND** the smoke suite proves the shipped static reference shell renders from the default route and normalizes stale live-workbench query state back to the canonical route
 - **AND** a passing frontend-only development server is not treated as sufficient evidence for backend-served UI health
+
+### Requirement: Platform Static-Shell Browser Gate
+The system SHALL keep a deeper platform browser gate for static-shell governance and delivery invariants beyond the default smoke suite.
+
+#### Scenario: Contributor verifies a platform or backend-served shell change
+- **WHEN** the operator UI platform gate is executed
+- **THEN** the platform suite proves the shipped static shell does not depend on Control API bootstrap to render, remains stable across reloads, and does not expose a live-workbench bridge
+- **AND** a passing smoke suite alone is not treated as sufficient evidence for static-shell platform integrity
+- **AND** deeper static-shell proofs remain routed through repo-owned verification entrypoints rather than ad hoc browser commands
 
 ### Requirement: Fail-Closed UI Readiness Drift Gate
 The system SHALL provide a machine-checkable readiness gate that detects drift between documented UI verification commands, helper automation, and the repository's runnable entrypoints.
@@ -38,4 +48,3 @@ The system SHALL provide a machine-checkable readiness gate that detects drift b
 - **THEN** the readiness gate fails explicitly
 - **AND** the repository does not rely on manual review alone to keep `README`, agent instructions, and verification helpers aligned
 - **AND** contributors get a clear correction path instead of a silent fallback
-
