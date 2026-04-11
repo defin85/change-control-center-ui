@@ -53,7 +53,16 @@ export function filterChanges(changes: ChangeSummary[], context: OperatorFilterC
       return true;
     }
 
-    return [change.id, change.title, change.subtitle, change.state, change.nextAction, change.blocker]
+    return [
+      change.id,
+      change.title,
+      change.subtitle,
+      change.state,
+      change.owner.id,
+      change.owner.label,
+      change.nextAction,
+      change.blocker,
+    ]
       .join(" ")
       .toLowerCase()
       .includes(query);

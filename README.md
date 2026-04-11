@@ -4,7 +4,7 @@
 
 - `FastAPI` backend как source of truth для `tenant`, `change`, `run`, `evidence`, `clarification rounds`
 - отдельный runtime sidecar для `codex app-server` с поддержкой `stdio` и `websocket`
-- shipped `React/Vite` shell на `/` это bootstrap-hydrated queue workspace в `web/src/platform/shells/ShellBootstrapApp.tsx`, а `?workspace=catalog` рендерит backend-owned repository workspace
+- shipped `React/Vite` shell на `/` это bootstrap-hydrated queue workspace с backend-owned selected-change detail в `web/src/platform/shells/ShellBootstrapApp.tsx`, а `?workspace=catalog` рендерит backend-owned repository workspace
 - `web/src/reference/OperatorStyleSamplePage.tsx` остаётся visual reference artifact, а не default shipped route
 - persistent state в `sqlite`
 
@@ -85,12 +85,12 @@ bash ./scripts/ccc stop all
 
 ## Что сейчас шипится на default route
 
-- `http://127.0.0.1:8000/` рендерит bootstrap-hydrated functional shell, который сначала запрашивает `/api/bootstrap`, а затем tenant-scoped queue summaries через `/api/tenants/{tenant}/changes`
+- `http://127.0.0.1:8000/` рендерит bootstrap-hydrated functional shell, который сначала запрашивает `/api/bootstrap`, затем tenant-scoped queue summaries через `/api/tenants/{tenant}/changes`, а для выбранного change гидрирует detail contract через `/api/tenants/{tenant}/changes/{change}`
 - `http://127.0.0.1:8000/?workspace=catalog` рендерит backend-owned `Repositories` workspace с live catalog, selection, compact drawer и queue handoff
-- shell route поддерживает canonical `workspace`, `tenant`, queue `view`, queue/catalog `filter`, `q` и queue `change`, а stale params вроде `legacyWorkbench=1`, `run=...` и `tab=...` нормализуются fail-closed
+- shell route поддерживает canonical `workspace`, `tenant`, queue `view`, queue/catalog `filter`, `q`, queue `change` и selected-change `tab`, а stale params вроде `legacyWorkbench=1` и `run=...` нормализуются fail-closed
 - shipped shell больше не показывает user-facing bridge в live/legacy workbench path и не падает обратно в client-only sample truth при bootstrap failure
-- shipped queue уже поддерживает selected-change handoff на route level, но full `Selected change`, `Runs`, command, approval, clarification и realtime surfaces остаются sequenced follow-up rollout, а не уже полностью shipped behavior
-- текущая последовательность follow-up changes начинается с `05-add-selected-change-detail-workspace` и заканчивается `10-harden-functional-shell-proof-pack`
+- shipped queue теперь включает backend-owned `Selected change` workspace с вкладками `Overview`, `Traceability`, `Gaps`, `Evidence`, `Git`, `Chief` и `Clarifications`
+- текущая последовательность follow-up changes начинается с `06-add-runs-workspace-and-run-detail-handoff` и заканчивается `10-harden-functional-shell-proof-pack`
 
 ## Проверки
 

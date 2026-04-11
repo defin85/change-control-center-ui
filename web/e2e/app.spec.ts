@@ -5,7 +5,7 @@ import { gotoShippedApp, reloadApp } from "./support/navigation";
 async function expectTenantQueueWorkspace(page: Page, tenantLabel: string) {
   await expect(page.locator('[data-platform-surface="tenant-queue-workspace"]')).toBeVisible();
   await expect(page.locator('[data-platform-surface="tenant-queue-list"]')).toBeVisible();
-  await expect(page.locator('[data-platform-surface="queue-selected-change-summary"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toBeVisible();
   await expect(page.getByRole("heading", { name: "Functional Workbench" })).toBeVisible();
   await expect(page.getByText("Served queue mode")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary sections" })).toContainText("Workbench");
@@ -48,7 +48,7 @@ test("restores supported queue route state and strips unsupported params @smoke 
 }) => {
   await gotoShippedApp(
     page,
-    "/?legacyWorkbench=1&workspace=queue&tenant=tenant-sandbox&view=ready&q=sandbox&change=ch-142&run=run-30&tab=runs",
+    "/?legacyWorkbench=1&workspace=queue&tenant=tenant-sandbox&view=ready&q=sandbox&change=ch-142&run=run-30&tab=gaps",
   );
 
   await expectTenantQueueWorkspace(page, "sandbox-repo");
@@ -56,30 +56,76 @@ test("restores supported queue route state and strips unsupported params @smoke 
   await expect(page.locator('[data-platform-governance="queue-selection-repaired"]')).toContainText(
     "Selected change repaired.",
   );
-  await expect(page).toHaveURL(/\?tenant=tenant-sandbox&view=ready&q=sandbox&change=ch-201$/);
-  await expect(page).not.toHaveURL(/legacyWorkbench|change=ch-142|run=|tab=/);
+  await expect(page.locator('[data-platform-governance="queue-selection-repaired"]')).toContainText(
+    "ch-142 moved to ch-201",
+  );
+  await expect(page.locator('[data-platform-surface="selected-change-tab-panel"]')).toHaveAttribute(
+    "data-platform-tab",
+    "gaps",
+    { timeout: 15000 },
+  );
+  await expect(page.getByText("No gaps are currently attached to this change.")).toBeVisible();
+  await expect(page).toHaveURL(/\?tenant=tenant-sandbox&view=ready&q=sandbox&change=ch-201&tab=gaps$/);
+  await expect(page).not.toHaveURL(/legacyWorkbench|change=ch-142|run=/);
 
   await reloadApp(page);
 
   await expectTenantQueueWorkspace(page, "sandbox-repo");
   await expect(page.locator('[data-change-id="ch-201"]')).toBeVisible();
-  await expect(page).toHaveURL(/\?tenant=tenant-sandbox&view=ready&q=sandbox&change=ch-201$/);
+  await expect(page).toHaveURL(/\?tenant=tenant-sandbox&view=ready&q=sandbox&change=ch-201&tab=gaps$/);
 });
 
 test("queue workspace supports selected-change handoff, filtering, and tenant switching @platform", async ({
   page,
 }) => {
+  let detailRequests = 0;
+
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/tenants/tenant-demo/changes/ch-142") {
+      detailRequests += 1;
+    }
+  });
+
   await gotoShippedApp(page);
 
   await page.locator('[data-change-id="ch-142"]').click();
-  await expect(page.locator('[data-platform-surface="queue-selected-change-summary"]')).toContainText(
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(
     "Land the canonical operator shell",
   );
   await expect(page).toHaveURL(/\?change=ch-142$/);
+  await expect(page.getByText("The canonical operator shell is live")).toBeVisible();
+  await expect.poll(() => detailRequests).toBe(1);
+
+  await page.getByRole("tab", { name: "Gaps" }).click();
+  await expect(page.locator('[data-platform-surface="selected-change-tab-panel"]')).toHaveAttribute(
+    "data-platform-tab",
+    "gaps",
+  );
+  await expect(page.getByText("Launcher dev profile can report ready while managed processes are already stopped.")).toBeVisible();
+  await expect(page).toHaveURL(/\?change=ch-142&tab=gaps$/);
+  await expect.poll(() => detailRequests).toBe(1);
+
+  await page.getByRole("tab", { name: "Chief" }).click();
+  await expect(page.locator('[data-platform-surface="selected-change-tab-panel"]')).toHaveAttribute(
+    "data-platform-tab",
+    "chief",
+  );
+  await expect(page.getByText("Operator IA is stable")).toBeVisible();
+  await expect(page).toHaveURL(/\?change=ch-142&tab=chief$/);
+
+  await page.getByLabel("Search").fill("Codex Chief");
+  await expect(page.locator('[data-change-id="ch-142"]')).toBeVisible();
+  await expect(page.locator('[data-change-id="ch-150"]')).toHaveCount(0);
+  await expect(page).toHaveURL(/q=Codex(?:\+|%20)Chief&change=ch-142&tab=chief$/);
+  await expect.poll(() => detailRequests).toBe(1);
 
   await page.getByLabel("Search").fill("sandbox");
-  await expect(page.locator('[data-platform-governance="queue-selection-repaired"]')).toContainText(
-    "Selected change repaired.",
+  await expect(page.locator('[data-platform-governance="queue-selection-cleared"]')).toContainText(
+    "Selected change cleared.",
+  );
+  await expect(page.locator('[data-platform-governance="queue-selection-cleared"]')).toContainText(
+    "ch-142 is not available because this queue slice is empty.",
   );
   await expect(page).toHaveURL(/\?q=sandbox$/);
   await expect(page.locator('[data-change-id="ch-142"]')).toHaveCount(0);
@@ -95,6 +141,66 @@ test("queue workspace supports selected-change handoff, filtering, and tenant sw
   await page.locator('[data-platform-view="ready"]').click();
   await expect(page.locator('[data-change-id="ch-201"]')).toBeVisible();
   await expect(page).toHaveURL(/\?tenant=tenant-sandbox&view=ready&q=sandbox&change=ch-201$/);
+});
+
+test("selected-change workspace preserves compact drawer behavior and queue context @platform", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 900 });
+  await gotoShippedApp(page, "/?q=Codex%20Chief&change=ch-142&tab=chief");
+
+  await expect(page.locator('[data-platform-shell="detail-workspace"]')).toHaveAttribute(
+    "data-platform-open",
+    "true",
+  );
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(
+    "Land the canonical operator shell",
+  );
+  await expect(page.locator('[data-platform-surface="selected-change-tab-panel"]')).toHaveAttribute(
+    "data-platform-tab",
+    "chief",
+  );
+  await expect(page.getByText("Operator IA is stable")).toBeVisible();
+
+  await page.getByRole("button", { name: "Back to queue" }).click();
+
+  await expect(page.locator('[data-platform-shell="detail-workspace"]')).toHaveAttribute(
+    "data-platform-open",
+    "false",
+  );
+  await expect(page).toHaveURL(/q=Codex(?:\+|%20)Chief$/);
+});
+
+test("surfaces selected-change detail failure without reviving a hidden fallback @platform", async ({
+  page,
+}) => {
+  let detailRequests = 0;
+
+  await page.route("**/api/tenants/tenant-demo/changes/ch-142", async (route) => {
+    detailRequests += 1;
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "selected change detail unavailable" }),
+    });
+  });
+
+  await gotoShippedApp(page);
+  await page.locator('[data-change-id="ch-142"]').click();
+
+  await expect(page).toHaveURL(/\?change=ch-142$/);
+  await expect.poll(() => detailRequests).toBe(1);
+  await expect(page.locator('[data-platform-governance="selected-change-error"]')).toContainText(
+    "Selected change detail failed.",
+  );
+  await expect(page.locator('[data-platform-governance="selected-change-error"]')).toContainText(
+    "selected change detail unavailable",
+  );
+  await expect(page.getByRole("button", { name: "Retry detail" })).toBeVisible();
+  await expect(page.getByText("The shell fails closed here instead of reviving a hidden legacy detail path.")).toBeVisible();
+  await expect(page.locator('[data-platform-surface="tenant-queue-list"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="selected-change-tab-panel"]')).toHaveCount(0);
+  await expect(page.getByText("Backend-served default shell")).toHaveCount(0);
 });
 
 test("catalog workspace supports selection, compact detail, and queue handoff @platform", async ({ page }) => {

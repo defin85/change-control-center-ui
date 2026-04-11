@@ -52,7 +52,7 @@ const ROLLOUT_STEPS = [
   {
     id: "05-add-selected-change-detail-workspace",
     title: "Selected change",
-    detail: "Hydrate the change-detail workspace from backend contracts instead of placeholder shell chrome.",
+    detail: "Shipped: backend-owned selected-change overview, traceability, gaps, evidence, git, chief, and clarification history now live inside the queue shell.",
   },
   {
     id: "06-add-runs-workspace-and-run-detail-handoff",
@@ -127,8 +127,10 @@ export function ShellBootstrapApp() {
         onSearchQueryChange={controller.setSearchQuery}
         onSelectQueueView={controller.setQueueView}
         onSelectQueueFilter={controller.setQueueFilter}
+        onSelectQueueTab={controller.setQueueTab}
         onSelectQueueChange={controller.selectQueueChange}
         onClearQueueSelection={controller.clearQueueSelection}
+        onRetrySelectedChangeDetail={controller.retrySelectedChangeDetail}
       />
     );
   }

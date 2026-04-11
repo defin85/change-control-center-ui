@@ -13,10 +13,11 @@ import {
   type QueueWorkspaceState,
   WorkspacePageShell,
 } from "../platform";
-import type { BootstrapResponse, ChangeSummary, Tenant } from "../types";
+import type { BootstrapResponse, ChangeDetailTabId, ChangeSummary, Tenant } from "../types";
 
 import "./OperatorStyleSamplePage.css";
 import "./ReferenceTenantQueuePage.css";
+import { ReferenceSelectedChangeWorkspace } from "./ReferenceSelectedChangeWorkspace";
 
 type QueueMetric = {
   label: string;
@@ -36,8 +37,10 @@ export function ReferenceTenantQueuePage({
   onSearchQueryChange,
   onSelectQueueView,
   onSelectQueueFilter,
+  onSelectQueueTab,
   onSelectQueueChange,
   onClearQueueSelection,
+  onRetrySelectedChangeDetail,
 }: ReferenceTenantQueuePageProps) {
   const [isCompactViewport, setIsCompactViewport] = useState(() =>
     window.matchMedia("(max-width: 1080px)").matches,
@@ -78,7 +81,13 @@ export function ReferenceTenantQueuePage({
       isOpen={queueWorkspace.status === "ready" && Boolean(queueWorkspace.selectedChange)}
       selectedChangeId={queueWorkspace.selectedChangeId}
       onClose={onClearQueueSelection}
-      detail={<SelectedChangeWorkspace queueWorkspace={queueWorkspace} />}
+      detail={
+        <ReferenceSelectedChangeWorkspace
+          queueWorkspace={queueWorkspace}
+          onSelectTab={onSelectQueueTab}
+          onRetryDetail={onRetrySelectedChangeDetail}
+        />
+      }
     />
   );
 
@@ -292,8 +301,10 @@ type ReferenceTenantQueuePageProps = {
   onSearchQueryChange: (value: string) => void;
   onSelectQueueView: (viewId: string) => void;
   onSelectQueueFilter: (filterId: string) => void;
+  onSelectQueueTab: (tabId: ChangeDetailTabId) => void;
   onSelectQueueChange: (changeId: string) => void;
   onClearQueueSelection: () => void;
+  onRetrySelectedChangeDetail: () => void;
 };
 
 type QueueNavigationPanelProps = {
@@ -422,9 +433,17 @@ function QueueWorklistPanel({
       </div>
 
       <div className="reference-queue-table">
-        {queueWorkspace.repairNotice ? (
-          <p className="governance-note" data-platform-governance="queue-selection-repaired">
-            <strong>Selected change repaired.</strong> {queueWorkspace.repairNotice}
+        {queueWorkspace.selectionNotice ? (
+          <p
+            className="governance-note"
+            data-platform-governance={`queue-selection-${queueWorkspace.selectionNotice.kind}`}
+          >
+            <strong>
+              {queueWorkspace.selectionNotice.kind === "cleared"
+                ? "Selected change cleared."
+                : "Selected change repaired."}
+            </strong>{" "}
+            {queueWorkspace.selectionNotice.message}
           </p>
         ) : null}
 
@@ -520,109 +539,6 @@ function QueueRow({ change, isActive, onSelectQueueChange }: QueueRowProps) {
         </div>
       </div>
     </PlatformPrimitives.Button>
-  );
-}
-
-type SelectedChangeWorkspaceProps = {
-  queueWorkspace: QueueWorkspaceState;
-};
-
-function SelectedChangeWorkspace({ queueWorkspace }: SelectedChangeWorkspaceProps) {
-  if (queueWorkspace.status === "error") {
-    return (
-      <section className="reference-panel reference-queue-detail" data-platform-surface="queue-selected-change-summary">
-        <div className="reference-panel-heading">
-          <div>
-            <p className="eyebrow">Selected change</p>
-            <h2>Queue unavailable</h2>
-            <p>{queueWorkspace.error}</p>
-          </div>
-        </div>
-        <div className="empty-state">
-          The shell will not invent a legacy detail panel while the queue contract is unavailable.
-        </div>
-      </section>
-    );
-  }
-
-  if (queueWorkspace.status !== "ready" || !queueWorkspace.selectedChange) {
-    return (
-      <section className="reference-panel reference-queue-detail" data-platform-surface="queue-selected-change-summary">
-        <div className="reference-panel-heading">
-          <div>
-            <p className="eyebrow">Selected change</p>
-            <h2>Choose a queue row</h2>
-            <p>
-              Selected-change handoff now lives in canonical route state, but full detail hydration
-              lands in 05.
-            </p>
-          </div>
-        </div>
-        <div className="empty-state">
-          {queueWorkspace.status === "loading"
-            ? "Queue hydration is in flight."
-            : "Select a visible queue row to open its summary stage."}
-        </div>
-      </section>
-    );
-  }
-
-  const { selectedChange } = queueWorkspace;
-
-  return (
-    <section className="reference-panel reference-queue-detail" data-platform-surface="queue-selected-change-summary">
-      <div className="reference-detail-head">
-        <div>
-          <span className="eyebrow">Selected change</span>
-          <h2>{selectedChange.title}</h2>
-          <p>{selectedChange.id}</p>
-        </div>
-        <StatusBadge status={selectedChange.state} label={formatStateLabel(selectedChange.state)} />
-      </div>
-
-      <div className="reference-detail-card">
-        <div className="reference-detail-stats">
-          <div>
-            <span>Owner</span>
-            <strong>{selectedChange.owner.label}</strong>
-          </div>
-          <div>
-            <span>Last run</span>
-            <strong>{selectedChange.lastRunAgo}</strong>
-          </div>
-          <div>
-            <span>Mandatory gaps</span>
-            <strong>{selectedChange.mandatoryGapCount}</strong>
-          </div>
-        </div>
-        <div className="reference-detail-actions">
-          <span>Queue summary only</span>
-          <span>Route handoff ready</span>
-          <span>{selectedChange.verificationStatus}</span>
-        </div>
-      </div>
-
-      <div className="reference-detail-block">
-        <div className="reference-detail-block-head">
-          <h3>Next action</h3>
-          <span>Chief guidance</span>
-        </div>
-        <p>{selectedChange.nextAction}</p>
-      </div>
-
-      <div className="reference-detail-block">
-        <div className="reference-detail-block-head">
-          <h3>Current blocker</h3>
-          <span>Queue-owned summary</span>
-        </div>
-        <p>{selectedChange.blocker}</p>
-      </div>
-
-      <p className="governance-note" data-platform-governance="queue-summary-boundary">
-        Full change detail lands in 05; this workspace intentionally stays bound to backend-owned
-        queue summary data.
-      </p>
-    </section>
   );
 }
 

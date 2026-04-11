@@ -48,6 +48,7 @@ def test_shell_bootstrap_controller_uses_shared_control_api_and_canonical_route_
 
     assert 'requestControlApi(BOOTSTRAP_ENDPOINT, bootstrapResponseSchema)' in source
     assert "changesResponseSchema" in source
+    assert "changeDetailResponseSchema" in source
     assert "createTenantResponseSchema" in source
     assert "createChangeResponseSchema" in source
     assert "readOperatorRouteState" in source
@@ -55,9 +56,12 @@ def test_shell_bootstrap_controller_uses_shared_control_api_and_canonical_route_
     assert "viewId" in source
     assert "filterId" in source
     assert "changeId" in source
+    assert "tabId" in source
     assert "setQueueView" in source
     assert "setQueueFilter" in source
+    assert "setQueueTab" in source
     assert "selectQueueChange" in source
+    assert "retrySelectedChangeDetail" in source
     assert "setCatalogFilter" in source
     assert "selectCatalogTenant" in source
     assert "window.history.replaceState" in source
@@ -79,7 +83,9 @@ def test_bootstrap_shell_routes_queue_workspace_into_backend_owned_reference_pag
     assert 'if (routeState.workspaceMode === "queue")' in source
     assert "queueWorkspace={controller.queueWorkspace}" in source
     assert "onSelectQueueView={controller.setQueueView}" in source
+    assert "onSelectQueueTab={controller.setQueueTab}" in source
     assert "onSelectQueueChange={controller.selectQueueChange}" in source
+    assert "onRetrySelectedChangeDetail={controller.retrySelectedChangeDetail}" in source
 
 
 def test_bootstrap_shell_routes_catalog_workspace_into_backend_owned_reference_page() -> None:
@@ -99,8 +105,12 @@ def test_reference_queue_page_is_wired_for_live_queue_navigation_and_selected_ch
     assert "queueWorkspace" in source
     assert "onSelectQueueView" in source
     assert "onSelectQueueFilter" in source
+    assert "onSelectQueueTab" in source
     assert "onSelectQueueChange" in source
+    assert "onRetrySelectedChangeDetail" in source
     assert "backend-owned queue" in source
+    assert "full detail hydration" not in source
+    assert "Queue summary only" not in source
     assert "window.location.assign" not in source
 
 

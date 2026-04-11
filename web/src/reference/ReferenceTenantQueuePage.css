@@ -136,6 +136,34 @@
   gap: 14px;
 }
 
+.reference-selected-change-workspace .tab-list {
+  margin-bottom: 0;
+}
+
+.reference-selected-change-panel,
+.reference-detail-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.reference-detail-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.reference-detail-inline-note {
+  color: var(--sample-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.reference-evidence-body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .reference-queue-detail .governance-note {
   margin: 0;
 }
@@ -163,5 +191,10 @@
   .reference-queue-utility-meta {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .reference-selected-change-workspace .grid-two,
+  .reference-selected-change-workspace .reference-overview-grid {
+    grid-template-columns: 1fr;
   }
 }

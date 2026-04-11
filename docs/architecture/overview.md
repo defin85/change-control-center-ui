@@ -2,10 +2,10 @@
 
 ## System Map
 
-Change Control Center is a backend-owned operator console. The browser UI is never the source of truth, and the default backend-served route now boots through a shared backend-owned shell bootstrap controller with a shipped functional tenant queue on `/` plus a shipped repository workspace on `workspace=catalog`.
+Change Control Center is a backend-owned operator console. The browser UI is never the source of truth, and the default backend-served route now boots through a shared backend-owned shell bootstrap controller with a shipped functional tenant queue on `/`, backend-owned selected-change detail inside that queue shell, and a shipped repository workspace on `workspace=catalog`.
 
 ```text
-Browser UI (bootstrap shell + functional tenant queue + repository catalog)
+Browser UI (bootstrap shell + functional tenant queue + selected-change detail + repository catalog)
   -> FastAPI product backend
       -> SQLite product state
       -> runtime sidecar HTTP client
@@ -22,7 +22,7 @@ Browser UI (bootstrap shell + functional tenant queue + repository catalog)
 - [backend/sidecar/runner.py](/home/egor/code/change-control-center-ui/backend/sidecar/runner.py) — transport-specific handshake with `codex app-server`.
 - [web/src/App.tsx](/home/egor/code/change-control-center-ui/web/src/App.tsx) — shipped functional shell entrypoint.
 - [web/src/platform/shells/ShellBootstrapApp.tsx](/home/egor/code/change-control-center-ui/web/src/platform/shells/ShellBootstrapApp.tsx) — backend-owned bootstrap shell and route controller.
-- [web/src/reference/ReferenceTenantQueuePage.tsx](/home/egor/code/change-control-center-ui/web/src/reference/ReferenceTenantQueuePage.tsx) — shipped functional `Queue` workspace backed by tenant-scoped change summaries.
+- [web/src/reference/ReferenceTenantQueuePage.tsx](/home/egor/code/change-control-center-ui/web/src/reference/ReferenceTenantQueuePage.tsx) — shipped functional `Queue` workspace plus backend-owned selected-change detail backed by tenant-scoped queue and detail contracts.
 - [web/src/reference/ReferenceRepositoryCatalogPage.tsx](/home/egor/code/change-control-center-ui/web/src/reference/ReferenceRepositoryCatalogPage.tsx) — shipped functional `Repositories` workspace backed by the bootstrap/catalog contract.
 - [web/src/reference/OperatorStyleSamplePage.tsx](/home/egor/code/change-control-center-ui/web/src/reference/OperatorStyleSamplePage.tsx) — codex-lb-derived visual reference artifact retained in the repo.
 - [web/src/platform/index.ts](/home/egor/code/change-control-center-ui/web/src/platform/index.ts) — internal operator foundation and composition boundary retained in the repo.
@@ -33,7 +33,7 @@ Browser UI (bootstrap shell + functional tenant queue + repository catalog)
 - `backend/app/*` — product APIs, orchestration, storage, backend-owned state.
 - `backend/sidecar/*` — transport-specific runtime communication with `codex app-server`.
 - `backend/tests/*` — backend contracts, UI governance/readiness drift checks, runtime adapter tests.
-- `web/src/reference/*` — visual reference artifacts plus shipped route-level compositions for queue/catalog rollout slices.
+- `web/src/reference/*` — visual reference artifacts plus shipped route-level compositions for queue, selected-change detail, and catalog rollout slices.
 - `web/src/platform/*` — shipped route-level shells, bootstrap controller, platform contracts, workflow boundaries, and shared primitives.
 - `web/src/components/*` — feature internals used by the platform shell.
 - `web/e2e/*` — backend-entrypoint Playwright coverage.
@@ -46,7 +46,7 @@ Browser UI (bootstrap shell + functional tenant queue + repository catalog)
 - UI reads normalized backend state and must not talk directly to Codex transport endpoints.
 - Sidecar hides `stdio` vs `websocket`; transport choice is internal deployment configuration.
 - Launcher profiles are the only approved local lifecycle path for backend-served UI checks.
-- The default backend-served route is now a bootstrap-hydrated functional shell; `Queue` ships on `/`, `Repositories` ships on `workspace=catalog`, and full selected-change detail, runs, command, and realtime depth remain sequenced follow-up changes rather than current product truth.
+- The default backend-served route is now a bootstrap-hydrated functional shell; `Queue` ships on `/`, backend-owned selected-change detail ships inside that queue shell, `Repositories` ships on `workspace=catalog`, and runs, command, approval, clarification authoring, and realtime depth remain sequenced follow-up changes rather than current product truth.
 
 ## Verification Map
 

@@ -25,8 +25,8 @@ The system SHALL keep the current shipped backend-served shell baseline aligned 
 
 #### Scenario: Contributor plans follow-up UI functionality after the tenant-queue rollout
 - **WHEN** a contributor reads repository docs, current specs, or a new UI change proposal
-- **THEN** the current shipped backend-served route is described as a bootstrap-hydrated functional shell with a live `Queue` workspace on `/` and a live `Repositories` workspace on `workspace=catalog`
-- **AND** later full selected-change detail, runs, command, approval, clarification, or realtime workspaces are presented as planned follow-up work rather than already shipped behavior
+- **THEN** the current shipped backend-served route is described as a bootstrap-hydrated functional shell with a live `Queue` workspace on `/`, route-addressable selected-change detail inside that queue shell, and a live `Repositories` workspace on `workspace=catalog`
+- **AND** later runs, command, approval decisions, clarification authoring, and realtime workspaces are presented as planned follow-up work rather than already shipped behavior
 - **AND** readiness guidance does not treat removed live-shell behavior as current product truth
 
 ### Requirement: Backend-Served Shell Bootstrap Contract

@@ -27,11 +27,11 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Current UI Direction
 
-- The default backend-served UI is the bootstrap-hydrated functional shell in `web/src/platform/shells/ShellBootstrapApp.tsx`; `/` now ships the tenant queue workspace, and `workspace=catalog` ships the repository workspace.
-- Treat that bootstrap-hydrated shell and its shipped `Queue` + `Repositories` workspaces as the source of truth for default-route behavior, browser proofs, and backend-served UX copy unless a task explicitly says to work on later rollout slices.
-- Do not assume `legacyWorkbench=1`, `change=...`, `run=...`, `tab=...`, or other pre-rollout live-workbench route state is a supported product path.
+- The default backend-served UI is the bootstrap-hydrated functional shell in `web/src/platform/shells/ShellBootstrapApp.tsx`; `/` now ships the tenant queue workspace plus backend-owned selected-change detail, and `workspace=catalog` ships the repository workspace.
+- Treat that bootstrap-hydrated shell and its shipped `Queue`, selected-change detail, and `Repositories` workspaces as the source of truth for default-route behavior, browser proofs, and backend-served UX copy unless a task explicitly says to work on later rollout slices.
+- Do not assume `legacyWorkbench=1`, `run=...`, `runSlice=...`, or other removed live-workbench route state is a supported product path. Current canonical shell state includes `workspace`, `tenant`, `view`, `filter`, `q`, `change`, and selected-change `tab`.
 - Internal reference artifacts such as `web/src/reference/OperatorStyleSamplePage.tsx` still exist, but they are visual references rather than the default shipped route.
-- If a task would restore a supported hidden fallback or skip the ordered `05..10` rollout sequence, confirm scope through OpenSpec before coding.
+- If a task would restore a supported hidden fallback or skip the ordered `06..10` rollout sequence, confirm scope through OpenSpec before coding.
 
 ## Issue Tracking
 
