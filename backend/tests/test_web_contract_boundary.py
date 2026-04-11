@@ -128,6 +128,65 @@ try {{
     return json.loads(completed.stdout)
 
 
+def _run_request_control_api(fetch_impl: str) -> dict[str, object]:
+    script = f"""
+import fs from "node:fs";
+import path from "node:path";
+import {{ pathToFileURL }} from "node:url";
+import * as ts from "typescript";
+
+const tempDir = fs.mkdtempSync(path.join(process.cwd(), ".control-api-boundary-"));
+const modules = [
+  ["controlApi.mjs", "src/platform/contracts/controlApi.ts"],
+  ["schemas.mjs", "src/platform/contracts/schemas.ts"],
+];
+
+for (const [targetName, sourceName] of modules) {{
+  const source = fs.readFileSync(sourceName, "utf8");
+  const transpiled = ts.transpileModule(source, {{
+    compilerOptions: {{
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    }},
+  }}).outputText;
+  fs.writeFileSync(path.join(tempDir, targetName), transpiled, "utf8");
+}}
+
+globalThis.fetch = {fetch_impl};
+
+try {{
+  const controlApiModule = await import(pathToFileURL(path.join(tempDir, "controlApi.mjs")).href);
+  const schemasModule = await import(pathToFileURL(path.join(tempDir, "schemas.mjs")).href);
+  const result = await controlApiModule
+    .requestControlApi("/api/bootstrap", schemasModule.bootstrapResponseSchema)
+    .then((payload) => ({{
+      success: true,
+      payload,
+    }}))
+    .catch((error) => ({{
+      success: false,
+      name: error?.name ?? null,
+      kind: error?.kind ?? null,
+      message: error?.message ?? String(error),
+      status: error?.status ?? null,
+    }}));
+  console.log(JSON.stringify(result));
+}} finally {{
+  fs.rmSync(tempDir, {{ recursive: true, force: true }});
+}}
+"""
+    completed = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=WEB_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return json.loads(completed.stdout)
+
+
 def test_change_detail_schema_accepts_shipped_clarification_memory_shape() -> None:
     result = _validate_payload(_base_change_detail_payload())
 
@@ -177,6 +236,40 @@ def test_bootstrap_schema_accepts_real_backend_payload(client: TestClient) -> No
 
     assert result["success"] is True
     assert result["issues"] == []
+
+
+def test_control_api_boundary_normalizes_bootstrap_transport_failure() -> None:
+    result = _run_request_control_api("""
+async () => {
+  throw new Error("network down");
+}
+""")
+
+    assert result["success"] is False
+    assert result["name"] == "ControlApiError"
+    assert result["kind"] == "transport"
+    assert "Unable to reach Control API for GET /api/bootstrap." in result["message"]
+
+
+def test_control_api_boundary_normalizes_bootstrap_contract_failure() -> None:
+    result = _run_request_control_api("""
+async () =>
+  new Response(JSON.stringify({
+    tenants: "drifted",
+    repositoryCatalog: [],
+    activeTenantId: "tenant-demo",
+    views: [],
+    changes: [],
+  }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  })
+""")
+
+    assert result["success"] is False
+    assert result["name"] == "ControlApiError"
+    assert result["kind"] == "contract"
+    assert "Control API contract failure for GET /api/bootstrap" in result["message"]
 
 
 def test_runs_schema_accepts_real_backend_payload(client: TestClient) -> None:

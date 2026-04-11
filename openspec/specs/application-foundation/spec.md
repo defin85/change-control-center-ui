@@ -13,21 +13,30 @@ The system SHALL provide a production-oriented application skeleton composed of 
 - **AND** Codex execution is reached through a backend-owned runtime layer
 
 ### Requirement: Legacy Template Replacement
-The system SHALL replace the old filesystem-level static prototype as the primary product entrypoint while allowing the shipped backend-served shell itself to remain a static reference composition.
+The system SHALL replace the old filesystem-level static prototype as the primary product entrypoint while moving the shipped backend-served shell into a backend-owned functional scaffold.
 
 #### Scenario: Operator opens the new application
 - **WHEN** an operator opens the main application entrypoint
-- **THEN** the operator sees the backend-served static reference shell rather than the old standalone prototype/template
+- **THEN** the operator sees the backend-served functional shell scaffold rather than the old standalone prototype/template
 - **AND** the same application deployment still provides the backend-owned Control API and runtime foundation behind that shipped shell
 
 ### Requirement: Truthful Shipped Shell Baseline
 The system SHALL keep the current shipped backend-served shell baseline aligned across product docs, readiness gates, and future functional rollout proposals.
 
-#### Scenario: Contributor plans follow-up UI functionality after the static reset
+#### Scenario: Contributor plans follow-up UI functionality after the shell bootstrap rollout
 - **WHEN** a contributor reads repository docs, current specs, or a new UI change proposal
-- **THEN** the current shipped backend-served route is described as the static reference shell
+- **THEN** the current shipped backend-served route is described as the first functional shell scaffold hydrated from backend bootstrap data
 - **AND** later interactive workspaces or workflows are presented as planned follow-up work rather than already shipped behavior
 - **AND** readiness guidance does not treat removed live-shell behavior as current product truth
+
+### Requirement: Backend-Served Shell Bootstrap Contract
+The system SHALL hydrate the functional backend-served operator shell through backend-owned bootstrap data instead of client-owned sample state.
+
+#### Scenario: Operator opens the first functional shell build
+- **WHEN** the operator opens a functional backend-served shell entrypoint
+- **THEN** the shell requests and validates the backend bootstrap contract before rendering functional workspace state
+- **AND** tenant and repository-catalog context come from backend-owned data rather than hard-coded sample arrays
+- **AND** bootstrap contract failure is surfaced explicitly instead of silently falling back to client-only shell truth
 
 ### Requirement: Backend-Owned Change State
 The system SHALL keep `change`, `run`, `gap`, `traceability`, and `evidence` as backend-owned persistent state rather than deriving product state from Codex thread history alone.

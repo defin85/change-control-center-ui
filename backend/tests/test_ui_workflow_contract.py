@@ -4,6 +4,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 APP_ENTRY = ROOT / "web/src/App.tsx"
+BOOTSTRAP_CONTROLLER = ROOT / "web/src/platform/navigation/useShellBootstrapController.ts"
+BOOTSTRAP_SHELL = ROOT / "web/src/platform/shells/ShellBootstrapApp.tsx"
 STATIC_REFERENCE = ROOT / "web/src/reference/OperatorStyleSamplePage.tsx"
 REMOVED_LEGACY_FILES = [
     ROOT / "web/src/api.ts",
@@ -31,16 +33,33 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_shipped_app_entry_renders_static_reference_shell_directly() -> None:
+def test_shipped_app_entry_uses_bootstrap_shell_app() -> None:
     source = _read(APP_ENTRY)
 
-    assert "OperatorStyleSamplePage" in source
-    assert "useOperatorServerState" not in source
+    assert "ShellBootstrapApp" in source
+    assert "OperatorStyleSamplePage" not in source
     assert "SimpleReferenceWorkbench" not in source
+
+
+def test_shell_bootstrap_controller_uses_shared_control_api_and_canonical_route_state() -> None:
+    source = _read(BOOTSTRAP_CONTROLLER)
+
+    assert 'requestControlApi(BOOTSTRAP_ENDPOINT, bootstrapResponseSchema)' in source
+    assert "readOperatorRouteState" in source
+    assert "buildOperatorRouteHref" in source
     assert "window.history.replaceState" in source
+    assert "window.history.pushState" in source
 
 
-def test_static_reference_shell_removes_live_bridge_affordances() -> None:
+def test_bootstrap_shell_surfaces_explicit_loading_and_failure_states() -> None:
+    source = _read(BOOTSTRAP_SHELL)
+
+    assert "Hydrating operator shell" in source
+    assert "Operator shell bootstrap failed" in source
+    assert "functional shell" in source
+
+
+def test_static_reference_shell_remains_a_repo_artifact_without_live_bridge_affordances() -> None:
     source = _read(STATIC_REFERENCE)
 
     assert "codex-lb style" in source

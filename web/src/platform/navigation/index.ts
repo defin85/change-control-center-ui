@@ -7,4 +7,12 @@ export {
   DEFAULT_OPERATOR_WORKSPACE_MODE,
   readOperatorRouteState,
 } from "./operatorRouteState";
+export { useShellBootstrapController } from "./useShellBootstrapController";
 export type { OperatorRouteState, OperatorRunSlice, OperatorWorkspaceMode } from "./operatorRouteState";
+export type {
+  FunctionalShellRouteState,
+  ShellBootstrapController,
+  ShellBootstrapControllerError,
+  ShellBootstrapControllerLoading,
+  ShellBootstrapControllerReady,
+} from "./useShellBootstrapController";

@@ -1,0 +1,134 @@
+.bootstrap-shell-page {
+  display: grid;
+  gap: 24px;
+}
+
+.bootstrap-shell-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(220px, 1fr) auto;
+  gap: 14px 16px;
+  align-items: end;
+}
+
+.bootstrap-shell-toolbar__field {
+  display: grid;
+  gap: 6px;
+}
+
+.bootstrap-shell-toolbar__field span,
+.bootstrap-shell-rollout__step-label {
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.bootstrap-shell-toolbar__select,
+.bootstrap-shell-toolbar__input {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-strong) 95%, white);
+  padding: 10px 14px;
+  color: var(--text);
+}
+
+.bootstrap-shell-toolbar__summary {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-soft) 90%, white);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.bootstrap-shell-context-grid,
+.bootstrap-shell-stage-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  gap: 16px;
+}
+
+.bootstrap-shell-rollout {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bootstrap-shell-rollout li {
+  display: grid;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.bootstrap-shell-rollout li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.bootstrap-shell-rollout strong,
+.bootstrap-shell-stage-card h3 {
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.bootstrap-shell-stage-card {
+  display: grid;
+  gap: 14px;
+}
+
+.bootstrap-shell-stage-card p,
+.bootstrap-shell-rollout li p,
+.bootstrap-shell-route-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.bootstrap-shell-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bootstrap-shell-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-soft) 88%, white);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.bootstrap-shell-chip--active {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 52%, white);
+}
+
+.bootstrap-shell-status {
+  display: grid;
+  gap: 16px;
+  padding: 28px 20px 8px;
+}
+
+.bootstrap-shell-status .reference-panel {
+  min-height: 240px;
+}
+
+@media (max-width: 1180px) {
+  .bootstrap-shell-toolbar,
+  .bootstrap-shell-context-grid,
+  .bootstrap-shell-stage-grid {
+    grid-template-columns: 1fr;
+  }
+}
