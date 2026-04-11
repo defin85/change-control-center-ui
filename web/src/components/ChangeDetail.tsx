@@ -15,6 +15,8 @@ type ChangeDetailProps = {
   detail: ChangeDetailResponse | null;
   selectedRunId: string | null;
   compactViewport?: boolean;
+  showActions?: boolean;
+  showRunsPrerequisiteNotice?: boolean;
   onRunNext: () => Promise<void>;
   onOpenRuns: () => void;
   onEscalate: () => Promise<void>;
@@ -139,6 +141,8 @@ export function ChangeDetail({
   detail,
   selectedRunId,
   compactViewport = false,
+  showActions = true,
+  showRunsPrerequisiteNotice = true,
   onRunNext,
   onOpenRuns,
   onEscalate,
@@ -208,127 +212,129 @@ export function ChangeDetail({
       title={change.title}
       subtitle={change.subtitle}
       actions={
-        <div className="detail-action-cluster">
-          <PlatformPrimitives.Button
-            type="button"
-            className="primary-button"
-            data-platform-action="run-next-step"
-            data-platform-hierarchy="primary"
-            onClick={() =>
-              actionWorkflow.runCommand({
-                label: "Run next step",
-                execute: onRunNext,
-              })
-            }
-            disabled={actionWorkflow.isPending}
-          >
-            Run next step
-          </PlatformPrimitives.Button>
-          <PlatformPrimitives.Button
-            type="button"
-            className="ghost-button"
-            data-platform-action="open-runs"
-            aria-controls="selected-run-detail"
-            onClick={onOpenRuns}
-            disabled={actionWorkflow.isPending || !canOpenRuns}
-            title={canOpenRuns ? undefined : "Generate or select a backend-owned run before opening Runs."}
-          >
-            Open runs
-          </PlatformPrimitives.Button>
-          <PlatformPrimitives.Button
-            type="button"
-            className="ghost-button"
-            data-platform-action="escalate-change"
-            onClick={() =>
-              actionWorkflow.runCommand({
-                label: "Escalate change",
-                execute: onEscalate,
-              })
-            }
-            disabled={actionWorkflow.isPending}
-          >
-            Escalate
-          </PlatformPrimitives.Button>
-          <PlatformPrimitives.Button
-            type="button"
-            className="ghost-button"
-            data-platform-action="block-by-spec"
-            onClick={() =>
-              actionWorkflow.runCommand({
-                label: "Mark blocked by spec",
-                execute: onBlockBySpec,
-              })
-            }
-            disabled={actionWorkflow.isPending}
-          >
-            Mark blocked by spec
-          </PlatformPrimitives.Button>
-          <PlatformPrimitives.AlertDialog.Root
-            open={isDeleteDialogOpen}
-            onOpenChange={(open) => {
-              if (!actionWorkflow.isPending) {
-                setIsDeleteDialogOpen(open);
-              }
-            }}
-          >
-            <PlatformPrimitives.AlertDialog.Trigger
+        showActions ? (
+          <div className="detail-action-cluster">
+            <PlatformPrimitives.Button
               type="button"
-              className="destructive-button"
-              data-platform-action="delete-change"
+              className="primary-button"
+              data-platform-action="run-next-step"
+              data-platform-hierarchy="primary"
+              onClick={() =>
+                actionWorkflow.runCommand({
+                  label: "Run next step",
+                  execute: onRunNext,
+                })
+              }
               disabled={actionWorkflow.isPending}
             >
-              Delete change
-            </PlatformPrimitives.AlertDialog.Trigger>
-            <PlatformPrimitives.AlertDialog.Portal>
-              <PlatformPrimitives.AlertDialog.Backdrop className="modal-backdrop" />
-              <PlatformPrimitives.AlertDialog.Viewport className="modal-viewport">
-                <PlatformPrimitives.AlertDialog.Popup className="modal-popup">
-                  <div className="dialog-stack">
-                    <div className="dialog-header">
+              Run next step
+            </PlatformPrimitives.Button>
+            <PlatformPrimitives.Button
+              type="button"
+              className="ghost-button"
+              data-platform-action="open-runs"
+              aria-controls="selected-run-detail"
+              onClick={onOpenRuns}
+              disabled={actionWorkflow.isPending || !canOpenRuns}
+              title={canOpenRuns ? undefined : "Generate or select a backend-owned run before opening Runs."}
+            >
+              Open runs
+            </PlatformPrimitives.Button>
+            <PlatformPrimitives.Button
+              type="button"
+              className="ghost-button"
+              data-platform-action="escalate-change"
+              onClick={() =>
+                actionWorkflow.runCommand({
+                  label: "Escalate change",
+                  execute: onEscalate,
+                })
+              }
+              disabled={actionWorkflow.isPending}
+            >
+              Escalate
+            </PlatformPrimitives.Button>
+            <PlatformPrimitives.Button
+              type="button"
+              className="ghost-button"
+              data-platform-action="block-by-spec"
+              onClick={() =>
+                actionWorkflow.runCommand({
+                  label: "Mark blocked by spec",
+                  execute: onBlockBySpec,
+                })
+              }
+              disabled={actionWorkflow.isPending}
+            >
+              Mark blocked by spec
+            </PlatformPrimitives.Button>
+            <PlatformPrimitives.AlertDialog.Root
+              open={isDeleteDialogOpen}
+              onOpenChange={(open) => {
+                if (!actionWorkflow.isPending) {
+                  setIsDeleteDialogOpen(open);
+                }
+              }}
+            >
+              <PlatformPrimitives.AlertDialog.Trigger
+                type="button"
+                className="destructive-button"
+                data-platform-action="delete-change"
+                disabled={actionWorkflow.isPending}
+              >
+                Delete change
+              </PlatformPrimitives.AlertDialog.Trigger>
+              <PlatformPrimitives.AlertDialog.Portal>
+                <PlatformPrimitives.AlertDialog.Backdrop className="modal-backdrop" />
+                <PlatformPrimitives.AlertDialog.Viewport className="modal-viewport">
+                  <PlatformPrimitives.AlertDialog.Popup className="modal-popup">
+                    <div className="dialog-stack">
+                      <div className="dialog-header">
+                        <div className="stack">
+                          <p className="eyebrow">Destructive action</p>
+                          <PlatformPrimitives.AlertDialog.Title>Delete {change.id}</PlatformPrimitives.AlertDialog.Title>
+                          <PlatformPrimitives.AlertDialog.Description className="muted">
+                            Removing this change also removes its runs, approvals, evidence, and clarification rounds from
+                            backend-owned state.
+                          </PlatformPrimitives.AlertDialog.Description>
+                        </div>
+                      </div>
                       <div className="stack">
-                        <p className="eyebrow">Destructive action</p>
-                        <PlatformPrimitives.AlertDialog.Title>Delete {change.id}</PlatformPrimitives.AlertDialog.Title>
-                        <PlatformPrimitives.AlertDialog.Description className="muted">
-                          Removing this change also removes its runs, approvals, evidence, and clarification rounds from
-                          backend-owned state.
-                        </PlatformPrimitives.AlertDialog.Description>
+                        <p className="muted">This action cannot be undone from the operator shell.</p>
+                        <div className="dialog-actions">
+                          <PlatformPrimitives.AlertDialog.Close
+                            type="button"
+                            className="ghost-button"
+                            disabled={actionWorkflow.isPending}
+                          >
+                            Cancel
+                          </PlatformPrimitives.AlertDialog.Close>
+                          <button
+                            type="button"
+                            className="destructive-button"
+                            data-platform-action="confirm-delete-change"
+                            disabled={actionWorkflow.isPending}
+                            onClick={() =>
+                              actionWorkflow.runCommand({
+                                label: "Delete change",
+                                execute: async () => {
+                                  await onDeleteChange();
+                                  setIsDeleteDialogOpen(false);
+                                },
+                              })
+                            }
+                          >
+                            Delete change
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <div className="stack">
-                      <p className="muted">This action cannot be undone from the operator shell.</p>
-                      <div className="dialog-actions">
-                        <PlatformPrimitives.AlertDialog.Close
-                          type="button"
-                          className="ghost-button"
-                          disabled={actionWorkflow.isPending}
-                        >
-                          Cancel
-                        </PlatformPrimitives.AlertDialog.Close>
-                        <button
-                          type="button"
-                          className="destructive-button"
-                          data-platform-action="confirm-delete-change"
-                          disabled={actionWorkflow.isPending}
-                          onClick={() =>
-                            actionWorkflow.runCommand({
-                              label: "Delete change",
-                              execute: async () => {
-                                await onDeleteChange();
-                                setIsDeleteDialogOpen(false);
-                              },
-                            })
-                          }
-                        >
-                          Delete change
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </PlatformPrimitives.AlertDialog.Popup>
-              </PlatformPrimitives.AlertDialog.Viewport>
-            </PlatformPrimitives.AlertDialog.Portal>
-          </PlatformPrimitives.AlertDialog.Root>
-        </div>
+                  </PlatformPrimitives.AlertDialog.Popup>
+                </PlatformPrimitives.AlertDialog.Viewport>
+              </PlatformPrimitives.AlertDialog.Portal>
+            </PlatformPrimitives.AlertDialog.Root>
+          </div>
+        ) : undefined
       }
     >
       {actionWorkflow.error ? (
@@ -339,7 +345,7 @@ export function ChangeDetail({
       {actionWorkflow.isPending ? (
         <div className="empty-state">{actionWorkflow.activeLabel ?? "Operator command in progress."}</div>
       ) : null}
-      {!canOpenRuns ? (
+      {showRunsPrerequisiteNotice && !canOpenRuns ? (
         <p className="governance-note" data-platform-governance="runs-run-required">
           Run the change once before opening canonical run details.
         </p>
@@ -686,12 +692,20 @@ export function ChangeDetail({
               disabled={!canPromoteFact || factPromotionWorkflow.isPending}
               onClick={() => {
                 if (canPromoteFact) {
+                  const draftTitle = normalizedFactTitle;
+                  const draftBody = normalizedFactBody;
+                  setFactTitle("");
+                  setFactBody("");
                   factPromotionWorkflow.runCommand({
                     label: "Promote fact",
                     execute: async () => {
-                      await onPromoteFact(normalizedFactTitle, normalizedFactBody);
-                      setFactTitle("");
-                      setFactBody("");
+                      try {
+                        await onPromoteFact(draftTitle, draftBody);
+                      } catch (error) {
+                        setFactTitle(draftTitle);
+                        setFactBody(draftBody);
+                        throw error;
+                      }
                     },
                   });
                 }

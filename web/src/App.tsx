@@ -1,6 +1,6 @@
 import {
-  OperatorWorkbench,
   OperatorWorkbenchState,
+  SimpleReferenceWorkbench,
   useOperatorServerState,
 } from "./platform";
 
@@ -17,7 +17,7 @@ function OperatorApp() {
     return <OperatorWorkbenchState tone="loading" message={operatorServerState.message} />;
   }
 
-  return <OperatorWorkbench {...operatorServerState.workbenchProps} />;
+  return <SimpleReferenceWorkbench {...operatorServerState.workbenchProps} />;
 }
 
 export default function App() {

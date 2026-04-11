@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ChangeDetail } from "../../components/ChangeDetail";
-import { RunStudio } from "../../components/RunStudio";
+import { RunDetailPanel } from "../../components/RunDetailPanel";
+import { RunsWorkspacePanel } from "../../components/RunsWorkspacePanel";
 import { formatStateLabel } from "../../lib";
 import type { ChangeDetailResponse, ChangeSummary, RepositoryCatalogEntry } from "../../types";
 import { PlatformPrimitives } from "../foundation";
@@ -9,6 +10,7 @@ import type { OperatorWorkspaceMode } from "../navigation";
 import { describeFilter, filterRepositoryCatalog, REPOSITORY_CATALOG_FILTERS, buildViewCounts, OPERATOR_FILTERS } from "../server-state";
 import type { RepositoryCatalogFilterId } from "../server-state/filtering";
 import { DetailWorkspaceShell } from "../shells/DetailWorkspaceShell";
+import { RunDetailWorkspaceShell } from "../shells/RunDetailWorkspaceShell";
 import { RepositoryCatalogWorkspaceShell } from "../shells/RepositoryCatalogWorkspaceShell";
 import { WorkspacePageShell } from "../shells/WorkspacePageShell";
 import { useAsyncWorkflowCommandMachine } from "../workflow";
@@ -47,16 +49,18 @@ const DONUT_COLORS = {
   amber: "#f59f00",
 } as const;
 
-const NAV_ITEMS = [
+const NAV_ITEMS: Array<{ id: OperatorWorkspaceMode; label: string }> = [
   { id: "queue", label: "Workbench" },
   { id: "catalog", label: "Repositories" },
+  { id: "runs", label: "Runs" },
 ] as const;
 
-const STATIC_NAV_ITEMS = ["Runs", "Governance"] as const;
+const STATIC_NAV_ITEMS = ["Governance"] as const;
 
 export function SimpleReferenceWorkbench({
   bootstrap,
   activeWorkspaceMode,
+  activeRunSlice,
   activeTenantId,
   hasExplicitCatalogSelection,
   activeViewId,
@@ -71,12 +75,14 @@ export function SimpleReferenceWorkbench({
   detail,
   changes,
   filteredChanges,
+  runsWorkspaceEntries,
   selectedRunApprovals,
   selectedRunEvents,
   realtimeNotice,
   toast,
   onSearchQueryChange,
   onWorkspaceModeChange,
+  onRunSliceChange,
   onCreateTenant,
   onCreateChange,
   onGlobalRunNext,
@@ -117,8 +123,29 @@ export function SimpleReferenceWorkbench({
   const viewCounts = buildViewCounts(bootstrap.views, changes);
   const activeRepositoryCatalogEntry = repositoryCatalog.find((entry) => entry.tenantId === activeTenantId) ?? null;
   const selectedRun = detail?.runs.find((run) => run.id === selectedRunId) ?? null;
+  const selectedRunChange = useMemo(() => {
+    if (!detail) {
+      return null;
+    }
+    const mandatoryGapCount = detail.change.gaps.filter((gap) => gap.mandatory && gap.status !== "closed").length;
+    return {
+      id: detail.change.id,
+      tenantId: detail.change.tenantId,
+      title: detail.change.title,
+      subtitle: detail.change.subtitle,
+      state: detail.change.state,
+      owner: detail.change.owner,
+      nextAction: detail.change.nextAction,
+      blocker: detail.change.blocker,
+      loopCount: detail.change.loopCount,
+      lastRunAgo: detail.change.lastRunAgo,
+      verificationStatus: detail.change.verificationStatus,
+      mandatoryGapCount,
+    };
+  }, [detail]);
   const hasVisibleContextualPrimaryAction = Boolean(selectedChangeId) && (!isCompactViewport || dismissedChangeId !== selectedChangeId);
   const isDetailWorkspaceOpen = Boolean(selectedChangeId) && dismissedChangeId !== selectedChangeId;
+  const isRunWorkspaceOpen = Boolean(selectedRunId);
   const isRepositoryCatalogWorkspaceOpen = Boolean(activeRepositoryCatalogEntry) && hasExplicitCatalogSelection;
   const toolbarItems = bootstrap.tenants.map((tenant) => ({
     label: tenant.name,
@@ -129,6 +156,8 @@ export function SimpleReferenceWorkbench({
     searchQuery,
   });
   const repositoryOverviewEntries = useMemo(() => sortRepositoryOverview(repositoryCatalog, activeTenantId), [activeTenantId, repositoryCatalog]);
+  const pendingApprovalCount = runsWorkspaceEntries.reduce((sum, entry) => sum + entry.pendingApprovalCount, 0);
+  const attentionRunCount = runsWorkspaceEntries.filter((entry) => entry.requiresAttention).length;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 1080px)");
@@ -139,6 +168,7 @@ export function SimpleReferenceWorkbench({
   }, []);
 
   const metrics = buildMetricCards({
+    activeRunSlice,
     activeWorkspaceMode,
     activeTenantName: activeTenant?.name ?? activeTenantId,
     activeViewLabel,
@@ -146,12 +176,19 @@ export function SimpleReferenceWorkbench({
     detail,
     filteredRepositoryCatalog,
     repositoryCatalog,
+    runsWorkspaceEntries,
+    selectedRunId,
   });
   const pressureItems = buildPressureItems(repositoryCatalog);
   const executionLanes = buildExecutionLanes({
+    activeRunSlice,
+    activeWorkspaceMode,
     activeViewCount,
     detail,
     filteredChangeCount: filteredChanges.length,
+    pendingApprovalCount,
+    attentionRunCount,
+    searchQuery,
   });
   const isWorkflowDetailOpen = workflowDetailOpenByUser || activeTabId !== "overview" || Boolean(selectedRunId);
 
@@ -206,6 +243,20 @@ export function SimpleReferenceWorkbench({
       ? "ghost-button operator-style-live__masthead-button"
       : "primary-button operator-style-live__masthead-button";
 
+  const runDetailPanel = (
+    <RunDetailPanel
+      panelId="selected-run-detail"
+      run={selectedRun}
+      change={selectedRunChange}
+      events={selectedRunEvents}
+      approvals={selectedRunApprovals}
+      closeLabel={activeWorkspaceMode === "runs" ? "Back to runs" : "Back to change detail"}
+      onApprovalDecision={onApprovalDecision}
+      onClose={onClearSelectedRun}
+      onOpenChange={activeWorkspaceMode === "runs" && selectedChangeId ? () => onWorkspaceModeChange("queue") : null}
+    />
+  );
+
   const detailWorkspace = (
     <DetailWorkspaceShell
       isCompactViewport={isCompactViewport}
@@ -218,8 +269,6 @@ export function SimpleReferenceWorkbench({
           compactViewport={isCompactViewport}
           detail={detail}
           selectedRun={selectedRun}
-          selectedRunApprovals={selectedRunApprovals}
-          selectedRunEvents={selectedRunEvents}
           selectedRunId={selectedRunId}
           isWorkflowDetailOpen={isWorkflowDetailOpen}
           actionWorkflow={detailWorkflow}
@@ -234,10 +283,9 @@ export function SimpleReferenceWorkbench({
           onSelectRun={onSelectRun}
           onSelectTab={onSelectTab}
           onPromoteFact={onPromoteFact}
-          onApprovalDecision={onApprovalDecision}
-          onClearSelectedRun={onClearSelectedRun}
         />
       }
+      runInspection={isRunWorkspaceOpen ? runDetailPanel : null}
     />
   );
 
@@ -261,7 +309,13 @@ export function SimpleReferenceWorkbench({
   const workspace = (
     <div
       className={`operator-style-sample operator-style-live-workbench ${activeWorkspaceMode === "catalog" ? "operator-style-live-workbench--catalog" : ""}`}
-      data-platform-surface={activeWorkspaceMode === "catalog" ? "repository-catalog-workbench" : "operator-workbench"}
+      data-platform-surface={
+        activeWorkspaceMode === "catalog"
+          ? "repository-catalog-workbench"
+          : activeWorkspaceMode === "runs"
+            ? "runs-workbench"
+            : "operator-workbench"
+      }
     >
       <header className="operator-style-sample__masthead" data-platform-surface="workbench-header">
         <div className="operator-style-sample__masthead-inner">
@@ -271,23 +325,27 @@ export function SimpleReferenceWorkbench({
             </div>
             <div>
               <strong>Change Control Center</strong>
-              <p>{activeWorkspaceMode === "catalog" ? "Repository portfolio" : "Simple reference shell"}</p>
+              <p>
+                {activeWorkspaceMode === "catalog"
+                  ? "Repository portfolio"
+                  : activeWorkspaceMode === "runs"
+                    ? "Tenant run operations"
+                    : "Canonical operator shell"}
+              </p>
             </div>
           </div>
 
           <nav className="operator-style-sample__nav" aria-label="Primary sections">
             {NAV_ITEMS.map((item) => {
-              const isActive =
-                (item.id === "queue" && activeWorkspaceMode === "queue") ||
-                (item.id === "catalog" && activeWorkspaceMode === "catalog");
+              const isActive = item.id === activeWorkspaceMode;
               return (
                 <PlatformPrimitives.Button
                   key={item.id}
                   type="button"
                   className={`operator-style-sample__nav-pill${isActive ? " operator-style-sample__nav-pill--active" : ""}`}
-                  data-platform-action={item.id === "queue" ? "workspace-queue" : "workspace-catalog"}
+                  data-platform-action={`workspace-${item.id}`}
                   aria-pressed={isActive}
-                  onClick={() => onWorkspaceModeChange(item.id as OperatorWorkspaceMode)}
+                  onClick={() => onWorkspaceModeChange(item.id)}
                 >
                   {item.label}
                 </PlatformPrimitives.Button>
@@ -310,11 +368,17 @@ export function SimpleReferenceWorkbench({
                   name="search"
                   value={searchQuery}
                   onChange={(event) => onSearchQueryChange(event.target.value)}
-                  placeholder={activeWorkspaceMode === "catalog" ? "repository, path, attention" : "change, requirement, blocker"}
+                  placeholder={
+                    activeWorkspaceMode === "catalog"
+                      ? "repository, path, attention"
+                      : activeWorkspaceMode === "runs"
+                        ? "run, change, outcome, approval"
+                        : "change, requirement, blocker"
+                  }
                   type="search"
                 />
               </label>
-              {activeWorkspaceMode === "queue" ? (
+              {activeWorkspaceMode !== "catalog" ? (
                 <div className="operator-style-live__tenant-picker">
                   <span>Repository</span>
                   <PlatformPrimitives.Select.Root
@@ -400,7 +464,11 @@ export function SimpleReferenceWorkbench({
             </PlatformPrimitives.Toolbar.Root>
             <div className="operator-style-live__masthead-meta">
               <span className="operator-style-sample__ghost-chip">
-                {activeWorkspaceMode === "catalog" ? "portfolio review" : "live queue"}
+                {activeWorkspaceMode === "catalog"
+                  ? "portfolio review"
+                  : activeWorkspaceMode === "runs"
+                    ? "tenant run operations"
+                    : "live queue"}
               </span>
               <span className="operator-style-sample__ghost-chip">backend-owned state</span>
             </div>
@@ -439,16 +507,28 @@ export function SimpleReferenceWorkbench({
       <main className="operator-style-sample__page">
         <section className="operator-style-sample__page-header">
           <div>
-            <h1>{activeWorkspaceMode === "catalog" ? "Repository Portfolio" : "Operator Workbench"}</h1>
+            <h1>
+              {activeWorkspaceMode === "catalog"
+                ? "Repository portfolio"
+                : activeWorkspaceMode === "runs"
+                  ? "Tenant runs"
+                  : "Operator workbench"}
+            </h1>
             <p>
               {activeWorkspaceMode === "catalog"
                 ? "Backend-owned catalog for choosing where operator attention should move next."
-                : `Live backend-owned queue and selected-change workspace for ${activeTenant?.name ?? activeTenantId}.`}
+                : activeWorkspaceMode === "runs"
+                  ? `Backend-owned run monitoring and direct handoff for ${activeTenant?.name ?? activeTenantId}.`
+                  : `Live backend-owned queue and selected-change workspace for ${activeTenant?.name ?? activeTenantId}.`}
             </p>
           </div>
           <div className="operator-style-sample__header-note">
             <span className="operator-style-sample__live-dot" aria-hidden="true" />
-            {activeWorkspaceMode === "catalog" ? "Served repository mode" : `Served workbench · ${activeTenantRepoPath}`}
+            {activeWorkspaceMode === "catalog"
+              ? "Served repository mode"
+              : activeWorkspaceMode === "runs"
+                ? `Served run operations · ${activeTenantRepoPath}`
+                : `Served workbench · ${activeTenantRepoPath}`}
           </div>
         </section>
 
@@ -458,117 +538,189 @@ export function SimpleReferenceWorkbench({
           ))}
         </section>
 
-        <section className="operator-style-sample__overview-grid">
-          <article className="operator-style-sample__panel operator-style-sample__panel--wide">
-            <div className="operator-style-sample__panel-heading">
-              <div>
-                <h2>{activeWorkspaceMode === "catalog" ? "Portfolio pressure" : "Repository pressure"}</h2>
-                <p>
-                  {activeWorkspaceMode === "catalog"
-                    ? "Attention distribution across the tracked repository fleet."
-                    : "Portfolio distribution behind the current queue slice."}
-                </p>
-              </div>
-            </div>
-            <div className="operator-style-sample__donut-layout">
-              <PressureDonut items={pressureItems} />
-              <div className="operator-style-sample__legend">
-                {pressureItems.map((item) => (
-                  <div key={item.label} className="operator-style-sample__legend-row">
-                    <span className="operator-style-sample__legend-dot" style={{ backgroundColor: item.color }} aria-hidden="true" />
-                    <span className="operator-style-sample__legend-label">{item.label}</span>
-                    <span className="operator-style-sample__legend-value">{item.value}</span>
+        {activeWorkspaceMode === "runs" ? (
+          <>
+            <section className="operator-style-sample__overview-grid">
+              <article className="operator-style-sample__panel operator-style-sample__panel--wide">
+                <div className="operator-style-sample__panel-heading">
+                  <div>
+                    <h2>Run pressure</h2>
+                    <p>Where operator attention is being consumed across the current tenant run ledger.</p>
                   </div>
-                ))}
-              </div>
-            </div>
-          </article>
+                </div>
+                <div className="operator-style-sample__execution-lanes">
+                  {executionLanes.map((lane) => (
+                    <ExecutionLaneRow key={lane.label} lane={lane} />
+                  ))}
+                </div>
+              </article>
 
-          <article className="operator-style-sample__panel">
-            <div className="operator-style-sample__panel-heading">
-              <div>
-                <h2>Execution health</h2>
-                <p>Where operator attention is being consumed right now.</p>
-              </div>
-            </div>
-            <div className="operator-style-sample__execution-lanes">
-              {executionLanes.map((lane) => (
-                <ExecutionLaneRow key={lane.label} lane={lane} />
-              ))}
-            </div>
-          </article>
-        </section>
+              <article className="operator-style-sample__panel">
+                <div className="operator-style-sample__panel-heading">
+                  <div>
+                    <h2>Selected context</h2>
+                    <p>Run detail stays tied to backend-owned change context.</p>
+                  </div>
+                </div>
+                <dl className="reference-fact-list">
+                  <div>
+                    <dt>Repository</dt>
+                    <dd>{activeTenant?.name ?? activeTenantId}</dd>
+                  </div>
+                  <div>
+                    <dt>Run slice</dt>
+                    <dd>{activeRunSlice === "attention" ? "Needs attention" : "All history"}</dd>
+                  </div>
+                  <div>
+                    <dt>Owning change</dt>
+                    <dd>{detail ? detail.change.id : "Awaiting run selection"}</dd>
+                  </div>
+                </dl>
+              </article>
+            </section>
 
-        <section className="operator-style-sample__section">
-          <div className="operator-style-sample__section-heading">
-            <h2>Repositories</h2>
-            <div className="operator-style-sample__section-rule" aria-hidden="true" />
-          </div>
-          {activeWorkspaceMode === "catalog" ? (
-            <div className="operator-style-sample__queue-layout operator-style-live__catalog-layout" data-platform-surface="repository-overview">
-              <RepositoryCatalogListPanel
-                entries={filteredRepositoryCatalog}
-                selectedTenantId={isCompactViewport && !hasExplicitCatalogSelection ? null : activeTenantId}
-                activeFilterId={activeRepositoryCatalogFilterId}
-                isSelectionPending={catalogSelectionWorkflow.isPending}
-                selectionPendingLabel={catalogSelectionWorkflow.activeLabel}
-                selectionError={catalogSelectionWorkflow.error}
-                searchQuery={searchQuery}
-                onSelectFilter={setActiveRepositoryCatalogFilterId}
-                onSelectTenant={(tenantId) => {
-                  void handleCatalogSelection(tenantId);
-                }}
-                onOpenCreateTenant={() => setIsCreateTenantDialogOpen(true)}
-              />
-              {!isCompactViewport ? repositoryWorkspace : null}
-            </div>
-          ) : (
-            <div className="operator-style-sample__repository-grid" data-platform-surface="repository-overview">
-              {repositoryOverviewEntries.map((entry) => (
-                <RepositoryOverviewCard
-                  key={entry.tenantId}
-                  entry={entry}
-                  active={entry.tenantId === activeTenantId}
-                  onSelect={() => {
-                    if (entry.tenantId !== activeTenantId) {
-                      void onTenantChange(entry.tenantId);
-                    }
-                  }}
+            <section className="operator-style-sample__section">
+              <div className="operator-style-sample__section-heading">
+                <h2>Runs</h2>
+                <div className="operator-style-sample__section-rule" aria-hidden="true" />
+              </div>
+              <div className="reference-paired-stage" data-platform-surface="runs-detail-stage">
+                <RunsWorkspacePanel
+                  entries={runsWorkspaceEntries}
+                  activeRunSlice={activeRunSlice}
+                  searchQuery={searchQuery}
+                  selectedRunId={selectedRunId}
+                  onRunSliceChange={onRunSliceChange}
+                  onSelectRun={onSelectRun}
+                  onClearSelection={onClearSelectedRun}
                 />
-              ))}
-            </div>
-          )}
-        </section>
+                {!isCompactViewport ? (
+                  <RunDetailWorkspaceShell
+                    isCompactViewport={false}
+                    isOpen={isRunWorkspaceOpen}
+                    selectedRunId={selectedRunId}
+                    onClose={onClearSelectedRun}
+                    detail={runDetailPanel}
+                  />
+                ) : null}
+              </div>
+            </section>
+          </>
+        ) : (
+          <>
+            <section className="operator-style-sample__overview-grid">
+              <article className="operator-style-sample__panel operator-style-sample__panel--wide">
+                <div className="operator-style-sample__panel-heading">
+                  <div>
+                    <h2>{activeWorkspaceMode === "catalog" ? "Portfolio pressure" : "Repository pressure"}</h2>
+                    <p>
+                      {activeWorkspaceMode === "catalog"
+                        ? "Attention distribution across the tracked repository fleet."
+                        : "Portfolio distribution behind the current queue slice."}
+                    </p>
+                  </div>
+                </div>
+                <div className="operator-style-sample__donut-layout">
+                  <PressureDonut items={pressureItems} />
+                  <div className="operator-style-sample__legend">
+                    {pressureItems.map((item) => (
+                      <div key={item.label} className="operator-style-sample__legend-row">
+                        <span className="operator-style-sample__legend-dot" style={{ backgroundColor: item.color }} aria-hidden="true" />
+                        <span className="operator-style-sample__legend-label">{item.label}</span>
+                        <span className="operator-style-sample__legend-value">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </article>
 
-        {activeWorkspaceMode === "queue" ? (
-          <section className="operator-style-sample__section">
-            <div className="operator-style-sample__section-heading">
-              <h2>Live queue</h2>
-              <div className="operator-style-sample__section-rule" aria-hidden="true" />
-            </div>
-            <div className="operator-style-sample__queue-layout" data-platform-surface="queue-detail-stage">
-              <QueueStagePanel
-                activeFilterId={activeFilterId}
-                activeFilterLabel={activeFilter.label}
-                activeViewCount={activeViewCount}
-                activeViewId={activeViewId}
-                activeViewLabel={activeViewLabel}
-                changes={filteredChanges}
-                repositoryCatalog={repositoryCatalog}
-                searchQuery={searchQuery}
-                selectedChangeId={selectedChangeId}
-                viewCounts={viewCounts}
-                views={bootstrap.views}
-                onClearSelection={onClearSelection}
-                onSearchQueryChange={onSearchQueryChange}
-                onSelectChange={handleWorkspaceSelection}
-                onSelectFilter={onSelectFilter}
-                onSelectView={onSelectView}
-              />
-              {!isCompactViewport ? detailWorkspace : null}
-            </div>
-          </section>
-        ) : null}
+              <article className="operator-style-sample__panel">
+                <div className="operator-style-sample__panel-heading">
+                  <div>
+                    <h2>Execution health</h2>
+                    <p>Where operator attention is being consumed right now.</p>
+                  </div>
+                </div>
+                <div className="operator-style-sample__execution-lanes">
+                  {executionLanes.map((lane) => (
+                    <ExecutionLaneRow key={lane.label} lane={lane} />
+                  ))}
+                </div>
+              </article>
+            </section>
+
+            <section className="operator-style-sample__section">
+              <div className="operator-style-sample__section-heading">
+                <h2>Repositories</h2>
+                <div className="operator-style-sample__section-rule" aria-hidden="true" />
+              </div>
+              {activeWorkspaceMode === "catalog" ? (
+                <div className="operator-style-sample__queue-layout operator-style-live__catalog-layout" data-platform-surface="repository-overview">
+                  <RepositoryCatalogListPanel
+                    entries={filteredRepositoryCatalog}
+                    selectedTenantId={isCompactViewport && !hasExplicitCatalogSelection ? null : activeTenantId}
+                    activeFilterId={activeRepositoryCatalogFilterId}
+                    isSelectionPending={catalogSelectionWorkflow.isPending}
+                    selectionPendingLabel={catalogSelectionWorkflow.activeLabel}
+                    selectionError={catalogSelectionWorkflow.error}
+                    searchQuery={searchQuery}
+                    onSelectFilter={setActiveRepositoryCatalogFilterId}
+                    onSelectTenant={(tenantId) => {
+                      void handleCatalogSelection(tenantId);
+                    }}
+                    onOpenCreateTenant={() => setIsCreateTenantDialogOpen(true)}
+                  />
+                  {!isCompactViewport ? repositoryWorkspace : null}
+                </div>
+              ) : (
+                <div className="operator-style-sample__repository-grid" data-platform-surface="repository-overview">
+                  {repositoryOverviewEntries.map((entry) => (
+                    <RepositoryOverviewCard
+                      key={entry.tenantId}
+                      entry={entry}
+                      active={entry.tenantId === activeTenantId}
+                      onSelect={() => {
+                        if (entry.tenantId !== activeTenantId) {
+                          void onTenantChange(entry.tenantId);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {activeWorkspaceMode === "queue" ? (
+              <section className="operator-style-sample__section">
+                <div className="operator-style-sample__section-heading">
+                  <h2>Live queue</h2>
+                  <div className="operator-style-sample__section-rule" aria-hidden="true" />
+                </div>
+                <div className="operator-style-sample__queue-layout" data-platform-surface="queue-detail-stage">
+                  <QueueStagePanel
+                    activeFilterId={activeFilterId}
+                    activeFilterLabel={activeFilter.label}
+                    activeViewCount={activeViewCount}
+                    activeViewId={activeViewId}
+                    activeViewLabel={activeViewLabel}
+                    changes={filteredChanges}
+                    repositoryCatalog={repositoryCatalog}
+                    searchQuery={searchQuery}
+                    selectedChangeId={selectedChangeId}
+                    viewCounts={viewCounts}
+                    views={bootstrap.views}
+                    onClearSelection={onClearSelection}
+                    onSearchQueryChange={onSearchQueryChange}
+                    onSelectChange={handleWorkspaceSelection}
+                    onSelectFilter={onSelectFilter}
+                    onSelectView={onSelectView}
+                  />
+                  {!isCompactViewport ? detailWorkspace : null}
+                </div>
+              </section>
+            ) : null}
+          </>
+        )}
       </main>
 
       <footer className="operator-style-sample__status-bar">
@@ -587,7 +739,23 @@ export function SimpleReferenceWorkbench({
     <WorkspacePageShell
       header={null}
       workspace={workspace}
-      detailWorkspace={isCompactViewport ? (activeWorkspaceMode === "catalog" ? repositoryWorkspace : detailWorkspace) : null}
+      detailWorkspace={
+        isCompactViewport
+          ? (
+            activeWorkspaceMode === "catalog" ? repositoryWorkspace : activeWorkspaceMode === "runs" ? (
+              <RunDetailWorkspaceShell
+                isCompactViewport
+                isOpen={isRunWorkspaceOpen}
+                selectedRunId={selectedRunId}
+                onClose={onClearSelectedRun}
+                detail={runDetailPanel}
+              />
+            ) : (
+              detailWorkspace
+            )
+          )
+          : null
+      }
       toast={
         <>
           <RepositoryAuthoringDialog
@@ -759,8 +927,6 @@ type SelectedChangeStageProps = {
   detail: ChangeDetailResponse | null;
   selectedRun: ChangeDetailResponse["runs"][number] | null;
   selectedRunId: string | null;
-  selectedRunApprovals: OperatorWorkbenchProps["selectedRunApprovals"];
-  selectedRunEvents: OperatorWorkbenchProps["selectedRunEvents"];
   compactViewport: boolean;
   activeTabId: OperatorWorkbenchProps["activeTabId"];
   isWorkflowDetailOpen: boolean;
@@ -776,16 +942,12 @@ type SelectedChangeStageProps = {
   onSelectRun: (runId: string) => void;
   onSelectTab: (tabId: OperatorWorkbenchProps["activeTabId"]) => void;
   onPromoteFact: (title: string, body: string) => Promise<void>;
-  onApprovalDecision: OperatorWorkbenchProps["onApprovalDecision"];
-  onClearSelectedRun: () => void;
 };
 
 function SelectedChangeStage({
   detail,
   selectedRun,
   selectedRunId,
-  selectedRunApprovals,
-  selectedRunEvents,
   compactViewport,
   activeTabId,
   isWorkflowDetailOpen,
@@ -801,8 +963,6 @@ function SelectedChangeStage({
   onSelectRun,
   onSelectTab,
   onPromoteFact,
-  onApprovalDecision,
-  onClearSelectedRun,
 }: SelectedChangeStageProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -905,13 +1065,13 @@ function SelectedChangeStage({
           <PlatformPrimitives.Button
             type="button"
             className="ghost-button"
-            data-platform-action="open-run-studio"
-            aria-controls="run-studio"
+            data-platform-action="open-runs"
+            aria-controls="selected-run-detail"
             onClick={onOpenRuns}
             disabled={actionWorkflow.isPending || runs.length === 0}
-            title={runs.length === 0 ? "Generate or select a backend-owned run before opening Run Studio." : undefined}
+            title={runs.length === 0 ? "Generate or select a backend-owned run before opening Runs." : undefined}
           >
-            Open run studio
+            Open runs
           </PlatformPrimitives.Button>
           <PlatformPrimitives.Button
             type="button"
@@ -1040,8 +1200,8 @@ function SelectedChangeStage({
       </div>
 
       {!runs.length ? (
-        <p className="governance-note" data-platform-governance="run-studio-run-required">
-          Run the change once before opening runtime details.
+        <p className="governance-note" data-platform-governance="runs-run-required">
+          Run the change once before opening canonical run details.
         </p>
       ) : null}
 
@@ -1065,6 +1225,8 @@ function SelectedChangeStage({
               compactViewport={compactViewport}
               detail={detail}
               selectedRunId={selectedRunId}
+              showActions={false}
+              showRunsPrerequisiteNotice={false}
               onRunNext={onRunNext}
               onOpenRuns={onOpenRuns}
               onEscalate={onEscalate}
@@ -1077,17 +1239,6 @@ function SelectedChangeStage({
               onPromoteFact={onPromoteFact}
             />
           </div>
-          {selectedRun ? (
-            <div className="operator-style-live__embedded-run-studio">
-              <RunStudio
-                run={selectedRun}
-                events={selectedRunEvents}
-                approvals={selectedRunApprovals}
-                onApprovalDecision={onApprovalDecision}
-                onClose={onClearSelectedRun}
-              />
-            </div>
-          ) : null}
         </div>
       </details>
     </article>
@@ -1459,6 +1610,7 @@ function RepositoryBar({ label, percent, tone }: { label: string; percent: numbe
 }
 
 function buildMetricCards({
+  activeRunSlice,
   activeWorkspaceMode,
   activeTenantName,
   activeViewLabel,
@@ -1466,7 +1618,10 @@ function buildMetricCards({
   detail,
   filteredRepositoryCatalog,
   repositoryCatalog,
+  runsWorkspaceEntries,
+  selectedRunId,
 }: {
+  activeRunSlice: "attention" | "all";
   activeWorkspaceMode: OperatorWorkspaceMode;
   activeTenantName: string;
   activeViewLabel: string;
@@ -1474,6 +1629,8 @@ function buildMetricCards({
   detail: ChangeDetailResponse | null;
   filteredRepositoryCatalog: RepositoryCatalogEntry[];
   repositoryCatalog: RepositoryCatalogEntry[];
+  runsWorkspaceEntries: OperatorWorkbenchProps["runsWorkspaceEntries"];
+  selectedRunId: string | null;
 }): MetricCardModel[] {
   const blockedRepositoryCount = repositoryCatalog.filter((entry) => entry.attentionState === "blocked").length;
   const activeRepositoryCount = repositoryCatalog.filter((entry) => entry.attentionState === "active").length;
@@ -1482,6 +1639,41 @@ function buildMetricCards({
   const clarificationCount = detail?.clarificationRounds.length ?? 0;
   const runCount = detail?.runs.length ?? 0;
   const repoCount = activeWorkspaceMode === "catalog" ? filteredRepositoryCatalog.length : repositoryCatalog.length;
+  const attentionRunCount = runsWorkspaceEntries.filter((entry) => entry.requiresAttention).length;
+  const pendingApprovalCount = runsWorkspaceEntries.reduce((sum, entry) => sum + entry.pendingApprovalCount, 0);
+
+  if (activeWorkspaceMode === "runs") {
+    return [
+      {
+        label: "Visible runs",
+        value: String(runsWorkspaceEntries.length),
+        meta: activeRunSlice === "attention" ? "Current attention-first slice" : "Full tenant run history",
+        tone: "blue",
+        trend: buildTrendSeries(runsWorkspaceEntries.length, attentionRunCount, pendingApprovalCount),
+      },
+      {
+        label: "Needs attention",
+        value: String(attentionRunCount),
+        meta: "Running, failed, or approval-blocked runs",
+        tone: "amber",
+        trend: buildTrendSeries(attentionRunCount, pendingApprovalCount, runsWorkspaceEntries.length),
+      },
+      {
+        label: "Pending approvals",
+        value: String(pendingApprovalCount),
+        meta: "Operator decisions still waiting",
+        tone: "violet",
+        trend: buildTrendSeries(pendingApprovalCount, attentionRunCount, runCount),
+      },
+      {
+        label: "Selection",
+        value: selectedRunId ?? "No run selected",
+        meta: detail ? detail.change.title : `Tracking ${activeTenantName}`,
+        tone: "emerald",
+        trend: buildTrendSeries(selectedRunId ? 1 : 0, runsWorkspaceEntries.length, attentionRunCount),
+      },
+    ];
+  }
 
   return [
     {
@@ -1530,17 +1722,57 @@ function buildPressureItems(repositoryCatalog: RepositoryCatalogEntry[]): RingIt
 }
 
 function buildExecutionLanes({
+  activeRunSlice,
+  activeWorkspaceMode,
   activeViewCount,
   detail,
   filteredChangeCount,
+  pendingApprovalCount,
+  attentionRunCount,
+  searchQuery,
 }: {
+  activeRunSlice: "attention" | "all";
+  activeWorkspaceMode: OperatorWorkspaceMode;
   activeViewCount: number;
   detail: ChangeDetailResponse | null;
   filteredChangeCount: number;
+  pendingApprovalCount: number;
+  attentionRunCount: number;
+  searchQuery: string;
 }): ExecutionLane[] {
   const runCount = detail?.runs.length ?? 0;
   const clarificationCount = detail?.clarificationRounds.length ?? 0;
   const mandatoryGapCount = detail?.change.gaps.filter((gap) => gap.mandatory && gap.status !== "closed").length ?? 0;
+
+  if (activeWorkspaceMode === "runs") {
+    return [
+      {
+        label: activeRunSlice === "attention" ? "Attention-first" : "Full history",
+        detail: `${attentionRunCount} runs require operator focus`,
+        tone: "amber",
+        percent: Math.min(100, attentionRunCount * 12 || 10),
+      },
+      {
+        label: "Pending approvals",
+        detail: `${pendingApprovalCount} still waiting`,
+        tone: "violet",
+        percent: Math.min(100, pendingApprovalCount * 20 || 10),
+      },
+      {
+        label: "Linked change context",
+        detail: detail ? detail.change.id : "Awaiting run selection",
+        tone: "blue",
+        percent: detail ? 100 : 12,
+      },
+      {
+        label: "Current search",
+        detail: searchQuery.trim() || "No active query",
+        tone: "emerald",
+        percent: searchQuery.trim() ? 100 : 12,
+      },
+    ];
+  }
+
   const denominator = Math.max(filteredChangeCount, runCount, clarificationCount, mandatoryGapCount, 1);
 
   return [
