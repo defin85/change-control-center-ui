@@ -3,10 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import {
   filterRepositoryCatalog,
   PlatformPrimitives,
+  RealtimeStatusHero,
   REPOSITORY_CATALOG_FILTERS,
   RepositoryAuthoringDialog,
   RepositoryCatalogProfile,
   RepositoryCatalogWorkspaceShell,
+  type ShellRealtimeBoundaryState,
   StatusBadge,
   type OperatorWorkspaceMode,
   type RepositoryCatalogFilterId,
@@ -30,6 +32,7 @@ export function ReferenceRepositoryCatalogPage({
   buildWorkspaceHref,
   hasExplicitCatalogSelection,
   repositoryCatalog,
+  realtimeBoundary,
   searchQuery,
   toast,
   onWorkspaceModeChange,
@@ -40,6 +43,7 @@ export function ReferenceRepositoryCatalogPage({
   onSelectCatalogTenant,
   onClearCatalogSelection,
   onSelectFilter,
+  onRetryRealtime,
 }: ReferenceRepositoryCatalogPageProps) {
   const [isCompactViewport, setIsCompactViewport] = useState(() => window.matchMedia("(max-width: 1080px)").matches);
   const [isCreateTenantDialogOpen, setIsCreateTenantDialogOpen] = useState(false);
@@ -105,6 +109,7 @@ export function ReferenceRepositoryCatalogPage({
   return (
     <WorkspacePageShell
       header={null}
+      hero={<RealtimeStatusHero realtime={realtimeBoundary} onRetryRealtime={onRetryRealtime} />}
       workspace={
         <div className="operator-style-sample reference-catalog-shell" data-platform-surface="repository-catalog-workspace">
           <header className="operator-style-sample__masthead">
@@ -280,6 +285,7 @@ type ReferenceRepositoryCatalogPageProps = {
   buildWorkspaceHref: (workspaceMode: OperatorWorkspaceMode) => string;
   hasExplicitCatalogSelection: boolean;
   repositoryCatalog: RepositoryCatalogEntry[];
+  realtimeBoundary: ShellRealtimeBoundaryState;
   searchQuery: string;
   toast?: string | null;
   onWorkspaceModeChange: (workspaceMode: OperatorWorkspaceMode) => void;
@@ -290,6 +296,7 @@ type ReferenceRepositoryCatalogPageProps = {
   onSelectCatalogTenant: (tenantId: string) => Promise<void>;
   onClearCatalogSelection: () => void;
   onSelectFilter: (filterId: string) => void;
+  onRetryRealtime: () => void;
 };
 
 type RepositoryWorklistProps = {

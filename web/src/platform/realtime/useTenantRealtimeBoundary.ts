@@ -12,16 +12,21 @@ export type TenantRealtimeEvent = {
 
 type TenantRealtimeBoundaryOptions = {
   tenantId: string | null;
+  connectionKey?: number;
   onTenantEvent: (event: TenantRealtimeEvent) => Promise<void> | void;
+  onRealtimeOpen?: () => void;
   onRealtimeError?: (message: string) => void;
 };
 
 export function useTenantRealtimeBoundary({
   tenantId,
+  connectionKey = 0,
   onTenantEvent,
+  onRealtimeOpen,
   onRealtimeError,
 }: TenantRealtimeBoundaryOptions) {
   const handleTenantEvent = useEffectEvent(onTenantEvent);
+  const handleRealtimeOpen = useEffectEvent(onRealtimeOpen ?? (() => undefined));
   const handleRealtimeError = useEffectEvent(onRealtimeError ?? (() => undefined));
 
   useEffect(() => {
@@ -33,7 +38,10 @@ export function useTenantRealtimeBoundary({
     const socket = new WebSocket(`${protocol}//${window.location.host}/api/tenants/${tenantId}/events`);
     let closedIntentionally = false;
 
-    socket.onopen = () => socket.send("subscribe");
+    socket.onopen = () => {
+      handleRealtimeOpen();
+      socket.send("subscribe");
+    };
     socket.onmessage = (event) => {
       const tenantEvent = parseTenantRealtimeEvent(event.data);
       if (!tenantEvent) {
@@ -58,7 +66,7 @@ export function useTenantRealtimeBoundary({
       closedIntentionally = true;
       socket.close();
     };
-  }, [tenantId]);
+  }, [connectionKey, tenantId]);
 }
 
 function resolveRealtimeError(reason: unknown) {

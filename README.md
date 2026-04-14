@@ -4,7 +4,7 @@
 
 - `FastAPI` backend как source of truth для `tenant`, `change`, `run`, `evidence`, `clarification rounds`
 - отдельный runtime sidecar для `codex app-server` с поддержкой `stdio` и `websocket`
-- shipped `React/Vite` shell на `/` это bootstrap-hydrated queue workspace с backend-owned selected-change detail в `web/src/platform/shells/ShellBootstrapApp.tsx`, `?workspace=catalog` рендерит backend-owned repository workspace, а `?workspace=runs` рендерит backend-owned runs workspace и selected run detail
+- shipped `React/Vite` shell на `/` это bootstrap-hydrated queue workspace с backend-owned selected-change detail в `web/src/platform/shells/ShellBootstrapApp.tsx`, `?workspace=catalog` рендерит backend-owned repository workspace, а `?workspace=runs` рендерит backend-owned runs workspace и selected run detail; shared tenant realtime boundary теперь также reconcile'ит shell state и явно показывает degraded/recovery status
 - `web/src/reference/OperatorStyleSamplePage.tsx` остаётся visual reference artifact, а не default shipped route
 - persistent state в `sqlite`
 
@@ -93,7 +93,8 @@ bash ./scripts/ccc stop all
 - shipped queue теперь включает backend-owned `Selected change` workspace с вкладками `Overview`, `Traceability`, `Gaps`, `Evidence`, `Git`, `Chief` и `Clarifications`
 - shipped queue surface теперь также включает clarification round generation/answer flows и fact promotion в tenant memory через explicit workflow boundaries
 - `Runs` workspace читает backend-owned run list/detail, approvals и runtime events без возврата к legacy `Run Studio`, а run detail теперь ship'ит approval decisions через тот же shared controller
-- текущая последовательность follow-up changes теперь продолжается с `09-add-realtime-reconciliation-and-degradation-visibility` и заканчивается `10-harden-functional-shell-proof-pack`
+- shared tenant realtime boundary теперь reconcile'ит queue/detail/run/approval/clarification state через один bootstrap refresh path, показывает `reconciling` / `degraded` status и не даёт stale refresh responses перетирать более новый shell state
+- текущая последовательность follow-up changes теперь завершается `10-harden-functional-shell-proof-pack`
 
 ## Проверки
 

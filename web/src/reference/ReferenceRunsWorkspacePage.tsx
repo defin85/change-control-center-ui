@@ -4,8 +4,10 @@ import { formatStateLabel } from "../lib";
 import {
   MasterDetailShell,
   PlatformPrimitives,
+  RealtimeStatusHero,
   RunDetailWorkspaceShell,
   RunInspectionShell,
+  type ShellRealtimeBoundaryState,
   StatusBadge,
   useAsyncWorkflowCommandMachine,
   type OperatorWorkspaceMode,
@@ -27,6 +29,7 @@ export function ReferenceRunsWorkspacePage({
   activeTenant,
   activeTenantId,
   buildWorkspaceHref,
+  realtimeBoundary,
   runsWorkspace,
   toast,
   tenants,
@@ -39,6 +42,7 @@ export function ReferenceRunsWorkspacePage({
   onOpenSelectedRunChange,
   onRetrySelectedRunDetail,
   onDecideSelectedRunApproval,
+  onRetryRealtime,
 }: ReferenceRunsWorkspacePageProps) {
   const [isCompactViewport, setIsCompactViewport] = useState(() =>
     window.matchMedia("(max-width: 1080px)").matches,
@@ -97,6 +101,7 @@ export function ReferenceRunsWorkspacePage({
   return (
     <WorkspacePageShell
       header={null}
+      hero={<RealtimeStatusHero realtime={realtimeBoundary} onRetryRealtime={onRetryRealtime} />}
       workspace={
         <div
           className="operator-style-sample reference-runs-shell"
@@ -302,6 +307,7 @@ type ReferenceRunsWorkspacePageProps = {
   activeTenant: Tenant | null;
   activeTenantId: string;
   buildWorkspaceHref: (workspaceMode: OperatorWorkspaceMode) => string;
+  realtimeBoundary: ShellRealtimeBoundaryState;
   runsWorkspace: RunsWorkspaceState;
   toast?: string | null;
   tenants: Tenant[];
@@ -314,6 +320,7 @@ type ReferenceRunsWorkspacePageProps = {
   onOpenSelectedRunChange: () => void;
   onRetrySelectedRunDetail: () => void;
   onDecideSelectedRunApproval: (approvalId: string, decision: "accept" | "decline") => Promise<void>;
+  onRetryRealtime: () => void;
 };
 
 type RunsContextPanelProps = {

@@ -6,6 +6,8 @@ ROOT = Path(__file__).resolve().parents[2]
 APP_ENTRY = ROOT / "web/src/App.tsx"
 BOOTSTRAP_CONTROLLER = ROOT / "web/src/platform/navigation/useShellBootstrapController.ts"
 BOOTSTRAP_SHELL = ROOT / "web/src/platform/shells/ShellBootstrapApp.tsx"
+REALTIME_BOUNDARY = ROOT / "web/src/platform/realtime/useTenantRealtimeBoundary.ts"
+REALTIME_STATUS_HERO = ROOT / "web/src/platform/shells/RealtimeStatusHero.tsx"
 REFERENCE_QUEUE_PAGE = ROOT / "web/src/reference/ReferenceTenantQueuePage.tsx"
 REFERENCE_CATALOG_PAGE = ROOT / "web/src/reference/ReferenceRepositoryCatalogPage.tsx"
 REFERENCE_RUNS_PAGE = ROOT / "web/src/reference/ReferenceRunsWorkspacePage.tsx"
@@ -92,6 +94,35 @@ def test_shell_bootstrap_controller_uses_shared_control_api_and_canonical_route_
     assert "window.history.pushState" in source
 
 
+def test_shell_bootstrap_controller_reconciles_shared_tenant_events_and_guards_stale_refreshes() -> None:
+    source = _read(BOOTSTRAP_CONTROLLER)
+    realtime_source = _read(REALTIME_BOUNDARY)
+    hero_source = _read(REALTIME_STATUS_HERO)
+
+    assert "useTenantRealtimeBoundary" in source
+    assert "realtimeBoundary" in source
+    assert "retryRealtime" in source
+    assert "realtimeRetryCount" in source
+    assert "routeRevisionRef" in source
+    assert "bootstrapRequestSequenceRef" in source
+    assert "realtimeRefreshInFlightRef" in source
+    assert "realtimeRefreshQueuedRef" in source
+    assert "preserveToast" in source
+    assert "allowOnRouteChange" in source
+    assert "buildRealtimeReconciliationNotice" in source
+    assert "buildRealtimeDegradedNotice" in source
+    assert "resolveNextRouteState" in source
+    assert "resolveExplicitCatalogSelection" in source
+
+    assert "connectionKey" in realtime_source
+    assert "onRealtimeOpen" in realtime_source
+    assert 'socket.send("subscribe")' in realtime_source
+
+    assert "realtime-degraded" in hero_source
+    assert "realtime-reconciling" in hero_source
+    assert 'data-platform-action="retry-realtime"' in hero_source
+
+
 def test_bootstrap_shell_surfaces_explicit_loading_and_failure_states() -> None:
     source = _read(BOOTSTRAP_SHELL)
 
@@ -106,6 +137,7 @@ def test_bootstrap_shell_routes_queue_workspace_into_backend_owned_reference_pag
     assert "ReferenceTenantQueuePage" in source
     assert 'if (routeState.workspaceMode === "queue")' in source
     assert "queueWorkspace={controller.queueWorkspace}" in source
+    assert "realtimeBoundary={controller.realtimeBoundary}" in source
     assert "toast={toast}" in source
     assert "onSelectQueueView={controller.setQueueView}" in source
     assert "onSelectQueueTab={controller.setQueueTab}" in source
@@ -118,6 +150,7 @@ def test_bootstrap_shell_routes_queue_workspace_into_backend_owned_reference_pag
     assert "onCreateSelectedChangeClarificationRound={controller.createSelectedChangeClarificationRound}" in source
     assert "onAnswerSelectedChangeClarificationRound={controller.answerSelectedChangeClarificationRound}" in source
     assert "onPromoteSelectedChangeFact={controller.promoteSelectedChangeFact}" in source
+    assert "onRetryRealtime={controller.retryRealtime}" in source
 
 
 def test_bootstrap_shell_routes_catalog_workspace_into_backend_owned_reference_page() -> None:
@@ -125,9 +158,11 @@ def test_bootstrap_shell_routes_catalog_workspace_into_backend_owned_reference_p
 
     assert "ReferenceRepositoryCatalogPage" in source
     assert 'if (routeState.workspaceMode === "catalog")' in source
+    assert "realtimeBoundary={controller.realtimeBoundary}" in source
     assert "onCreateTenant={controller.createTenant}" in source
     assert "onCreateChange={controller.createChange}" in source
     assert "onSelectFilter={controller.setCatalogFilter}" in source
+    assert "onRetryRealtime={controller.retryRealtime}" in source
 
 
 def test_bootstrap_shell_routes_runs_workspace_into_backend_owned_reference_page() -> None:
@@ -136,12 +171,14 @@ def test_bootstrap_shell_routes_runs_workspace_into_backend_owned_reference_page
     assert "ReferenceRunsWorkspacePage" in source
     assert 'return (' in source
     assert "runsWorkspace={controller.runsWorkspace}" in source
+    assert "realtimeBoundary={controller.realtimeBoundary}" in source
     assert "onSelectRunSlice={controller.setRunSlice}" in source
     assert "onSelectRun={controller.selectRun}" in source
     assert "onOpenSelectedRunChange={controller.openSelectedRunChange}" in source
     assert "onRetrySelectedRunDetail={controller.retrySelectedRunDetail}" in source
     assert "toast={toast}" in source
     assert "onDecideSelectedRunApproval={controller.decideSelectedRunApproval}" in source
+    assert "onRetryRealtime={controller.retryRealtime}" in source
 
 
 def test_reference_queue_page_is_wired_for_live_queue_navigation_and_selected_change_handoff() -> None:
@@ -154,6 +191,9 @@ def test_reference_queue_page_is_wired_for_live_queue_navigation_and_selected_ch
     assert "onSelectQueueTab" in source
     assert "onSelectQueueChange" in source
     assert "onRetrySelectedChangeDetail" in source
+    assert "RealtimeStatusHero" in source
+    assert "realtimeBoundary" in source
+    assert "onRetryRealtime" in source
     assert "toast" in source
     assert "onDeleteSelectedChange" in source
     assert "onRunSelectedChangeNextStep" in source
@@ -173,6 +213,9 @@ def test_reference_catalog_page_is_wired_for_live_workspace_navigation_and_autho
 
     assert "buildWorkspaceHref" in source
     assert "onWorkspaceModeChange" in source
+    assert "RealtimeStatusHero" in source
+    assert "realtimeBoundary" in source
+    assert "onRetryRealtime" in source
     assert "backend-owned catalog" in source
     assert "static catalog reference" not in source
     assert "window.location.assign" not in source
@@ -188,6 +231,9 @@ def test_reference_runs_page_is_wired_for_live_run_navigation_and_handoff() -> N
     assert "onOpenSelectedRunChange" in source
     assert "onRetrySelectedRunDetail" in source
     assert "onDecideSelectedRunApproval" in source
+    assert "RealtimeStatusHero" in source
+    assert "realtimeBoundary" in source
+    assert "onRetryRealtime" in source
     assert "toast" in source
     assert "backend-owned runs" in source
     assert "hidden legacy run surface" in source

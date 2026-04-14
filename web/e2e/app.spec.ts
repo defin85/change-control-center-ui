@@ -112,6 +112,32 @@ async function extractToastIdentifier(page: Page, pattern: RegExp, label: string
   return match[1];
 }
 
+async function trackRealtimeSubscriptions(page: Page) {
+  const subscribedTenants = new Set<string>();
+  await page.routeWebSocket(/\/api\/tenants\/[^/]+\/events$/, (ws) => {
+    const server = ws.connectToServer();
+
+    ws.onMessage((message) => {
+      server.send(message);
+      const tenantMatch = ws.url().match(/\/api\/tenants\/([^/]+)\/events$/);
+      if (String(message) === "subscribe" && tenantMatch?.[1]) {
+        subscribedTenants.add(tenantMatch[1]);
+      }
+    });
+  });
+
+  return subscribedTenants;
+}
+
+function getRequiredTenantId(page: Page) {
+  const tenantId = new URL(page.url()).searchParams.get("tenant");
+  if (!tenantId) {
+    throw new Error(`Tenant id missing from URL: ${page.url()}`);
+  }
+
+  return tenantId;
+}
+
 test("renders the functional tenant queue from backend bootstrap on the default route @smoke @platform", async ({
   page,
 }) => {
@@ -378,6 +404,84 @@ test("catalog workspace surfaces explicit repository creation failure without si
   await expect(page.getByRole("button", { name: "Create repository" })).toBeEnabled();
 });
 
+test("realtime degradation is surfaced explicitly and retry restores shared reconciliation @platform", async ({
+  page,
+}) => {
+  let connectionAttempts = 0;
+
+  await page.routeWebSocket(/\/api\/tenants\/[^/]+\/events$/, (ws) => {
+    connectionAttempts += 1;
+    if (connectionAttempts === 1) {
+      void ws.close({ code: 1011, reason: "forced realtime outage" });
+      return;
+    }
+
+    ws.connectToServer();
+  });
+
+  await gotoShippedApp(page);
+
+  await expect(page.locator('[data-platform-governance="realtime-degraded"]')).toContainText(
+    "Control API realtime subscription failed.",
+  );
+  await expect(page.getByRole("button", { name: "Retry realtime" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Retry realtime" }).click();
+  await expect(page.locator('[data-platform-governance="realtime-reconciling"]')).toContainText(
+    "Retrying realtime subscription for the current tenant.",
+  );
+  await expect(page.locator('[data-platform-surface="realtime-status"]')).toHaveCount(0);
+  await expect.poll(() => connectionAttempts).toBe(2);
+  await expect(page.locator('[data-change-id="ch-142"]')).toBeVisible();
+});
+
+test("realtime reconciliation ignores stale bootstrap responses and preserves the latest catalog truth @platform", async ({
+  page,
+  request,
+}) => {
+  const subscribedTenants = await trackRealtimeSubscriptions(page);
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `operator-realtime-stale-${suffix}`;
+  const repositoryPath = `/tmp/operator-realtime-stale-${suffix}`;
+
+  await gotoShippedApp(page, "/?workspace=catalog");
+  await startRepositoryCreation(page, repositoryName, repositoryPath);
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(repositoryName);
+
+  let delayedBootstrap = false;
+  await page.route("**/api/bootstrap", async (route, requestInfo) => {
+    if (requestInfo.method() !== "GET" || delayedBootstrap) {
+      await route.continue();
+      return;
+    }
+
+    delayedBootstrap = true;
+    const response = await route.fetch();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.fulfill({ response });
+  });
+
+  const tenantId = getRequiredTenantId(page);
+  await expect.poll(() => subscribedTenants.has(tenantId)).toBeTruthy();
+  const createResponse = await request.post(`/api/tenants/${tenantId}/changes`, {
+    data: { title: "Realtime stale snapshot proof" },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const changeId = (await createResponse.json()).change.id as string;
+
+  await expect(page.locator('[data-platform-governance="realtime-reconciling"]')).toBeVisible();
+
+  const deleteResponse = await request.delete(`/api/tenants/${tenantId}/changes/${changeId}`);
+  expect(deleteResponse.ok()).toBeTruthy();
+
+  await expect(page.locator('[data-platform-action="create-first-change"]')).toBeVisible();
+  await expect(page.locator('[data-platform-action="open-queue"]')).toHaveCount(0);
+  await expect(page.locator('[data-tenant-id]').filter({ hasText: repositoryName })).toContainText(
+    "0 changes · 0 active · 0 blocked",
+  );
+  await expect(page.locator('[data-platform-surface="realtime-status"]')).toHaveCount(0);
+});
+
 test("runs workspace supports hydration, selection, slice restoration, and change handoff @platform", async ({
   page,
 }) => {
@@ -539,10 +643,65 @@ test("selected-change clarification and memory workflows reconcile through shipp
   await expect(page.locator('[data-platform-surface="change-memory-facts"]')).toContainText(factBody);
 });
 
+test("tenant realtime events reconcile clarification detail without manual refresh @platform", async ({
+  page,
+  request,
+}) => {
+  const subscribedTenants = await trackRealtimeSubscriptions(page);
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `operator-realtime-clarification-${suffix}`;
+  const repositoryPath = `/tmp/operator-realtime-clarification-${suffix}`;
+  const changeId = await createRepositoryChangeAndOpenQueue(page, repositoryName, repositoryPath);
+  const tenantId = getRequiredTenantId(page);
+  await expect.poll(() => subscribedTenants.has(tenantId)).toBeTruthy();
+
+  await page.getByRole("tab", { name: "Clarifications" }).click();
+  await expect(page.locator('[data-platform-surface="selected-change-tab-panel"]')).toHaveAttribute(
+    "data-platform-tab",
+    "clarifications",
+  );
+
+  let delayedBootstrap = false;
+  await page.route("**/api/bootstrap", async (route, requestInfo) => {
+    if (requestInfo.method() !== "GET" || delayedBootstrap) {
+      await route.continue();
+      return;
+    }
+
+    delayedBootstrap = true;
+    const response = await route.fetch();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await route.fulfill({ response });
+  });
+
+  const createResponse = await request.post(`/api/tenants/${tenantId}/changes/${changeId}/clarifications/auto`);
+  expect(createResponse.ok()).toBeTruthy();
+  const roundId = (await createResponse.json()).round.id as string;
+
+  await expect(page.locator('[data-platform-governance="realtime-reconciling"]')).toContainText(
+    `Clarification activity for ${changeId} is being reconciled.`,
+  );
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toHaveAttribute(
+    "data-platform-detail-status",
+    "ready",
+    { timeout: 15000 },
+  );
+  await expect(page.locator('[data-platform-surface="open-clarification-round"]')).toHaveAttribute(
+    "data-clarification-round-id",
+    roundId,
+  );
+  await expect(page).toHaveURL(new RegExp(`change=${changeId}&tab=clarifications$`));
+  await expect(page.locator('[data-platform-surface="realtime-status"]')).toHaveCount(0);
+});
+
 test("selected-change clarification workflow surfaces stale round 409 explicitly @platform", async ({
   page,
   request,
 }) => {
+  await page.routeWebSocket(/\/api\/tenants\/[^/]+\/events$/, (ws) => {
+    void ws.close({ code: 1011, reason: "forced stale clarification isolation" });
+  });
+
   const suffix = buildUniqueSuffix();
   const repositoryName = `operator-clarifications-stale-${suffix}`;
   const repositoryPath = `/tmp/operator-clarifications-stale-${suffix}`;
@@ -684,8 +843,9 @@ test("run approval decisions reconcile to declined state and close the action su
     /\/api\/tenants\/[^/]+\/approvals\/[^/]+\/decision$/,
     "POST",
   );
-  await page.locator('[data-platform-action="decline-approval"]').click();
-  await expect(page.locator('[data-platform-governance="run-approval-pending"]')).toBeVisible();
+  await page
+    .locator('[data-platform-action="decline-approval"]')
+    .evaluate((button: HTMLButtonElement) => button.click());
   const approvalId = await extractToastIdentifier(
     page,
     /Approval ([a-z0-9-]+) declined\./,

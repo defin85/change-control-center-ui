@@ -19,6 +19,7 @@ export type {
   QueueWorkspaceStateError,
   QueueWorkspaceStateLoading,
   QueueWorkspaceStateReady,
+  ShellRealtimeBoundaryState,
   ShellBootstrapController,
   ShellBootstrapControllerError,
   ShellBootstrapControllerLoading,

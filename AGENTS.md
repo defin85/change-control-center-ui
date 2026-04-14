@@ -27,7 +27,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Current UI Direction
 
-- The default backend-served UI is the bootstrap-hydrated functional shell in `web/src/platform/shells/ShellBootstrapApp.tsx`; `/` now ships the tenant queue workspace plus backend-owned selected-change detail, `workspace=catalog` ships the repository workspace, and `workspace=runs` ships the tenant-scoped runs workspace plus backend-owned run detail.
+- The default backend-served UI is the bootstrap-hydrated functional shell in `web/src/platform/shells/ShellBootstrapApp.tsx`; `/` now ships the tenant queue workspace plus backend-owned selected-change detail, `workspace=catalog` ships the repository workspace, and `workspace=runs` ships the tenant-scoped runs workspace plus backend-owned run detail, all reconciled through a shared tenant realtime boundary with explicit degraded/recovery visibility.
 - Treat that bootstrap-hydrated shell and its shipped `Queue`, selected-change detail, `Repositories`, and `Runs` workspaces as the source of truth for default-route behavior, browser proofs, and backend-served UX copy unless a task explicitly says to work on later rollout slices.
 - Do not assume `legacyWorkbench=1` or other removed live-workbench route state is a supported product path. Current canonical shell state includes `workspace`, `tenant`, queue `view`, queue/catalog `filter`, `q`, queue `change`, selected-change `tab`, runs `runSlice`, and selected `run`.
 - Internal reference artifacts such as `web/src/reference/OperatorStyleSamplePage.tsx` still exist, but they are visual references rather than the default shipped route.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   ApprovalRecord,
@@ -40,6 +40,10 @@ import {
   resolveVisibleChangeSelection,
   resolveVisibleRunSelection,
 } from "../server-state";
+import {
+  useTenantRealtimeBoundary,
+  type TenantRealtimeEvent,
+} from "../realtime";
 
 import {
   buildOperatorRouteHref,
@@ -156,6 +160,12 @@ export type RunsWorkspaceState =
   | RunsWorkspaceStateError
   | RunsWorkspaceStateReady;
 
+export type ShellRealtimeBoundaryState = {
+  status: "live" | "reconciling" | "degraded";
+  notice: string | null;
+  lastEventType: string | null;
+};
+
 type ShellBootstrapControllerBase = {
   retry: () => void;
 };
@@ -178,6 +188,7 @@ export type ShellBootstrapControllerReady = ShellBootstrapControllerBase & {
   activeTenant: Tenant | null;
   activeRepositoryEntry: RepositoryCatalogEntry | null;
   hasExplicitCatalogSelection: boolean;
+  realtimeBoundary: ShellRealtimeBoundaryState;
   toast: string | null;
   setWorkspaceMode: (workspaceMode: OperatorWorkspaceMode) => void;
   setTenantId: (tenantId: string) => void;
@@ -209,6 +220,7 @@ export type ShellBootstrapControllerReady = ShellBootstrapControllerBase & {
   clearCatalogSelection: () => void;
   createTenant: (name: string, repoPath: string, description: string) => Promise<void>;
   createChange: () => Promise<void>;
+  retryRealtime: () => void;
   buildWorkspaceHref: (workspaceMode: OperatorWorkspaceMode) => string;
 };
 
@@ -253,6 +265,12 @@ type RunDetailHydrationState =
   | { status: "error"; tenantId: string; runId: string; error: string }
   | { status: "ready"; tenantId: string; runId: string; detail: RunDetailResponse };
 
+const INITIAL_REALTIME_BOUNDARY_STATE: ShellRealtimeBoundaryState = {
+  status: "live",
+  notice: null,
+  lastEventType: null,
+};
+
 export function useShellBootstrapController(): ShellBootstrapController {
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
   const [routeState, setRouteState] = useState<FunctionalShellRouteState | null>(null);
@@ -265,10 +283,20 @@ export function useShellBootstrapController(): ShellBootstrapController {
   const [error, setError] = useState<string | null>(null);
   const [reloadCount, setReloadCount] = useState(0);
   const [hasExplicitCatalogSelection, setHasExplicitCatalogSelection] = useState(false);
+  const [realtimeBoundary, setRealtimeBoundary] = useState<ShellRealtimeBoundaryState>(
+    INITIAL_REALTIME_BOUNDARY_STATE,
+  );
+  const [realtimeRetryCount, setRealtimeRetryCount] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const routeStateRef = useRef<FunctionalShellRouteState | null>(null);
   const changeDetailHydrationRef = useRef<ChangeDetailHydrationState>({ status: "idle" });
   const runDetailHydrationRef = useRef<RunDetailHydrationState>({ status: "idle" });
+  const routeRevisionRef = useRef(0);
+  const hasExplicitCatalogSelectionRef = useRef(false);
+  const bootstrapRequestSequenceRef = useRef(0);
+  const realtimeRefreshInFlightRef = useRef(false);
+  const realtimeRefreshQueuedRef = useRef<TenantRealtimeEvent | null>(null);
+  const toastRef = useRef<string | null>(null);
   const queueHydrationTenantId = routeState?.tenantId ?? null;
   const queueHydrationWorkspaceMode = routeState?.workspaceMode ?? null;
   const detailHydrationQueueChanges = queueHydration.status === "ready" ? queueHydration.changes : null;
@@ -293,6 +321,10 @@ export function useShellBootstrapController(): ShellBootstrapController {
   }, [routeState]);
 
   useEffect(() => {
+    hasExplicitCatalogSelectionRef.current = hasExplicitCatalogSelection;
+  }, [hasExplicitCatalogSelection]);
+
+  useEffect(() => {
     changeDetailHydrationRef.current = changeDetailHydration;
   }, [changeDetailHydration]);
 
@@ -300,19 +332,35 @@ export function useShellBootstrapController(): ShellBootstrapController {
     runDetailHydrationRef.current = runDetailHydration;
   }, [runDetailHydration]);
 
-  const commitHydratedState = (
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
+  const commitToast = useCallback((nextToast: string | null) => {
+    toastRef.current = nextToast;
+    setToast(nextToast);
+  }, []);
+
+  const commitRouteState = useCallback((nextRouteState: FunctionalShellRouteState | null) => {
+    routeRevisionRef.current += 1;
+    routeStateRef.current = nextRouteState;
+    setRouteState(nextRouteState);
+  }, []);
+
+  const commitHydratedState = useCallback((
     payload: BootstrapResponse,
     normalized: NormalizedShellLocation,
     options?: {
       historyMode?: "push" | "replace";
       explicitCatalogSelection?: boolean;
       toast?: string | null;
+      preserveToast?: boolean;
     },
   ) => {
     const historyMode = options?.historyMode ?? "replace";
     const explicitCatalogSelection =
       options?.explicitCatalogSelection ?? normalized.hasExplicitCatalogSelection;
-    const nextToast = options?.toast ?? null;
+    const nextToast = options?.preserveToast ? toastRef.current : (options?.toast ?? null);
     const currentHref = `${window.location.pathname}${window.location.search}`;
 
     if (currentHref !== normalized.href) {
@@ -324,24 +372,49 @@ export function useShellBootstrapController(): ShellBootstrapController {
     }
 
     setBootstrap(payload);
-    setRouteState(normalized.routeState);
+    commitRouteState(normalized.routeState);
+    hasExplicitCatalogSelectionRef.current = explicitCatalogSelection;
     setHasExplicitCatalogSelection(explicitCatalogSelection);
-    setToast(nextToast);
+    commitToast(nextToast);
     setError(null);
-  };
+  }, [commitRouteState, commitToast]);
 
   const refreshBootstrap = async (options?: {
     historyMode?: "push" | "replace";
     nextRouteState?: Partial<FunctionalShellRouteState>;
+    resolveNextRouteState?: () => Partial<FunctionalShellRouteState> | null;
     explicitCatalogSelection?: boolean;
+    resolveExplicitCatalogSelection?: () => boolean;
     toast?: string | null;
+    preserveToast?: boolean;
+    allowOnRouteChange?: boolean;
   }) => {
+    const requestSequence = bootstrapRequestSequenceRef.current + 1;
+    bootstrapRequestSequenceRef.current = requestSequence;
+    const startedRouteRevision = routeRevisionRef.current;
     const payload = await requestControlApi(BOOTSTRAP_ENDPOINT, bootstrapResponseSchema);
-    const normalized = options?.nextRouteState
-      ? normalizePreferredRoute(payload, window.location.pathname, options.nextRouteState)
+
+    if (requestSequence !== bootstrapRequestSequenceRef.current) {
+      return false;
+    }
+
+    if (!options?.allowOnRouteChange && startedRouteRevision !== routeRevisionRef.current) {
+      return false;
+    }
+
+    const nextRouteState = options?.resolveNextRouteState?.() ?? options?.nextRouteState;
+    const normalized = nextRouteState
+      ? normalizePreferredRoute(payload, window.location.pathname, nextRouteState)
       : normalizeLocation(payload, window.location.pathname, window.location.search);
 
-    commitHydratedState(payload, normalized, options);
+    commitHydratedState(payload, normalized, {
+      historyMode: options?.historyMode,
+      explicitCatalogSelection:
+        options?.resolveExplicitCatalogSelection?.() ?? options?.explicitCatalogSelection,
+      toast: options?.toast,
+      preserveToast: options?.preserveToast,
+    });
+    return true;
   };
 
   useEffect(() => {
@@ -349,8 +422,10 @@ export function useShellBootstrapController(): ShellBootstrapController {
 
     async function loadBootstrap() {
       try {
+        const requestSequence = bootstrapRequestSequenceRef.current + 1;
+        bootstrapRequestSequenceRef.current = requestSequence;
         const payload = await requestControlApi(BOOTSTRAP_ENDPOINT, bootstrapResponseSchema);
-        if (cancelled) {
+        if (cancelled || requestSequence !== bootstrapRequestSequenceRef.current) {
           return;
         }
 
@@ -370,7 +445,14 @@ export function useShellBootstrapController(): ShellBootstrapController {
     return () => {
       cancelled = true;
     };
-  }, [reloadCount]);
+  }, [commitHydratedState, reloadCount]);
+
+  useEffect(() => {
+    setRealtimeBoundary(INITIAL_REALTIME_BOUNDARY_STATE);
+    setRealtimeRetryCount(0);
+    realtimeRefreshInFlightRef.current = false;
+    realtimeRefreshQueuedRef.current = null;
+  }, [routeState?.tenantId]);
 
   useEffect(() => {
     if (!bootstrap) {
@@ -398,16 +480,17 @@ export function useShellBootstrapController(): ShellBootstrapController {
       if (normalized.shouldReplace) {
         window.history.replaceState(window.history.state, "", normalized.href);
       }
-      setRouteState(normalized.routeState);
+      commitRouteState(normalized.routeState);
+      hasExplicitCatalogSelectionRef.current = normalized.hasExplicitCatalogSelection;
       setHasExplicitCatalogSelection(normalized.hasExplicitCatalogSelection);
-      setToast(null);
+      commitToast(null);
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [bootstrap, queueHydration, routeState?.tenantId, routeState?.runSlice, runsHydration]);
+  }, [bootstrap, commitRouteState, commitToast, queueHydration, routeState?.tenantId, routeState?.runSlice, runsHydration]);
 
   useEffect(() => {
     if (!bootstrap) {
@@ -459,7 +542,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           if (currentHref !== href) {
             window.history.replaceState(window.history.state, "", href);
           }
-          setRouteState(normalizedRouteState);
+          commitRouteState(normalizedRouteState);
         }
 
         setQueueHydration({
@@ -490,7 +573,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
     return () => {
       cancelled = true;
     };
-  }, [bootstrap, queueHydrationTenantId, queueHydrationWorkspaceMode]);
+  }, [bootstrap, commitRouteState, queueHydrationTenantId, queueHydrationWorkspaceMode]);
 
   useEffect(() => {
     if (!bootstrap || !detailHydrationTargetTenantId || !detailHydrationTargetChangeId) {
@@ -622,7 +705,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           if (currentHref !== href) {
             window.history.replaceState(window.history.state, "", href);
           }
-          setRouteState(normalizedRouteState);
+          commitRouteState(normalizedRouteState);
         }
 
         setRunsHydration({
@@ -655,7 +738,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
     return () => {
       cancelled = true;
     };
-  }, [bootstrap, runsHydrationRunSlice, runsHydrationTenantId, runsHydrationWorkspaceMode]);
+  }, [bootstrap, commitRouteState, runsHydrationRunSlice, runsHydrationTenantId, runsHydrationWorkspaceMode]);
 
   useEffect(() => {
     if (!bootstrap || !runDetailTargetTenantId || !runDetailTargetRunId) {
@@ -743,7 +826,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
 
   const retry = () => {
     setBootstrap(null);
-    setRouteState(null);
+    commitRouteState(null);
     setQueueHydration({ status: "idle" });
     setChangeDetailHydration({ status: "idle" });
     setRunsHydration({ status: "idle" });
@@ -752,7 +835,13 @@ export function useShellBootstrapController(): ShellBootstrapController {
     setRunDetailReloadCount(0);
     setError(null);
     setHasExplicitCatalogSelection(false);
-    setToast(null);
+    hasExplicitCatalogSelectionRef.current = false;
+    setRealtimeBoundary(INITIAL_REALTIME_BOUNDARY_STATE);
+    setRealtimeRetryCount(0);
+    realtimeRefreshInFlightRef.current = false;
+    realtimeRefreshQueuedRef.current = null;
+    bootstrapRequestSequenceRef.current += 1;
+    commitToast(null);
     setReloadCount((count) => count + 1);
   };
 
@@ -824,9 +913,10 @@ export function useShellBootstrapController(): ShellBootstrapController {
         ? resolveRunsSelectionNotice(requestedRouteState, normalized, currentRuns)
         : null;
 
-    setRouteState(normalized);
+    commitRouteState(normalized);
+    hasExplicitCatalogSelectionRef.current = nextExplicitCatalogSelection;
     setHasExplicitCatalogSelection(nextExplicitCatalogSelection);
-    setToast(null);
+    commitToast(null);
     if (
       queueHydration.status === "ready" &&
       normalized.workspaceMode === "queue" &&
@@ -861,6 +951,81 @@ export function useShellBootstrapController(): ShellBootstrapController {
 
     window.history.replaceState(window.history.state, "", href);
   };
+
+  const reconcileRealtimeEvent = async (tenantEvent: TenantRealtimeEvent) => {
+    realtimeRefreshQueuedRef.current = tenantEvent;
+    if (realtimeRefreshInFlightRef.current) {
+      return;
+    }
+
+    while (realtimeRefreshQueuedRef.current) {
+      const queuedEvent = realtimeRefreshQueuedRef.current;
+      realtimeRefreshQueuedRef.current = null;
+      realtimeRefreshInFlightRef.current = true;
+      setChangeDetailHydration({ status: "idle" });
+      setRunDetailHydration({ status: "idle" });
+      setRealtimeBoundary({
+        status: "reconciling",
+        notice: buildRealtimeReconciliationNotice(queuedEvent),
+        lastEventType: queuedEvent.type,
+      });
+
+      try {
+        const didCommit = await refreshBootstrap({
+          historyMode: "replace",
+          allowOnRouteChange: true,
+          preserveToast: true,
+          resolveNextRouteState: () => routeStateRef.current,
+          resolveExplicitCatalogSelection: () => hasExplicitCatalogSelectionRef.current,
+        });
+
+        if (didCommit || !realtimeRefreshQueuedRef.current) {
+          setRealtimeBoundary({
+            status: "live",
+            notice: null,
+            lastEventType: queuedEvent.type,
+          });
+        }
+      } catch (caughtError) {
+        setRealtimeBoundary({
+          status: "degraded",
+          notice: buildRealtimeDegradedNotice(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Control API realtime reconciliation failed.",
+          ),
+          lastEventType: queuedEvent.type,
+        });
+        realtimeRefreshQueuedRef.current = null;
+      } finally {
+        realtimeRefreshInFlightRef.current = false;
+      }
+    }
+  };
+
+  useTenantRealtimeBoundary({
+    tenantId: routeState?.tenantId ?? null,
+    connectionKey: realtimeRetryCount,
+    onRealtimeOpen: () => {
+      setRealtimeBoundary((current) =>
+        current.status === "reconciling" && current.lastEventType
+          ? current
+          : {
+              status: "live",
+              notice: null,
+              lastEventType: current.lastEventType,
+            },
+      );
+    },
+    onTenantEvent: (tenantEvent) => reconcileRealtimeEvent(tenantEvent),
+    onRealtimeError: (message) => {
+      setRealtimeBoundary((current) => ({
+        status: "degraded",
+        notice: buildRealtimeDegradedNotice(message),
+        lastEventType: current.lastEventType,
+      }));
+    },
+  });
 
   const requireSelectedQueueChange = (actionLabel: string) => {
     if (!routeState || routeState.workspaceMode !== "queue" || !routeState.changeId) {
@@ -908,6 +1073,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
     activeTenant,
     activeRepositoryEntry,
     hasExplicitCatalogSelection,
+    realtimeBoundary,
     toast,
     retry,
     setWorkspaceMode: (workspaceMode) => {
@@ -978,6 +1144,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           body: JSON.stringify({ decision }),
         },
       );
+      const toastMessage = `Approval ${response.approval.id} ${response.approval.status}.`;
 
       setRunDetailHydration({ status: "idle" });
       await refreshBootstrap({
@@ -987,8 +1154,8 @@ export function useShellBootstrapController(): ShellBootstrapController {
           workspaceMode: "runs",
           runId,
         },
-        toast: `Approval ${response.approval.id} ${response.approval.status}.`,
       });
+      commitToast(toastMessage);
     },
     deleteSelectedChange: async () => {
       const { tenantId, changeId } = requireSelectedQueueChange("Delete change");
@@ -1000,6 +1167,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           method: "DELETE",
         },
       );
+      const toastMessage = `Change ${response.deletedChangeId} deleted.`;
 
       setChangeDetailHydration({ status: "idle" });
       await refreshBootstrap({
@@ -1010,8 +1178,8 @@ export function useShellBootstrapController(): ShellBootstrapController {
           changeId: null,
           tabId: DEFAULT_OPERATOR_TAB_ID,
         },
-        toast: `Change ${response.deletedChangeId} deleted.`,
       });
+      commitToast(toastMessage);
     },
     runSelectedChangeNextStep: async () => {
       const { tenantId, changeId } = requireSelectedQueueChange("Run next step");
@@ -1023,6 +1191,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           method: "POST",
         },
       );
+      const toastMessage = `Run ${response.run.id} started for ${changeId}.`;
 
       setChangeDetailHydration({ status: "idle" });
       await refreshBootstrap({
@@ -1032,8 +1201,8 @@ export function useShellBootstrapController(): ShellBootstrapController {
           workspaceMode: "queue",
           changeId,
         },
-        toast: `Run ${response.run.id} started for ${changeId}.`,
       });
+      commitToast(toastMessage);
     },
     escalateSelectedChange: async () => {
       const { tenantId, changeId } = requireSelectedQueueChange("Escalate");
@@ -1045,6 +1214,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           method: "POST",
         },
       );
+      const toastMessage = `Change ${changeId} escalated.`;
 
       setChangeDetailHydration({ status: "idle" });
       await refreshBootstrap({
@@ -1054,8 +1224,8 @@ export function useShellBootstrapController(): ShellBootstrapController {
           workspaceMode: "queue",
           changeId,
         },
-        toast: `Change ${changeId} escalated.`,
       });
+      commitToast(toastMessage);
     },
     blockSelectedChangeBySpec: async () => {
       const { tenantId, changeId } = requireSelectedQueueChange("Mark blocked by spec");
@@ -1067,6 +1237,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           method: "POST",
         },
       );
+      const toastMessage = `Change ${changeId} marked blocked by spec.`;
 
       setChangeDetailHydration({ status: "idle" });
       await refreshBootstrap({
@@ -1076,8 +1247,8 @@ export function useShellBootstrapController(): ShellBootstrapController {
           workspaceMode: "queue",
           changeId,
         },
-        toast: `Change ${changeId} marked blocked by spec.`,
       });
+      commitToast(toastMessage);
     },
     createSelectedChangeClarificationRound: async () => {
       const { tenantId, changeId } = requireSelectedQueueChange("Create clarification round");
@@ -1089,6 +1260,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           method: "POST",
         },
       );
+      const toastMessage = `Clarification round ${response.round.id} created for ${changeId}.`;
 
       setChangeDetailHydration({ status: "idle" });
       await refreshBootstrap({
@@ -1098,8 +1270,8 @@ export function useShellBootstrapController(): ShellBootstrapController {
           workspaceMode: "queue",
           changeId,
         },
-        toast: `Clarification round ${response.round.id} created for ${changeId}.`,
       });
+      commitToast(toastMessage);
     },
     answerSelectedChangeClarificationRound: async (roundId, answers) => {
       const { tenantId, changeId } = requireSelectedQueueChange("Submit clarification answers");
@@ -1118,6 +1290,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           }),
         },
       );
+      const toastMessage = `Clarification round ${roundId} answered.`;
 
       setChangeDetailHydration({ status: "idle" });
       await refreshBootstrap({
@@ -1127,8 +1300,8 @@ export function useShellBootstrapController(): ShellBootstrapController {
           workspaceMode: "queue",
           changeId,
         },
-        toast: `Clarification round ${roundId} answered.`,
       });
+      commitToast(toastMessage);
     },
     promoteSelectedChangeFact: async (title, body) => {
       const { tenantId, changeId } = requireSelectedQueueChange("Promote fact");
@@ -1141,6 +1314,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           body: JSON.stringify({ fact: { title, body } }),
         },
       );
+      const toastMessage = `Fact ${response.fact.title} promoted to tenant memory.`;
 
       setChangeDetailHydration({ status: "idle" });
       await refreshBootstrap({
@@ -1150,8 +1324,8 @@ export function useShellBootstrapController(): ShellBootstrapController {
           workspaceMode: "queue",
           changeId,
         },
-        toast: `Fact ${response.fact.title} promoted to tenant memory.`,
       });
+      commitToast(toastMessage);
     },
     setQueueView: (viewId) => {
       applyRouteState({ workspaceMode: "queue", viewId }, "push");
@@ -1182,14 +1356,16 @@ export function useShellBootstrapController(): ShellBootstrapController {
       });
     },
     clearCatalogSelection: () => {
+      hasExplicitCatalogSelectionRef.current = false;
       setHasExplicitCatalogSelection(false);
-      setToast(null);
+      commitToast(null);
     },
     createTenant: async (name, repoPath, description) => {
       const response = await requestControlApi(TENANTS_ENDPOINT, createTenantResponseSchema, {
         method: "POST",
         body: JSON.stringify({ name, repoPath, description }),
       });
+      const toastMessage = `Repository ${response.tenant.name} registered.`;
 
       await refreshBootstrap({
         historyMode: "push",
@@ -1203,8 +1379,8 @@ export function useShellBootstrapController(): ShellBootstrapController {
           runId: null,
         },
         explicitCatalogSelection: true,
-        toast: `Repository ${response.tenant.name} registered.`,
       });
+      commitToast(toastMessage);
     },
     createChange: async () => {
       const response = await requestControlApi(
@@ -1215,6 +1391,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           body: JSON.stringify({}),
         },
       );
+      const toastMessage = `Change ${response.change.id} created for ${activeTenant?.name ?? routeState.tenantId}.`;
 
       await refreshBootstrap({
         historyMode: "replace",
@@ -1225,8 +1402,16 @@ export function useShellBootstrapController(): ShellBootstrapController {
           runId: null,
         },
         explicitCatalogSelection: hasExplicitCatalogSelection,
-        toast: `Change ${response.change.id} created for ${activeTenant?.name ?? routeState.tenantId}.`,
       });
+      commitToast(toastMessage);
+    },
+    retryRealtime: () => {
+      setRealtimeBoundary(() => ({
+        status: "reconciling",
+        notice: "Retrying realtime subscription for the current tenant.",
+        lastEventType: null,
+      }));
+      setRealtimeRetryCount((count) => count + 1);
     },
     buildWorkspaceHref: (workspaceMode) => {
       const queueChanges = resolveCurrentQueueChanges(queueHydration, routeState);
@@ -1747,6 +1932,31 @@ function areRouteStatesEqual(
     currentRouteState.runId === nextRouteState.runId &&
     currentRouteState.tabId === nextRouteState.tabId
   );
+}
+
+function buildRealtimeReconciliationNotice(event: TenantRealtimeEvent) {
+  if (event.type === "clarification-created" || event.type === "clarification-answered") {
+    return `Clarification activity for ${event.changeId ?? "the selected change"} is being reconciled.`;
+  }
+
+  if (event.type === "approval-decided") {
+    return `Approval reconciliation is in progress for ${event.runId ?? "the selected run"}.`;
+  }
+
+  if (event.type === "fact-promoted") {
+    return `Tenant memory for ${event.changeId ?? "the selected change"} is being refreshed.`;
+  }
+
+  if (event.type.startsWith("run-")) {
+    return `Run reconciliation is in progress for ${event.runId ?? "the active run"}.`;
+  }
+
+  return `Tenant event ${event.type} is reconciling queue, detail, and run state.`;
+}
+
+function buildRealtimeDegradedNotice(message: string) {
+  const normalizedMessage = message.trim() || "Control API realtime subscription failed.";
+  return `${normalizedMessage} Retry realtime to resume shared tenant reconciliation without leaving the current workspace.`;
 }
 
 type NormalizedShellLocation = {

@@ -1680,6 +1680,28 @@ textarea {
   padding-left: 16px;
 }
 
+.realtime-hero {
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.realtime-hero--degraded {
+  border: 1px solid color-mix(in srgb, var(--sample-orange) 40%, var(--sample-line));
+}
+
+.realtime-hero--reconciling {
+  border: 1px solid color-mix(in srgb, var(--sample-blue) 38%, var(--sample-line));
+}
+
+.realtime-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .operator-grid {
   grid-template-columns: minmax(240px, 272px) minmax(360px, 0.94fr) minmax(0, 1.16fr);
   gap: 18px;

@@ -197,6 +197,23 @@ def test_change_detail_restores_contract_memory_and_focus(client: TestClient) ->
     assert payload["change"]["owner"] == {"id": "codex-chief", "label": "Codex Chief"}
 
 
+def test_tenant_events_stream_broadcasts_clarification_activity(client: TestClient) -> None:
+    with client.websocket_connect("/api/tenants/tenant-demo/events") as websocket:
+        websocket.send_text("subscribe")
+
+        response = client.post("/api/tenants/tenant-demo/changes/ch-150/clarifications/auto")
+
+        assert response.status_code == 201
+        round_id = response.json()["round"]["id"]
+        event = websocket.receive_json()
+
+    assert event == {
+        "type": "clarification-created",
+        "changeId": "ch-150",
+        "roundId": round_id,
+    }
+
+
 def test_seeded_demo_change_reflects_canonical_runs_shell_copy(client: TestClient) -> None:
     response = client.get("/api/tenants/tenant-demo/changes/ch-142")
 

@@ -8,7 +8,7 @@ import "./ShellBootstrapApp.css";
 
 import { useShellBootstrapController } from "../navigation";
 
-import { WorkspacePageShell } from "./WorkspacePageShell";
+import { WorkspacePageShell } from "./";
 
 export function ShellBootstrapApp() {
   const controller = useShellBootstrapController();
@@ -41,6 +41,7 @@ export function ShellBootstrapApp() {
         buildWorkspaceHref={controller.buildWorkspaceHref}
         hasExplicitCatalogSelection={hasExplicitCatalogSelection}
         repositoryCatalog={bootstrap.repositoryCatalog}
+        realtimeBoundary={controller.realtimeBoundary}
         searchQuery={routeState.searchQuery}
         toast={toast}
         onWorkspaceModeChange={controller.setWorkspaceMode}
@@ -51,6 +52,7 @@ export function ShellBootstrapApp() {
         onSelectCatalogTenant={controller.selectCatalogTenant}
         onClearCatalogSelection={controller.clearCatalogSelection}
         onSelectFilter={controller.setCatalogFilter}
+        onRetryRealtime={controller.retryRealtime}
       />
     );
   }
@@ -62,6 +64,7 @@ export function ShellBootstrapApp() {
         activeTenantId={routeState.tenantId}
         buildWorkspaceHref={controller.buildWorkspaceHref}
         queueWorkspace={controller.queueWorkspace}
+        realtimeBoundary={controller.realtimeBoundary}
         toast={toast}
         tenants={bootstrap.tenants}
         views={bootstrap.views}
@@ -81,6 +84,7 @@ export function ShellBootstrapApp() {
         onCreateSelectedChangeClarificationRound={controller.createSelectedChangeClarificationRound}
         onAnswerSelectedChangeClarificationRound={controller.answerSelectedChangeClarificationRound}
         onPromoteSelectedChangeFact={controller.promoteSelectedChangeFact}
+        onRetryRealtime={controller.retryRealtime}
       />
     );
   }
@@ -90,6 +94,7 @@ export function ShellBootstrapApp() {
       activeTenant={activeTenant}
       activeTenantId={routeState.tenantId}
       buildWorkspaceHref={controller.buildWorkspaceHref}
+      realtimeBoundary={controller.realtimeBoundary}
       runsWorkspace={controller.runsWorkspace}
       toast={toast}
       tenants={bootstrap.tenants}
@@ -102,6 +107,7 @@ export function ShellBootstrapApp() {
       onOpenSelectedRunChange={controller.openSelectedRunChange}
       onRetrySelectedRunDetail={controller.retrySelectedRunDetail}
       onDecideSelectedRunApproval={controller.decideSelectedRunApproval}
+      onRetryRealtime={controller.retryRealtime}
     />
   );
 }

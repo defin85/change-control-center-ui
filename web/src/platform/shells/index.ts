@@ -3,6 +3,7 @@ export { DetailPanelShell } from "./DetailPanelShell";
 export { DetailWorkspaceShell } from "./DetailWorkspaceShell";
 export { MasterDetailShell } from "./MasterDetailShell";
 export { RepositoryCatalogWorkspaceShell } from "./RepositoryCatalogWorkspaceShell";
+export { RealtimeStatusHero } from "./RealtimeStatusHero";
 export { RunDetailWorkspaceShell } from "./RunDetailWorkspaceShell";
 export { RunInspectionShell } from "./RunInspectionShell";
 export { ShellBootstrapApp } from "./ShellBootstrapApp";

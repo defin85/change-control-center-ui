@@ -8,6 +8,8 @@ import {
   MasterDetailShell,
   OPERATOR_FILTERS,
   PlatformPrimitives,
+  RealtimeStatusHero,
+  type ShellRealtimeBoundaryState,
   StatusBadge,
   type OperatorWorkspaceMode,
   type QueueWorkspaceState,
@@ -36,6 +38,7 @@ export function ReferenceTenantQueuePage({
   activeTenantId,
   buildWorkspaceHref,
   queueWorkspace,
+  realtimeBoundary,
   toast,
   tenants,
   views,
@@ -55,6 +58,7 @@ export function ReferenceTenantQueuePage({
   onCreateSelectedChangeClarificationRound,
   onAnswerSelectedChangeClarificationRound,
   onPromoteSelectedChangeFact,
+  onRetryRealtime,
 }: ReferenceTenantQueuePageProps) {
   const [isCompactViewport, setIsCompactViewport] = useState(() =>
     window.matchMedia("(max-width: 1080px)").matches,
@@ -123,6 +127,7 @@ export function ReferenceTenantQueuePage({
   return (
     <WorkspacePageShell
       header={null}
+      hero={<RealtimeStatusHero realtime={realtimeBoundary} onRetryRealtime={onRetryRealtime} />}
       workspace={
         <div
           className="operator-style-sample reference-queue-shell"
@@ -316,6 +321,7 @@ type ReferenceTenantQueuePageProps = {
   activeTenantId: string;
   buildWorkspaceHref: (workspaceMode: OperatorWorkspaceMode) => string;
   queueWorkspace: QueueWorkspaceState;
+  realtimeBoundary: ShellRealtimeBoundaryState;
   toast?: string | null;
   tenants: Tenant[];
   views: BootstrapResponse["views"];
@@ -338,6 +344,7 @@ type ReferenceTenantQueuePageProps = {
     answers: ClarificationAnswer[],
   ) => Promise<void>;
   onPromoteSelectedChangeFact: (title: string, body: string) => Promise<void>;
+  onRetryRealtime: () => void;
 };
 
 type QueueNavigationPanelProps = {
