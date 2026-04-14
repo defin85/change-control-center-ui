@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { formatStateLabel } from "../lib";
 import {
   PlatformPrimitives,
@@ -5,7 +7,7 @@ import {
   useAsyncWorkflowCommandMachine,
   type QueueWorkspaceState,
 } from "../platform";
-import type { ChangeDetailResponse, ChangeDetailTabId } from "../types";
+import type { ChangeDetailResponse, ChangeDetailTabId, ClarificationAnswer } from "../types";
 
 const DETAIL_TABS: Array<{ id: ChangeDetailTabId; label: string }> = [
   { id: "overview", label: "Overview" },
@@ -25,6 +27,12 @@ type ReferenceSelectedChangeWorkspaceProps = {
   onRunSelectedChangeNextStep: () => Promise<void>;
   onEscalateSelectedChange: () => Promise<void>;
   onBlockSelectedChangeBySpec: () => Promise<void>;
+  onCreateSelectedChangeClarificationRound: () => Promise<void>;
+  onAnswerSelectedChangeClarificationRound: (
+    roundId: string,
+    answers: ClarificationAnswer[],
+  ) => Promise<void>;
+  onPromoteSelectedChangeFact: (title: string, body: string) => Promise<void>;
 };
 
 export function ReferenceSelectedChangeWorkspace({
@@ -35,6 +43,9 @@ export function ReferenceSelectedChangeWorkspace({
   onRunSelectedChangeNextStep,
   onEscalateSelectedChange,
   onBlockSelectedChangeBySpec,
+  onCreateSelectedChangeClarificationRound,
+  onAnswerSelectedChangeClarificationRound,
+  onPromoteSelectedChangeFact,
 }: ReferenceSelectedChangeWorkspaceProps) {
   if (queueWorkspace.status === "error") {
     return (
@@ -253,10 +264,18 @@ export function ReferenceSelectedChangeWorkspace({
         ) : null}
         {queueWorkspace.activeTabId === "git" ? <GitTab detail={queueWorkspace.detail} /> : null}
         {queueWorkspace.activeTabId === "chief" ? (
-          <ChiefTab detail={queueWorkspace.detail} tenantMemory={tenantMemory} />
+          <ChiefTab
+            detail={queueWorkspace.detail}
+            tenantMemory={tenantMemory}
+            onPromoteSelectedChangeFact={onPromoteSelectedChangeFact}
+          />
         ) : null}
         {queueWorkspace.activeTabId === "clarifications" ? (
-          <ClarificationsTab detail={queueWorkspace.detail} />
+          <ClarificationsTab
+            detail={queueWorkspace.detail}
+            onCreateSelectedChangeClarificationRound={onCreateSelectedChangeClarificationRound}
+            onAnswerSelectedChangeClarificationRound={onAnswerSelectedChangeClarificationRound}
+          />
         ) : null}
       </div>
     </section>
@@ -641,11 +660,19 @@ function GitTab({ detail }: { detail: ChangeDetailResponse }) {
 function ChiefTab({
   detail,
   tenantMemory,
+  onPromoteSelectedChangeFact,
 }: {
   detail: ChangeDetailResponse;
   tenantMemory: ChangeDetailResponse["tenantMemory"];
+  onPromoteSelectedChangeFact: (title: string, body: string) => Promise<void>;
 }) {
   const { change, focusGraph } = detail;
+  const promotionWorkflow = useAsyncWorkflowCommandMachine();
+  const [factTitle, setFactTitle] = useState("");
+  const [factBody, setFactBody] = useState("");
+  const normalizedFactTitle = factTitle.trim();
+  const normalizedFactBody = factBody.trim();
+  const canPromoteFact = normalizedFactTitle.length > 0 && normalizedFactBody.length > 0;
 
   return (
     <div className="reference-detail-stack">
@@ -704,7 +731,7 @@ function ChiefTab({
         </div>
         <div className="card">
           <p className="eyebrow">Tenant memory</p>
-          <ul className="reference-detail-list">
+          <ul className="reference-detail-list" data-platform-surface="tenant-memory-list">
             {tenantMemory.length > 0
               ? tenantMemory.map((fact) => (
                   <li key={fact.id}>
@@ -712,6 +739,75 @@ function ChiefTab({
                   </li>
                 ))
               : [<li key="no-tenant-memory">No tenant memory facts promoted yet.</li>]}
+          </ul>
+          <div className="reference-inline-form">
+            <div className="reference-detail-block-head">
+              <strong>Promote durable fact</strong>
+              <span>Backend-owned tenant memory write</span>
+            </div>
+            <label className="field-stack">
+              <span>Fact title</span>
+              <input
+                aria-label="Fact title"
+                name="fact-title"
+                placeholder="Runtime adapter default deployment"
+                type="text"
+                value={factTitle}
+                onChange={(event) => setFactTitle(event.target.value)}
+              />
+            </label>
+            <label className="field-stack">
+              <span>Fact body</span>
+              <textarea
+                aria-label="Fact body"
+                name="fact-body"
+                placeholder="Sidecar rollout is approved for the first release."
+                value={factBody}
+                onChange={(event) => setFactBody(event.target.value)}
+              />
+            </label>
+            {promotionWorkflow.error ? (
+              <p className="governance-note" data-platform-governance="promote-fact-error">
+                <strong>Fact promotion failed.</strong> {promotionWorkflow.error}
+              </p>
+            ) : null}
+            {promotionWorkflow.isPending ? (
+              <p className="governance-note" data-platform-governance="promote-fact-pending">
+                {promotionWorkflow.activeLabel ?? "Promoting durable fact to tenant memory..."}
+              </p>
+            ) : null}
+            <div className="reference-inline-actions">
+              <button
+                type="button"
+                className="primary-button"
+                data-platform-action="promote-tenant-fact"
+                disabled={!canPromoteFact || promotionWorkflow.isPending}
+                onClick={() =>
+                  promotionWorkflow.runCommand({
+                    label: `Promote fact for ${change.id}`,
+                    execute: async () => {
+                      await onPromoteSelectedChangeFact(normalizedFactTitle, normalizedFactBody);
+                      setFactTitle("");
+                      setFactBody("");
+                    },
+                  })
+                }
+              >
+                Promote fact
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <p className="eyebrow">Change memory facts</p>
+          <ul className="reference-detail-list" data-platform-surface="change-memory-facts">
+            {change.memory.facts.length > 0
+              ? change.memory.facts.map((fact) => (
+                  <li key={fact.id}>
+                    <strong>{fact.title}</strong>: {fact.body}
+                  </li>
+                ))
+              : [<li key="no-change-facts">No durable facts promoted into this change yet.</li>]}
           </ul>
         </div>
       </div>
@@ -732,11 +828,75 @@ function ChiefTab({
   );
 }
 
-function ClarificationsTab({ detail }: { detail: ChangeDetailResponse }) {
+function ClarificationsTab({
+  detail,
+  onCreateSelectedChangeClarificationRound,
+  onAnswerSelectedChangeClarificationRound,
+}: {
+  detail: ChangeDetailResponse;
+  onCreateSelectedChangeClarificationRound: () => Promise<void>;
+  onAnswerSelectedChangeClarificationRound: (
+    roundId: string,
+    answers: ClarificationAnswer[],
+  ) => Promise<void>;
+}) {
   const { change, clarificationRounds } = detail;
+  const generationWorkflow = useAsyncWorkflowCommandMachine();
+  const openRound = clarificationRounds.find((round) => round.status === "open") ?? null;
+  const clarificationUnavailableMessages = [
+    openRound ? "Clarification generation stays disabled while an open round already exists." : null,
+  ].filter((message): message is string => Boolean(message));
 
   return (
     <div className="reference-detail-stack">
+      <div className="reference-detail-block">
+        <div className="reference-detail-block-head">
+          <h3>Clarification workflow</h3>
+          <span>Backend-owned planning loop</span>
+        </div>
+        <div className="reference-inline-actions">
+          <button
+            type="button"
+            className="primary-button"
+            data-platform-action="generate-clarification-round"
+            disabled={openRound !== null || generationWorkflow.isPending}
+            onClick={() =>
+              generationWorkflow.runCommand({
+                label: `Generate clarification round for ${change.id}`,
+                execute: onCreateSelectedChangeClarificationRound,
+              })
+            }
+          >
+            Generate clarification round
+          </button>
+        </div>
+        {generationWorkflow.isPending ? (
+          <p className="governance-note" data-platform-governance="clarification-command-pending">
+            {generationWorkflow.activeLabel ?? "Running backend-owned clarification workflow..."}
+          </p>
+        ) : null}
+        {generationWorkflow.error ? (
+          <p className="governance-note" data-platform-governance="clarification-command-error">
+            <strong>Clarification workflow failed.</strong> {generationWorkflow.error}
+          </p>
+        ) : null}
+        {clarificationUnavailableMessages.length > 0 ? (
+          <p className="governance-note" data-platform-governance="clarification-command-unavailable">
+            <strong>Unavailable clarification actions stay closed.</strong>{" "}
+            {clarificationUnavailableMessages.join(" ")}
+          </p>
+        ) : null}
+      </div>
+
+      {openRound ? (
+        <OpenClarificationRoundForm
+          key={openRound.id}
+          round={openRound}
+          isGenerationPending={generationWorkflow.isPending}
+          onAnswerSelectedChangeClarificationRound={onAnswerSelectedChangeClarificationRound}
+        />
+      ) : null}
+
       <div className="reference-detail-block">
         <div className="reference-detail-block-head">
           <h3>Clarification history</h3>
@@ -745,7 +905,12 @@ function ClarificationsTab({ detail }: { detail: ChangeDetailResponse }) {
         {clarificationRounds.length > 0 ? (
           <div className="reference-detail-stack">
             {clarificationRounds.map((round) => (
-              <div key={round.id} className="card">
+              <div
+                key={round.id}
+                className="card"
+                data-clarification-round-id={round.id}
+                data-clarification-round-status={round.status}
+              >
                 <div className="reference-detail-block-head">
                   <strong>{round.rationale}</strong>
                   <span>{round.status}</span>
@@ -789,6 +954,148 @@ function ClarificationsTab({ detail }: { detail: ChangeDetailResponse }) {
                 ))
             : [<li key="no-clarification-memory">No clarification memory entries promoted yet.</li>]}
         </ul>
+      </div>
+    </div>
+  );
+}
+
+type OpenClarificationRoundFormProps = {
+  round: ChangeDetailResponse["clarificationRounds"][number];
+  isGenerationPending: boolean;
+  onAnswerSelectedChangeClarificationRound: (
+    roundId: string,
+    answers: ClarificationAnswer[],
+  ) => Promise<void>;
+};
+
+function OpenClarificationRoundForm({
+  round,
+  isGenerationPending,
+  onAnswerSelectedChangeClarificationRound,
+}: OpenClarificationRoundFormProps) {
+  const answerWorkflow = useAsyncWorkflowCommandMachine();
+  const [answerDrafts, setAnswerDrafts] = useState<
+    Record<string, { selectedOptionId: string; freeformNote: string }>
+  >(() =>
+    Object.fromEntries(
+      round.questions.map((question) => {
+        const existingAnswer = round.answers.find((answer) => answer.questionId === question.id);
+
+        return [
+          question.id,
+          {
+            selectedOptionId: existingAnswer?.selectedOptionId ?? "",
+            freeformNote: existingAnswer?.freeformNote ?? "",
+          },
+        ];
+      }),
+    ),
+  );
+
+  const canSubmitAnswers = round.questions.every(
+    (question) => (answerDrafts[question.id]?.selectedOptionId ?? "").trim().length > 0,
+  );
+  const submittedAnswers = round.questions.map((question) => {
+    const draft = answerDrafts[question.id];
+
+    return {
+      questionId: question.id,
+      selectedOptionId: draft?.selectedOptionId ?? "",
+      freeformNote: draft?.freeformNote?.trim() ? draft.freeformNote.trim() : undefined,
+    };
+  });
+
+  return (
+    <div
+      className="reference-detail-block"
+      data-platform-surface="open-clarification-round"
+      data-clarification-round-id={round.id}
+    >
+      <div className="reference-detail-block-head">
+        <h3>Open clarification round</h3>
+        <span>{round.rationale}</span>
+      </div>
+      <div className="reference-inline-form">
+        {round.questions.map((question) => (
+          <div key={question.id} className="card">
+            <label className="field-stack">
+              <span>{question.label}</span>
+              <select
+                aria-label={question.label}
+                value={answerDrafts[question.id]?.selectedOptionId ?? ""}
+                onChange={(event) =>
+                  setAnswerDrafts((current) => ({
+                    ...current,
+                    [question.id]: {
+                      selectedOptionId: event.target.value,
+                      freeformNote: current[question.id]?.freeformNote ?? "",
+                    },
+                  }))
+                }
+              >
+                <option value="">Choose an answer</option>
+                {question.options.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="reference-detail-inline-note">
+              {question.options.map((option) => `${option.label}: ${option.description}`).join(" ")}
+            </p>
+            {question.allowOther ? (
+              <label className="field-stack">
+                <span>Freeform note</span>
+                <textarea
+                  aria-label={`${question.label} note`}
+                  value={answerDrafts[question.id]?.freeformNote ?? ""}
+                  onChange={(event) =>
+                    setAnswerDrafts((current) => ({
+                      ...current,
+                      [question.id]: {
+                        selectedOptionId: current[question.id]?.selectedOptionId ?? "",
+                        freeformNote: event.target.value,
+                      },
+                    }))
+                  }
+                />
+              </label>
+            ) : null}
+          </div>
+        ))}
+        {answerWorkflow.error ? (
+          <p className="governance-note" data-platform-governance="clarification-command-error">
+            <strong>Clarification workflow failed.</strong> {answerWorkflow.error}
+          </p>
+        ) : null}
+        {answerWorkflow.isPending ? (
+          <p className="governance-note" data-platform-governance="clarification-command-pending">
+            {answerWorkflow.activeLabel ?? "Submitting backend-owned clarification answers..."}
+          </p>
+        ) : null}
+        {!canSubmitAnswers ? (
+          <p className="governance-note" data-platform-governance="clarification-command-unavailable">
+            <strong>Unavailable clarification actions stay closed.</strong>{" "}
+            Answer submission stays disabled until every open question has an option.
+          </p>
+        ) : null}
+        <div className="reference-inline-actions">
+          <button
+            type="button"
+            className="primary-button"
+            data-platform-action="submit-clarification-answers"
+            disabled={!canSubmitAnswers || answerWorkflow.isPending || isGenerationPending}
+            onClick={() =>
+              answerWorkflow.runCommand({
+                label: `Submit clarification answers for ${round.id}`,
+                execute: () => onAnswerSelectedChangeClarificationRound(round.id, submittedAnswers),
+              })
+            }
+          >
+            Submit answers
+          </button>
+        </div>
       </div>
     </div>
   );

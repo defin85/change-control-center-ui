@@ -405,6 +405,36 @@ def test_run_detail_schema_accepts_real_backend_payload(client: TestClient) -> N
     assert result["issues"] == []
 
 
+def test_clarification_round_schema_accepts_real_backend_payload(client: TestClient) -> None:
+    create_response = client.post("/api/tenants/tenant-demo/changes/ch-150/clarifications/auto")
+    assert create_response.status_code == 201
+
+    create_result = _validate_against_schema("clarificationRoundResponseSchema", create_response.json())
+
+    assert create_result["success"] is True
+    assert create_result["issues"] == []
+
+    round_id = create_response.json()["round"]["id"]
+    answer_response = client.post(
+        f"/api/tenants/tenant-demo/clarifications/{round_id}/answers",
+        json={
+            "answers": [
+                {
+                    "questionId": create_response.json()["round"]["questions"][0]["id"],
+                    "selectedOptionId": create_response.json()["round"]["questions"][0]["options"][0]["id"],
+                    "freeformNote": "Answered from the schema-boundary proof.",
+                }
+            ]
+        },
+    )
+    assert answer_response.status_code == 200
+
+    answer_result = _validate_against_schema("clarificationRoundResponseSchema", answer_response.json())
+
+    assert answer_result["success"] is True
+    assert answer_result["issues"] == []
+
+
 def test_promoted_fact_schema_accepts_canonical_backend_payload(client: TestClient) -> None:
     response = client.post(
         "/api/tenants/tenant-demo/changes/ch-150/promotions",

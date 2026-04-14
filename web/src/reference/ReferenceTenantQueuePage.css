@@ -175,6 +175,23 @@
   font-weight: 700;
 }
 
+.reference-inline-form {
+  display: grid;
+  gap: 12px;
+}
+
+.reference-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.reference-inline-actions .ghost-button,
+.reference-inline-actions .primary-button {
+  min-width: 0;
+}
+
 .reference-evidence-body {
   margin: 0;
   white-space: pre-wrap;

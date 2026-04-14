@@ -87,6 +87,19 @@
   margin: 0;
 }
 
+.reference-run-approval-list {
+  gap: 12px;
+}
+
+.reference-run-approval-item {
+  display: grid;
+  gap: 10px;
+}
+
+.reference-run-approval-copy {
+  line-height: 1.5;
+}
+
 @media (max-width: 1180px) {
   .reference-runs-utility {
     grid-template-columns: 1fr;

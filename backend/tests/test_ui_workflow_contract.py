@@ -59,6 +59,9 @@ def test_shell_bootstrap_controller_uses_shared_control_api_and_canonical_route_
     assert "createChangeResponseSchema" in source
     assert "runMutationResponseSchema" in source
     assert "deleteChangeResponseSchema" in source
+    assert "clarificationRoundResponseSchema" in source
+    assert "promotedFactResponseSchema" in source
+    assert "approvalDecisionResponseSchema" in source
     assert "readOperatorRouteState" in source
     assert "buildOperatorRouteHref" in source
     assert "runSlice" in source
@@ -79,6 +82,10 @@ def test_shell_bootstrap_controller_uses_shared_control_api_and_canonical_route_
     assert "runSelectedChangeNextStep" in source
     assert "escalateSelectedChange" in source
     assert "blockSelectedChangeBySpec" in source
+    assert "createSelectedChangeClarificationRound" in source
+    assert "answerSelectedChangeClarificationRound" in source
+    assert "promoteSelectedChangeFact" in source
+    assert "decideSelectedRunApproval" in source
     assert "setCatalogFilter" in source
     assert "selectCatalogTenant" in source
     assert "window.history.replaceState" in source
@@ -108,6 +115,9 @@ def test_bootstrap_shell_routes_queue_workspace_into_backend_owned_reference_pag
     assert "onRunSelectedChangeNextStep={controller.runSelectedChangeNextStep}" in source
     assert "onEscalateSelectedChange={controller.escalateSelectedChange}" in source
     assert "onBlockSelectedChangeBySpec={controller.blockSelectedChangeBySpec}" in source
+    assert "onCreateSelectedChangeClarificationRound={controller.createSelectedChangeClarificationRound}" in source
+    assert "onAnswerSelectedChangeClarificationRound={controller.answerSelectedChangeClarificationRound}" in source
+    assert "onPromoteSelectedChangeFact={controller.promoteSelectedChangeFact}" in source
 
 
 def test_bootstrap_shell_routes_catalog_workspace_into_backend_owned_reference_page() -> None:
@@ -130,6 +140,8 @@ def test_bootstrap_shell_routes_runs_workspace_into_backend_owned_reference_page
     assert "onSelectRun={controller.selectRun}" in source
     assert "onOpenSelectedRunChange={controller.openSelectedRunChange}" in source
     assert "onRetrySelectedRunDetail={controller.retrySelectedRunDetail}" in source
+    assert "toast={toast}" in source
+    assert "onDecideSelectedRunApproval={controller.decideSelectedRunApproval}" in source
 
 
 def test_reference_queue_page_is_wired_for_live_queue_navigation_and_selected_change_handoff() -> None:
@@ -147,6 +159,9 @@ def test_reference_queue_page_is_wired_for_live_queue_navigation_and_selected_ch
     assert "onRunSelectedChangeNextStep" in source
     assert "onEscalateSelectedChange" in source
     assert "onBlockSelectedChangeBySpec" in source
+    assert "onCreateSelectedChangeClarificationRound" in source
+    assert "onAnswerSelectedChangeClarificationRound" in source
+    assert "onPromoteSelectedChangeFact" in source
     assert "backend-owned queue" in source
     assert "full detail hydration" not in source
     assert "Queue summary only" not in source
@@ -172,6 +187,8 @@ def test_reference_runs_page_is_wired_for_live_run_navigation_and_handoff() -> N
     assert "onSelectRun" in source
     assert "onOpenSelectedRunChange" in source
     assert "onRetrySelectedRunDetail" in source
+    assert "onDecideSelectedRunApproval" in source
+    assert "toast" in source
     assert "backend-owned runs" in source
     assert "hidden legacy run surface" in source
     assert "window.location.assign" not in source
@@ -189,8 +206,30 @@ def test_selected_change_workspace_surfaces_supported_command_boundaries_and_fai
     assert 'data-platform-governance="selected-change-command-pending"' in source
     assert 'data-platform-governance="selected-change-command-error"' in source
     assert 'data-platform-governance="selected-change-command-unavailable"' in source
+    assert 'data-platform-action="generate-clarification-round"' in source
+    assert 'data-platform-action="submit-clarification-answers"' in source
+    assert 'data-platform-action="promote-tenant-fact"' in source
+    assert 'data-platform-governance="promote-fact-pending"' in source
+    assert 'data-platform-governance="promote-fact-error"' in source
+    assert 'data-platform-surface="tenant-memory-list"' in source
+    assert 'data-platform-surface="change-memory-facts"' in source
+    assert 'data-platform-surface="open-clarification-round"' in source
     assert "Run next step stays disabled while a backend-owned run is already active." in source
     assert "Delete change stays disabled while a backend-owned run is still active." in source
+    assert "Clarification generation stays disabled while an open round already exists." in source
+    assert "Answer submission stays disabled until every open question has an option." in source
+
+
+def test_selected_run_workspace_surfaces_approval_decision_boundaries() -> None:
+    source = _read(REFERENCE_RUNS_PAGE)
+
+    assert "useAsyncWorkflowCommandMachine" in source
+    assert 'data-platform-surface="run-approvals"' in source
+    assert 'data-platform-action="accept-approval"' in source
+    assert 'data-platform-action="decline-approval"' in source
+    assert 'data-platform-governance="run-approval-pending"' in source
+    assert 'data-platform-governance="run-approval-error"' in source
+    assert "Resolved approvals remain read-only after reconciliation." in source
 
 
 def test_repository_authoring_and_change_creation_surface_explicit_command_boundaries() -> None:

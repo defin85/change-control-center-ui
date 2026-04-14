@@ -7,6 +7,7 @@ import {
   RunDetailWorkspaceShell,
   RunInspectionShell,
   StatusBadge,
+  useAsyncWorkflowCommandMachine,
   type OperatorWorkspaceMode,
   type RunsWorkspaceState,
   WorkspacePageShell,
@@ -14,7 +15,6 @@ import {
 import type { RunDetailResponse, RunListEntry, Tenant } from "../types";
 
 import "./OperatorStyleSamplePage.css";
-import "./ReferenceRunsWorkspacePage.css";
 import "./ReferenceRunsWorkspacePage.css";
 
 type RunsMetric = {
@@ -28,6 +28,7 @@ export function ReferenceRunsWorkspacePage({
   activeTenantId,
   buildWorkspaceHref,
   runsWorkspace,
+  toast,
   tenants,
   onWorkspaceModeChange,
   onTenantChange,
@@ -37,6 +38,7 @@ export function ReferenceRunsWorkspacePage({
   onClearSelectedRun,
   onOpenSelectedRunChange,
   onRetrySelectedRunDetail,
+  onDecideSelectedRunApproval,
 }: ReferenceRunsWorkspacePageProps) {
   const [isCompactViewport, setIsCompactViewport] = useState(() =>
     window.matchMedia("(max-width: 1080px)").matches,
@@ -77,6 +79,7 @@ export function ReferenceRunsWorkspacePage({
           runsWorkspace={runsWorkspace}
           onOpenSelectedRunChange={onOpenSelectedRunChange}
           onRetrySelectedRunDetail={onRetrySelectedRunDetail}
+          onDecideSelectedRunApproval={onDecideSelectedRunApproval}
         />
       }
     />
@@ -290,6 +293,7 @@ export function ReferenceRunsWorkspacePage({
         </div>
       }
       detailWorkspace={isCompactViewport ? detailWorkspace : null}
+      toast={toast ? <div className="toast">{toast}</div> : null}
     />
   );
 }
@@ -299,6 +303,7 @@ type ReferenceRunsWorkspacePageProps = {
   activeTenantId: string;
   buildWorkspaceHref: (workspaceMode: OperatorWorkspaceMode) => string;
   runsWorkspace: RunsWorkspaceState;
+  toast?: string | null;
   tenants: Tenant[];
   onWorkspaceModeChange: (workspaceMode: OperatorWorkspaceMode) => void;
   onTenantChange: (tenantId: string) => void;
@@ -308,6 +313,7 @@ type ReferenceRunsWorkspacePageProps = {
   onClearSelectedRun: () => void;
   onOpenSelectedRunChange: () => void;
   onRetrySelectedRunDetail: () => void;
+  onDecideSelectedRunApproval: (approvalId: string, decision: "accept" | "decline") => Promise<void>;
 };
 
 type RunsContextPanelProps = {
@@ -540,12 +546,14 @@ type ReferenceSelectedRunWorkspaceProps = {
   runsWorkspace: RunsWorkspaceState;
   onOpenSelectedRunChange: () => void;
   onRetrySelectedRunDetail: () => void;
+  onDecideSelectedRunApproval: (approvalId: string, decision: "accept" | "decline") => Promise<void>;
 };
 
 function ReferenceSelectedRunWorkspace({
   runsWorkspace,
   onOpenSelectedRunChange,
   onRetrySelectedRunDetail,
+  onDecideSelectedRunApproval,
 }: ReferenceSelectedRunWorkspaceProps) {
   const selectedRun = runsWorkspace.status === "ready" ? runsWorkspace.selectedRun : null;
 
@@ -632,6 +640,7 @@ function ReferenceSelectedRunWorkspace({
       detail={runsWorkspace.detail}
       selectedRun={selectedRun}
       onOpenSelectedRunChange={onOpenSelectedRunChange}
+      onDecideSelectedRunApproval={onDecideSelectedRunApproval}
     />
   );
 }
@@ -640,14 +649,18 @@ type ReadySelectedRunWorkspaceProps = {
   detail: RunDetailResponse;
   selectedRun: RunListEntry;
   onOpenSelectedRunChange: () => void;
+  onDecideSelectedRunApproval: (approvalId: string, decision: "accept" | "decline") => Promise<void>;
 };
 
 function ReadySelectedRunWorkspace({
   detail,
   selectedRun,
   onOpenSelectedRunChange,
+  onDecideSelectedRunApproval,
 }: ReadySelectedRunWorkspaceProps) {
   const { run, approvals, events } = detail;
+  const approvalWorkflow = useAsyncWorkflowCommandMachine();
+  const hasPendingApproval = approvals.some((approval) => approval.status === "pending");
 
   return (
     <RunInspectionShell
@@ -731,23 +744,83 @@ function ReadySelectedRunWorkspace({
           )}
         </div>
 
-        <div className="card reference-overview-card">
+        <div
+          className="card reference-overview-card"
+          data-platform-surface="run-approvals"
+        >
           <p className="eyebrow">Approvals</p>
           {approvals.length === 0 ? (
             <p>No approvals captured for this run.</p>
           ) : (
-            <ul className="reference-detail-list">
+            <ul className="reference-detail-list reference-run-approval-list">
               {approvals.map((approval) => (
-                <li key={approval.id}>
-                  <strong>{formatApprovalStatusLabel(approval.status)}</strong>
-                  {" "}
-                  {approval.kind}
-                  :{" "}
-                  {approval.reason}
+                <li
+                  key={approval.id}
+                  className="reference-run-approval-item"
+                  data-approval-id={approval.id}
+                >
+                  <div className="reference-run-approval-copy">
+                    <strong>{formatApprovalStatusLabel(approval.status)}</strong>
+                    {" "}
+                    {approval.kind}
+                    :{" "}
+                    {approval.reason}
+                  </div>
+                  {approval.status === "pending" ? (
+                    <div className="reference-inline-actions">
+                      <button
+                        type="button"
+                        className="primary-button"
+                        data-platform-action="accept-approval"
+                        disabled={approvalWorkflow.isPending}
+                        onClick={() =>
+                          approvalWorkflow.runCommand({
+                            label: `Accept approval ${approval.id}`,
+                            execute: () => onDecideSelectedRunApproval(approval.id, "accept"),
+                          })
+                        }
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        data-platform-action="decline-approval"
+                        disabled={approvalWorkflow.isPending}
+                        onClick={() =>
+                          approvalWorkflow.runCommand({
+                            label: `Decline approval ${approval.id}`,
+                            execute: () => onDecideSelectedRunApproval(approval.id, "decline"),
+                          })
+                        }
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="reference-detail-inline-note">
+                      Decision: {approval.decision ?? "recorded"}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
           )}
+          {approvalWorkflow.error ? (
+            <p className="governance-note" data-platform-governance="run-approval-error">
+              <strong>Approval decision failed.</strong> {approvalWorkflow.error}
+            </p>
+          ) : null}
+          {approvalWorkflow.isPending ? (
+            <p className="governance-note" data-platform-governance="run-approval-pending">
+              {approvalWorkflow.activeLabel ?? "Submitting backend-owned approval decision..."}
+            </p>
+          ) : null}
+          {!hasPendingApproval && approvals.length > 0 ? (
+            <p className="reference-detail-inline-note">
+              Resolved approvals remain read-only after reconciliation.
+            </p>
+          ) : null}
         </div>
 
         <div className="card reference-overview-card">

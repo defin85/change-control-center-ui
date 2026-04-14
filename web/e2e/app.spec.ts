@@ -75,6 +75,30 @@ async function startRepositoryCreation(page: Page, repositoryName: string, repos
   await page.getByRole("button", { name: "Create repository" }).click();
 }
 
+async function createRepositoryChangeAndOpenQueue(
+  page: Page,
+  repositoryName: string,
+  repositoryPath: string,
+) {
+  await gotoShippedApp(page, "/?workspace=catalog");
+  await startRepositoryCreation(page, repositoryName, repositoryPath);
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(repositoryName);
+
+  await page.locator('[data-platform-action="create-first-change"]').click();
+  const changeId = await extractToastIdentifier(
+    page,
+    /Change (ch-[a-z0-9]+) created for /,
+    "change id",
+  );
+
+  await page.locator('[data-platform-action="open-queue"]').click();
+  await expectTenantQueueWorkspace(page, repositoryName);
+  await page.locator(`[data-change-id="${changeId}"]`).click();
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(changeId);
+
+  return changeId;
+}
+
 async function extractToastIdentifier(page: Page, pattern: RegExp, label: string) {
   const toast = page.locator(".toast");
   await expect(toast).toContainText(pattern);
@@ -424,6 +448,148 @@ test("runs workspace preserves compact drawer behavior @platform", async ({ page
     "false",
   );
   await expect(page).toHaveURL(/\?workspace=runs$/);
+});
+
+test("selected-change clarification and memory workflows reconcile through shipped detail surfaces @platform", async ({
+  page,
+}) => {
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `operator-clarifications-${suffix}`;
+  const repositoryPath = `/tmp/operator-clarifications-${suffix}`;
+  const factTitle = `Runtime memory ${suffix}`;
+  const factBody = "Clarification-backed topology choice should persist into tenant memory.";
+  const changeId = await createRepositoryChangeAndOpenQueue(page, repositoryName, repositoryPath);
+
+  await page.getByRole("tab", { name: "Clarifications" }).click();
+  await expect(page.locator('[data-platform-surface="selected-change-tab-panel"]')).toHaveAttribute(
+    "data-platform-tab",
+    "clarifications",
+  );
+
+  await delayMutationOnce(
+    page,
+    new RegExp(`/api/tenants/[^/]+/changes/${changeId}/clarifications/auto$`),
+    "POST",
+  );
+  await page.locator('[data-platform-action="generate-clarification-round"]').click();
+  await expect(page.locator('[data-platform-governance="clarification-command-pending"]').first()).toBeVisible();
+  const roundId = await extractToastIdentifier(
+    page,
+    /Clarification round (clar-[a-z0-9]+) created for /,
+    "clarification round id",
+  );
+
+  await expect(page.locator('[data-platform-action="generate-clarification-round"]')).toBeDisabled();
+  await expect(page.locator('[data-platform-governance="clarification-command-unavailable"]').first()).toContainText(
+    "Clarification generation stays disabled while an open round already exists.",
+  );
+  await expect(page.locator('[data-platform-surface="open-clarification-round"]')).toHaveAttribute(
+    "data-clarification-round-id",
+    roundId,
+  );
+  await expect(page.locator('[data-platform-action="submit-clarification-answers"]')).toBeDisabled();
+  await expect(page.locator('[data-platform-governance="clarification-command-unavailable"]').last()).toContainText(
+    "Answer submission stays disabled until every open question has an option.",
+  );
+
+  await page.getByLabel("What problem should this change solve?", { exact: true }).selectOption("yes");
+  await page
+    .getByLabel("What problem should this change solve? note")
+    .fill("Clarified from the shipped operator shell.");
+
+  await delayMutationOnce(
+    page,
+    new RegExp(`/api/tenants/[^/]+/clarifications/${roundId}/answers$`),
+    "POST",
+  );
+  await page.locator('[data-platform-action="submit-clarification-answers"]').click();
+  await expect(page.locator('[data-platform-governance="clarification-command-pending"]').last()).toBeVisible();
+  await expect(page.locator(".toast")).toContainText(`Clarification round ${roundId} answered.`);
+  await expect(page.locator('[data-platform-surface="open-clarification-round"]')).toHaveCount(0);
+  await expect(page.locator(`[data-clarification-round-id="${roundId}"]`)).toHaveAttribute(
+    "data-clarification-round-status",
+    "answered",
+  );
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(
+    "Clarifications are resolved and the change is ready for proposal.",
+  );
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(
+    "What problem should this change solve? -> yes",
+  );
+
+  await page.getByRole("tab", { name: "Chief" }).click();
+  await expect(page.locator('[data-platform-surface="selected-change-tab-panel"]')).toHaveAttribute(
+    "data-platform-tab",
+    "chief",
+  );
+
+  await delayMutationOnce(
+    page,
+    new RegExp(`/api/tenants/[^/]+/changes/${changeId}/promotions$`),
+    "POST",
+  );
+  await page.getByLabel("Fact title").fill(factTitle);
+  await page.getByLabel("Fact body").fill(factBody);
+  await page.locator('[data-platform-action="promote-tenant-fact"]').click();
+  await expect(page.locator('[data-platform-governance="promote-fact-pending"]')).toBeVisible();
+  await expect(page.locator(".toast")).toContainText(`Fact ${factTitle} promoted to tenant memory.`);
+  await expect(page.locator('[data-platform-surface="tenant-memory-list"]')).toContainText(factTitle);
+  await expect(page.locator('[data-platform-surface="tenant-memory-list"]')).toContainText(factBody);
+  await expect(page.locator('[data-platform-surface="change-memory-facts"]')).toContainText(factTitle);
+  await expect(page.locator('[data-platform-surface="change-memory-facts"]')).toContainText(factBody);
+});
+
+test("run approval decisions surface explicit errors and reconcile to accepted state @platform", async ({
+  page,
+}) => {
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `operator-approval-${suffix}`;
+  const repositoryPath = `/tmp/operator-approval-${suffix}`;
+  const changeId = await createRepositoryChangeAndOpenQueue(page, repositoryName, repositoryPath);
+
+  await page.locator('[data-platform-action="run-next-step"]').click();
+  const runId = await extractToastIdentifier(
+    page,
+    new RegExp(`Run (run-[a-z0-9]+) started for ${changeId}\\.`),
+    "run id",
+  );
+
+  await page.locator('[data-platform-action="workspace-runs"]').click();
+  await expectRunsWorkspace(page, repositoryName);
+  await page.locator(`[data-run-id="${runId}"]`).click();
+  await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText(runId);
+  await expect(page.locator('[data-platform-surface="run-approvals"] [data-approval-id]')).toHaveCount(1);
+
+  await failMutationOnce(
+    page,
+    /\/api\/tenants\/[^/]+\/approvals\/[^/]+\/decision$/,
+    "POST",
+    "forced approval decision failure",
+  );
+  await page.locator('[data-platform-action="accept-approval"]').click();
+  await expect(page.locator('[data-platform-governance="run-approval-error"]')).toContainText(
+    "forced approval decision failure",
+  );
+  await expect(page.locator('[data-platform-action="accept-approval"]')).toBeEnabled();
+
+  await delayMutationOnce(
+    page,
+    /\/api\/tenants\/[^/]+\/approvals\/[^/]+\/decision$/,
+    "POST",
+  );
+  await page.locator('[data-platform-action="accept-approval"]').click();
+  await expect(page.locator('[data-platform-governance="run-approval-pending"]')).toBeVisible();
+  const approvalId = await extractToastIdentifier(
+    page,
+    /Approval ([a-z0-9-]+) accepted\./,
+    "approval id",
+  );
+  await expect(page.locator(`[data-approval-id="${approvalId}"]`)).toContainText("Accepted");
+  await expect(page.locator(`[data-approval-id="${approvalId}"]`)).toContainText("Decision: accept");
+  await expect(page.locator(`[data-approval-id="${approvalId}"] [data-platform-action="accept-approval"]`)).toHaveCount(0);
+  await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText(
+    "serverRequest/resolved",
+  );
 });
 
 test("selected-change commands escalate successfully and reconcile shipped queue detail @platform", async ({

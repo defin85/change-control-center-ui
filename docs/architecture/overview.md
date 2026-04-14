@@ -47,7 +47,7 @@ Browser UI (bootstrap shell + functional tenant queue + selected-change detail +
 - UI reads normalized backend state and must not talk directly to Codex transport endpoints.
 - Sidecar hides `stdio` vs `websocket`; transport choice is internal deployment configuration.
 - Launcher profiles are the only approved local lifecycle path for backend-served UI checks.
-- The default backend-served route is now a bootstrap-hydrated functional shell; `Queue` ships on `/`, backend-owned selected-change detail ships inside that queue shell, `Repositories` ships on `workspace=catalog`, `Runs` ships on `workspace=runs`, and supported operator commands (`New repository`, `New change`, `Delete change`, `Run next step`, `Escalate`, `Mark blocked by spec`) ship through explicit workflow boundaries. Approval decisions, clarification authoring, and realtime depth remain sequenced follow-up changes rather than current product truth.
+- The default backend-served route is now a bootstrap-hydrated functional shell; `Queue` ships on `/`, backend-owned selected-change detail ships inside that queue shell, `Repositories` ships on `workspace=catalog`, `Runs` ships on `workspace=runs`, supported operator commands (`New repository`, `New change`, `Delete change`, `Run next step`, `Escalate`, `Mark blocked by spec`) ship through explicit workflow boundaries, selected-change detail ships clarification generation/answer plus tenant-memory promotion, and run detail ships approval decisions through the shared shell controller. Realtime depth remains the next sequenced follow-up rather than current product truth.
 
 ## Verification Map
 

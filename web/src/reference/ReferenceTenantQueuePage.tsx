@@ -13,7 +13,13 @@ import {
   type QueueWorkspaceState,
   WorkspacePageShell,
 } from "../platform";
-import type { BootstrapResponse, ChangeDetailTabId, ChangeSummary, Tenant } from "../types";
+import type {
+  BootstrapResponse,
+  ChangeDetailTabId,
+  ChangeSummary,
+  ClarificationAnswer,
+  Tenant,
+} from "../types";
 
 import "./OperatorStyleSamplePage.css";
 import "./ReferenceTenantQueuePage.css";
@@ -46,6 +52,9 @@ export function ReferenceTenantQueuePage({
   onRunSelectedChangeNextStep,
   onEscalateSelectedChange,
   onBlockSelectedChangeBySpec,
+  onCreateSelectedChangeClarificationRound,
+  onAnswerSelectedChangeClarificationRound,
+  onPromoteSelectedChangeFact,
 }: ReferenceTenantQueuePageProps) {
   const [isCompactViewport, setIsCompactViewport] = useState(() =>
     window.matchMedia("(max-width: 1080px)").matches,
@@ -95,6 +104,9 @@ export function ReferenceTenantQueuePage({
           onRunSelectedChangeNextStep={onRunSelectedChangeNextStep}
           onEscalateSelectedChange={onEscalateSelectedChange}
           onBlockSelectedChangeBySpec={onBlockSelectedChangeBySpec}
+          onCreateSelectedChangeClarificationRound={onCreateSelectedChangeClarificationRound}
+          onAnswerSelectedChangeClarificationRound={onAnswerSelectedChangeClarificationRound}
+          onPromoteSelectedChangeFact={onPromoteSelectedChangeFact}
         />
       }
     />
@@ -320,6 +332,12 @@ type ReferenceTenantQueuePageProps = {
   onRunSelectedChangeNextStep: () => Promise<void>;
   onEscalateSelectedChange: () => Promise<void>;
   onBlockSelectedChangeBySpec: () => Promise<void>;
+  onCreateSelectedChangeClarificationRound: () => Promise<void>;
+  onAnswerSelectedChangeClarificationRound: (
+    roundId: string,
+    answers: ClarificationAnswer[],
+  ) => Promise<void>;
+  onPromoteSelectedChangeFact: (title: string, body: string) => Promise<void>;
 };
 
 type QueueNavigationPanelProps = {

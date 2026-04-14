@@ -91,8 +91,9 @@ bash ./scripts/ccc stop all
 - shell route поддерживает canonical `workspace`, `tenant`, queue `view`, queue/catalog `filter`, `q`, queue `change`, selected-change `tab`, runs `runSlice`, и selected `run`, а stale params вроде `legacyWorkbench=1` нормализуются fail-closed
 - shipped shell больше не показывает user-facing bridge в live/legacy workbench path и не падает обратно в client-only sample truth при bootstrap failure
 - shipped queue теперь включает backend-owned `Selected change` workspace с вкладками `Overview`, `Traceability`, `Gaps`, `Evidence`, `Git`, `Chief` и `Clarifications`
-- `Runs` workspace читает backend-owned run list/detail, approvals и runtime events без возврата к legacy `Run Studio`
-- текущая последовательность follow-up changes теперь продолжается с `08-add-approval-decision-ui` и заканчивается `10-harden-functional-shell-proof-pack`
+- shipped queue surface теперь также включает clarification round generation/answer flows и fact promotion в tenant memory через explicit workflow boundaries
+- `Runs` workspace читает backend-owned run list/detail, approvals и runtime events без возврата к legacy `Run Studio`, а run detail теперь ship'ит approval decisions через тот же shared controller
+- текущая последовательность follow-up changes теперь продолжается с `09-add-realtime-reconciliation-and-degradation-visibility` и заканчивается `10-harden-functional-shell-proof-pack`
 
 ## Проверки
 

@@ -5,6 +5,7 @@ import type {
   BootstrapResponse,
   ChangeDetailResponse,
   ChangeDetailTabId,
+  ClarificationAnswer,
   ChangeSummary,
   RepositoryCatalogEntry,
   RunDetailResponse,
@@ -14,12 +15,15 @@ import type {
   Tenant,
 } from "../../types";
 import {
+  approvalDecisionResponseSchema,
   bootstrapResponseSchema,
   changeDetailResponseSchema,
   changesResponseSchema,
+  clarificationRoundResponseSchema,
   createChangeResponseSchema,
   createTenantResponseSchema,
   deleteChangeResponseSchema,
+  promotedFactResponseSchema,
   requestControlApi,
   runDetailResponseSchema,
   runMutationResponseSchema,
@@ -184,10 +188,17 @@ export type ShellBootstrapControllerReady = ShellBootstrapControllerBase & {
   clearSelectedRun: () => void;
   openSelectedRunChange: () => void;
   retrySelectedRunDetail: () => void;
+  decideSelectedRunApproval: (approvalId: string, decision: "accept" | "decline") => Promise<void>;
   deleteSelectedChange: () => Promise<void>;
   runSelectedChangeNextStep: () => Promise<void>;
   escalateSelectedChange: () => Promise<void>;
   blockSelectedChangeBySpec: () => Promise<void>;
+  createSelectedChangeClarificationRound: () => Promise<void>;
+  answerSelectedChangeClarificationRound: (
+    roundId: string,
+    answers: ClarificationAnswer[],
+  ) => Promise<void>;
+  promoteSelectedChangeFact: (title: string, body: string) => Promise<void>;
   setQueueView: (viewId: string) => void;
   setQueueFilter: (filterId: string) => void;
   setQueueTab: (tabId: ChangeDetailTabId) => void;
@@ -862,6 +873,17 @@ export function useShellBootstrapController(): ShellBootstrapController {
     };
   };
 
+  const requireSelectedRun = (actionLabel: string) => {
+    if (!routeState || routeState.workspaceMode !== "runs" || !routeState.runId) {
+      throw new Error(`Select a backend-owned run before ${actionLabel.toLowerCase()}.`);
+    }
+
+    return {
+      tenantId: routeState.tenantId,
+      runId: routeState.runId,
+    };
+  };
+
   if (error) {
     return {
       status: "error",
@@ -944,6 +966,29 @@ export function useShellBootstrapController(): ShellBootstrapController {
 
       setRunDetailHydration({ status: "idle" });
       setRunDetailReloadCount((count) => count + 1);
+    },
+    decideSelectedRunApproval: async (approvalId, decision) => {
+      const { tenantId, runId } = requireSelectedRun("Decide approval");
+
+      const response = await requestControlApi(
+        `/api/tenants/${tenantId}/approvals/${approvalId}/decision`,
+        approvalDecisionResponseSchema,
+        {
+          method: "POST",
+          body: JSON.stringify({ decision }),
+        },
+      );
+
+      setRunDetailHydration({ status: "idle" });
+      await refreshBootstrap({
+        historyMode: "replace",
+        nextRouteState: {
+          ...routeState,
+          workspaceMode: "runs",
+          runId,
+        },
+        toast: `Approval ${response.approval.id} ${response.approval.status}.`,
+      });
     },
     deleteSelectedChange: async () => {
       const { tenantId, changeId } = requireSelectedQueueChange("Delete change");
@@ -1032,6 +1077,80 @@ export function useShellBootstrapController(): ShellBootstrapController {
           changeId,
         },
         toast: `Change ${changeId} marked blocked by spec.`,
+      });
+    },
+    createSelectedChangeClarificationRound: async () => {
+      const { tenantId, changeId } = requireSelectedQueueChange("Create clarification round");
+
+      const response = await requestControlApi(
+        `/api/tenants/${tenantId}/changes/${changeId}/clarifications/auto`,
+        clarificationRoundResponseSchema,
+        {
+          method: "POST",
+        },
+      );
+
+      setChangeDetailHydration({ status: "idle" });
+      await refreshBootstrap({
+        historyMode: "replace",
+        nextRouteState: {
+          ...routeState,
+          workspaceMode: "queue",
+          changeId,
+        },
+        toast: `Clarification round ${response.round.id} created for ${changeId}.`,
+      });
+    },
+    answerSelectedChangeClarificationRound: async (roundId, answers) => {
+      const { tenantId, changeId } = requireSelectedQueueChange("Submit clarification answers");
+
+      await requestControlApi(
+        `/api/tenants/${tenantId}/clarifications/${roundId}/answers`,
+        clarificationRoundResponseSchema,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            answers: answers.map((answer) => ({
+              questionId: answer.questionId,
+              selectedOptionId: answer.selectedOptionId,
+              ...(answer.freeformNote ? { freeformNote: answer.freeformNote } : {}),
+            })),
+          }),
+        },
+      );
+
+      setChangeDetailHydration({ status: "idle" });
+      await refreshBootstrap({
+        historyMode: "replace",
+        nextRouteState: {
+          ...routeState,
+          workspaceMode: "queue",
+          changeId,
+        },
+        toast: `Clarification round ${roundId} answered.`,
+      });
+    },
+    promoteSelectedChangeFact: async (title, body) => {
+      const { tenantId, changeId } = requireSelectedQueueChange("Promote fact");
+
+      const response = await requestControlApi(
+        `/api/tenants/${tenantId}/changes/${changeId}/promotions`,
+        promotedFactResponseSchema,
+        {
+          method: "POST",
+          body: JSON.stringify({ fact: { title, body } }),
+        },
+      );
+
+      setChangeDetailHydration({ status: "idle" });
+      await refreshBootstrap({
+        historyMode: "replace",
+        nextRouteState: {
+          ...routeState,
+          workspaceMode: "queue",
+          changeId,
+        },
+        toast: `Fact ${response.fact.title} promoted to tenant memory.`,
       });
     },
     setQueueView: (viewId) => {

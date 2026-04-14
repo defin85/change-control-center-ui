@@ -78,6 +78,9 @@ export function ShellBootstrapApp() {
         onRunSelectedChangeNextStep={controller.runSelectedChangeNextStep}
         onEscalateSelectedChange={controller.escalateSelectedChange}
         onBlockSelectedChangeBySpec={controller.blockSelectedChangeBySpec}
+        onCreateSelectedChangeClarificationRound={controller.createSelectedChangeClarificationRound}
+        onAnswerSelectedChangeClarificationRound={controller.answerSelectedChangeClarificationRound}
+        onPromoteSelectedChangeFact={controller.promoteSelectedChangeFact}
       />
     );
   }
@@ -88,6 +91,7 @@ export function ShellBootstrapApp() {
       activeTenantId={routeState.tenantId}
       buildWorkspaceHref={controller.buildWorkspaceHref}
       runsWorkspace={controller.runsWorkspace}
+      toast={toast}
       tenants={bootstrap.tenants}
       onWorkspaceModeChange={controller.setWorkspaceMode}
       onTenantChange={controller.setTenantId}
@@ -97,6 +101,7 @@ export function ShellBootstrapApp() {
       onClearSelectedRun={controller.clearSelectedRun}
       onOpenSelectedRunChange={controller.openSelectedRunChange}
       onRetrySelectedRunDetail={controller.retrySelectedRunDetail}
+      onDecideSelectedRunApproval={controller.decideSelectedRunApproval}
     />
   );
 }
