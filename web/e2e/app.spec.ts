@@ -334,6 +334,26 @@ test("catalog workspace ships repository and change creation workflows with expl
   await expect(page.locator(`[data-change-id="${changeId}"]`)).toBeVisible();
 });
 
+test("catalog workspace surfaces explicit repository creation failure without silent fallback @platform", async ({
+  page,
+}) => {
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `command-workflow-failure-${suffix}`;
+  const repositoryPath = `/tmp/command-workflow-failure-${suffix}`;
+
+  await failMutationOnce(page, "**/api/tenants", "POST", "forced repository creation failure");
+  await gotoShippedApp(page, "/?workspace=catalog");
+
+  await startRepositoryCreation(page, repositoryName, repositoryPath);
+  await expect(page.locator('[data-platform-governance="create-repository-error"]')).toContainText(
+    "forced repository creation failure",
+  );
+  await expect(page.getByRole("dialog")).toContainText("New repository");
+  await expect(page.locator(".toast")).toHaveCount(0);
+  await expect(page).toHaveURL(/\?workspace=catalog$/);
+  await expect(page.getByRole("button", { name: "Create repository" })).toBeEnabled();
+});
+
 test("runs workspace supports hydration, selection, slice restoration, and change handoff @platform", async ({
   page,
 }) => {
@@ -404,6 +424,54 @@ test("runs workspace preserves compact drawer behavior @platform", async ({ page
     "false",
   );
   await expect(page).toHaveURL(/\?workspace=runs$/);
+});
+
+test("selected-change commands escalate successfully and reconcile shipped queue detail @platform", async ({
+  page,
+}) => {
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `operator-command-escalate-${suffix}`;
+  const repositoryPath = `/tmp/operator-command-escalate-${suffix}`;
+
+  await gotoShippedApp(page, "/?workspace=catalog");
+  await startRepositoryCreation(page, repositoryName, repositoryPath);
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(repositoryName);
+
+  await page.locator('[data-platform-action="create-first-change"]').click();
+  const changeId = await extractToastIdentifier(
+    page,
+    /Change (ch-[a-z0-9]+) created for /,
+    "change id",
+  );
+
+  await page.locator('[data-platform-action="open-queue"]').click();
+  await expectTenantQueueWorkspace(page, repositoryName);
+  await page.locator(`[data-change-id="${changeId}"]`).click();
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(changeId);
+
+  await delayMutationOnce(
+    page,
+    new RegExp(`/api/tenants/[^/]+/changes/${changeId}/actions/escalate$`),
+    "POST",
+  );
+  await page.locator('[data-platform-action="escalate-change"]').click();
+  await expect(page.locator('[data-platform-governance="selected-change-command-pending"]')).toBeVisible();
+  await expect(page.locator(".toast")).toContainText(`Change ${changeId} escalated.`);
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toHaveAttribute(
+    "data-platform-detail-status",
+    "ready",
+    { timeout: 15000 },
+  );
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(
+    "Operator intervention required",
+  );
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(
+    "Escalated by chief",
+  );
+  await expect(page.locator('[data-platform-governance="selected-change-command-unavailable"]')).toContainText(
+    "Escalate stays disabled once the change is already escalated or done.",
+  );
+  await expect(page.locator('[data-platform-action="escalate-change"]')).toBeDisabled();
 });
 
 test("selected-change commands run next, fail closed, and hand off into the runs workspace @platform", async ({
