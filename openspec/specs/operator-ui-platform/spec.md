@@ -2,7 +2,6 @@
 
 ## Purpose
 Define the current operator UI platform truth after the selected-change rollout: approved UI foundations, project-owned composition and contract boundaries, the shared backend-owned shell bootstrap controller, the bootstrap-hydrated default route, the shipped functional `Queue` workspace on `/`, the shipped selected-change detail workspace inside that queue shell, the shipped `Repositories` workspace on `workspace=catalog`, and the governance that sequences later workspace rollout.
-
 ## Requirements
 ### Requirement: Single Operator UI Foundation Stack
 The system SHALL standardize the React operator UI on one primitive interaction foundation, one workflow state-model layer for complex operator flows, one tabular data foundation, and one project-owned platform layer for top-level UI composition.
@@ -167,3 +166,53 @@ The system SHALL define functional operator-shell work through an explicit order
 - **THEN** the proposal states where that capability fits in the ordered rollout sequence
 - **AND** the proposal keeps the current shipped queue, selected-change detail, and catalog shell boundary explicit until its dependencies are delivered
 - **AND** the proposal does not rely on reviving a removed legacy or hidden live-workbench route as the implementation shortcut
+
+### Requirement: Functional Runs Workspace And Run Handoff
+The system SHALL provide a functional top-level runs workspace with backend-owned run detail and explicit handoff back to the owning change.
+
+#### Scenario: Operator opens the runs workspace
+- **WHEN** the operator activates `Runs` from the supported shell navigation
+- **THEN** the shell renders the tenant-scoped run list from backend-owned run data
+- **AND** supported run-slice state is preserved through the shared shell controller
+- **AND** the operator does not need a removed legacy run route to inspect current operational work
+
+#### Scenario: Operator selects a run from the runs workspace
+- **WHEN** the operator selects a run from the tenant-scoped run list
+- **THEN** the shell renders backend-owned run detail, approvals, and recent events for that run
+- **AND** the run surface exposes an explicit handoff back to the owning change through canonical shell state
+
+### Requirement: Functional Operator Command Workflows
+The system SHALL expose supported backend-owned operator commands through explicit workflow boundaries in the functional shell.
+
+#### Scenario: Operator triggers a supported mutation from the functional shell
+- **WHEN** the operator invokes `New repository`, `New change`, `Delete change`, `Run next step`, `Escalate`, or `Mark blocked by spec`
+- **THEN** the shell shows explicit pending and error state for that mutation
+- **AND** success rehydrates the affected queue, repository, detail, or run context through shared shell state
+- **AND** the shell does not rely on hidden legacy actions, silent promise failures, or client-only mock transitions
+
+### Requirement: Functional Clarification Approval And Memory Flows
+The system SHALL expose clarification, approval, and fact-promotion workflows through functional selected-change and run surfaces.
+
+#### Scenario: Operator resolves a clarification round for the selected change
+- **WHEN** the operator creates or answers a clarification round from selected-change context
+- **THEN** the shell persists that work through backend-owned clarification contracts
+- **AND** historical clarification rounds remain visible without becoming silently editable again
+
+#### Scenario: Operator resolves run approvals or promotes a durable fact
+- **WHEN** the operator decides an approval from run detail or promotes a fact from selected-change context
+- **THEN** the shell routes the action through backend-owned approval or promotion contracts
+- **AND** the affected run, change, and tenant-memory state reconcile through the shared shell controller
+
+### Requirement: Shared Realtime Reconciliation Boundary For The Functional Shell
+The system SHALL reconcile functional shell state through one shared tenant realtime boundary with explicit degradation visibility.
+
+#### Scenario: Tenant event changes visible shell state
+- **WHEN** a tenant event changes queue, selected change, run detail, approval, or clarification state
+- **THEN** the shell reconciles the affected state through one shared realtime boundary
+- **AND** the shell preserves still-valid selected context instead of rebuilding every surface independently
+
+#### Scenario: Realtime becomes unavailable while the operator stays on the same tenant
+- **WHEN** the shared tenant realtime path errors or disconnects unexpectedly
+- **THEN** the shell surfaces explicit degraded realtime state or recovery progress
+- **AND** stale refresh responses do not overwrite newer shell state while recovery is in progress
+

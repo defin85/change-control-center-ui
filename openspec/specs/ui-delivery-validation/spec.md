@@ -2,7 +2,6 @@
 
 ## Purpose
 Define the backend-served UI delivery and verification contract for the bootstrap-hydrated shell baseline, including the shipped functional tenant queue on `/`, the shipped repository catalog workspace, artifact delivery, browser smoke tiers, and fail-closed readiness alignment.
-
 ## Requirements
 ### Requirement: Canonical UI Verification Workflow
 The system SHALL publish one canonical verification workflow for UI-affecting or backend-served UI changes, including a default smoke path and explicitly separate deeper validation tiers.
@@ -51,3 +50,13 @@ The system SHALL provide a machine-checkable readiness gate that detects drift b
 - **THEN** the readiness gate fails explicitly
 - **AND** the repository does not rely on manual review alone to keep `README`, agent instructions, and verification helpers aligned
 - **AND** contributors get a clear correction path instead of a silent fallback
+
+### Requirement: Functional Shell Proof Pack
+The system SHALL provide a deterministic verification pack for the functional backend-served operator shell.
+
+#### Scenario: Contributor verifies a functional shell change
+- **WHEN** a contributor runs the canonical UI verification workflow after the functional shell has been restored
+- **THEN** the verification tiers prove backend-served functional catalog, queue, selected-change, run, command, collaboration, and realtime behavior through repo-owned entrypoints
+- **AND** the repository does not treat static-only smoke evidence as sufficient proof for the richer functional shell
+- **AND** readiness docs, helper automation, and launcher entrypoints stay aligned with the same verification matrix
+
