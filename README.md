@@ -1,10 +1,10 @@
 # Change Control Center
 
-Репо сейчас держит backend-owned foundation stack, а default backend-served UI уже переведён в bootstrap-hydrated functional shell, где default `/` шипит tenant-scoped `Queue`, а `?workspace=catalog` держит живой `Repositories` workspace:
+Репо сейчас держит backend-owned foundation stack, а default backend-served UI уже переведён в bootstrap-hydrated functional shell, где default `/` шипит tenant-scoped `Queue`, `?workspace=catalog` держит живой `Repositories` workspace, а `?workspace=runs` держит tenant-scoped `Runs` workspace:
 
 - `FastAPI` backend как source of truth для `tenant`, `change`, `run`, `evidence`, `clarification rounds`
 - отдельный runtime sidecar для `codex app-server` с поддержкой `stdio` и `websocket`
-- shipped `React/Vite` shell на `/` это bootstrap-hydrated queue workspace с backend-owned selected-change detail в `web/src/platform/shells/ShellBootstrapApp.tsx`, а `?workspace=catalog` рендерит backend-owned repository workspace
+- shipped `React/Vite` shell на `/` это bootstrap-hydrated queue workspace с backend-owned selected-change detail в `web/src/platform/shells/ShellBootstrapApp.tsx`, `?workspace=catalog` рендерит backend-owned repository workspace, а `?workspace=runs` рендерит backend-owned runs workspace и selected run detail
 - `web/src/reference/OperatorStyleSamplePage.tsx` остаётся visual reference artifact, а не default shipped route
 - persistent state в `sqlite`
 
@@ -87,10 +87,12 @@ bash ./scripts/ccc stop all
 
 - `http://127.0.0.1:8000/` рендерит bootstrap-hydrated functional shell, который сначала запрашивает `/api/bootstrap`, затем tenant-scoped queue summaries через `/api/tenants/{tenant}/changes`, а для выбранного change гидрирует detail contract через `/api/tenants/{tenant}/changes/{change}`
 - `http://127.0.0.1:8000/?workspace=catalog` рендерит backend-owned `Repositories` workspace с live catalog, selection, compact drawer и queue handoff
-- shell route поддерживает canonical `workspace`, `tenant`, queue `view`, queue/catalog `filter`, `q`, queue `change` и selected-change `tab`, а stale params вроде `legacyWorkbench=1` и `run=...` нормализуются fail-closed
+- `http://127.0.0.1:8000/?workspace=runs` рендерит backend-owned `Runs` workspace с attention/all slices, selected run detail и canonical handoff назад в owning change
+- shell route поддерживает canonical `workspace`, `tenant`, queue `view`, queue/catalog `filter`, `q`, queue `change`, selected-change `tab`, runs `runSlice`, и selected `run`, а stale params вроде `legacyWorkbench=1` нормализуются fail-closed
 - shipped shell больше не показывает user-facing bridge в live/legacy workbench path и не падает обратно в client-only sample truth при bootstrap failure
 - shipped queue теперь включает backend-owned `Selected change` workspace с вкладками `Overview`, `Traceability`, `Gaps`, `Evidence`, `Git`, `Chief` и `Clarifications`
-- текущая последовательность follow-up changes начинается с `06-add-runs-workspace-and-run-detail-handoff` и заканчивается `10-harden-functional-shell-proof-pack`
+- `Runs` workspace читает backend-owned run list/detail, approvals и runtime events без возврата к legacy `Run Studio`
+- текущая последовательность follow-up changes теперь продолжается с `07-add-operator-command-workflows` и заканчивается `10-harden-functional-shell-proof-pack`
 
 ## Проверки
 

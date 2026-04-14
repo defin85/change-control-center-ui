@@ -81,8 +81,8 @@ npm run test:e2e:platform
 - Предпочитайте repo-owned verification entrypoints `bash ./scripts/ccc verify ui-smoke`, `bash ./scripts/ccc verify ui-platform` и `bash ./scripts/ccc verify ui-full` вместо ручного воспроизведения команды по памяти.
 - `npm run lint` и `npm run test:e2e:platform` обязательны дополнительно, когда change трогает operator UI platform contract.
 - Browser smoke дополнительно rebuild-ит web artifact перед стартом backend stack, чтобы smoke path не зависел от старого `web/dist`.
-- Расширенные shipped-shell доказательства, такие как explicit bootstrap failure handling и fail-closed route normalization, живут в `npm run test:e2e:platform` или `npm run test:e2e:full`, а не в минимальном smoke suite.
-- Текущие smoke/platform suites доказывают bootstrap-hydrated shell baseline, shipped tenant `Queue` на `/`, backend-owned selected-change detail внутри queue shell и shipped `Repositories` workspace на `workspace=catalog`; они не являются доказательством того, что runs, command, approval decisions, clarification authoring или realtime shell уже полностью ship'ятся на default route.
+- Расширенные shipped-shell доказательства, такие как explicit bootstrap failure handling, fail-closed route normalization, и `Runs` workspace с selected run detail/handoff, живут в `npm run test:e2e:platform` или `npm run test:e2e:full`, а не в минимальном smoke suite.
+- Текущие suites доказывают bootstrap-hydrated shell baseline, shipped tenant `Queue` на `/`, backend-owned selected-change detail внутри queue shell, shipped `Repositories` workspace на `workspace=catalog`, и shipped `Runs` workspace на `workspace=runs`; они всё ещё не являются доказательством того, что command workflows, approval decisions, clarification authoring или realtime shell уже полностью ship'ятся на default route.
 - Smoke path считается пройденным только после всех трёх шагов.
 - Уже существующий `web/dist` не считается достаточным доказательством: smoke всегда начинается с нового `npm run build`.
 

@@ -319,6 +319,15 @@ def test_runs_schema_accepts_real_backend_payload(client: TestClient) -> None:
     assert result["issues"] == []
 
 
+def test_run_detail_schema_accepts_real_backend_payload(client: TestClient) -> None:
+    payload = client.get("/api/tenants/tenant-demo/runs/run-30").json()
+
+    result = _validate_against_schema("runDetailResponseSchema", payload)
+
+    assert result["success"] is True
+    assert result["issues"] == []
+
+
 def test_promoted_fact_schema_accepts_canonical_backend_payload(client: TestClient) -> None:
     response = client.post(
         "/api/tenants/tenant-demo/changes/ch-150/promotions",

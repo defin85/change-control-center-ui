@@ -280,6 +280,35 @@ def test_tenant_run_list_supports_full_history_and_newest_first_ordering(client:
     assert history_response.json()["runs"][0]["requiresAttention"] is False
 
 
+def test_run_detail_returns_seeded_events_and_approvals(client: TestClient) -> None:
+    response = client.get("/api/tenants/tenant-demo/runs/run-30")
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["run"]["id"] == "run-30"
+    assert [event["type"] for event in payload["events"]] == [
+        "item/commandExecution/requestApproval",
+        "serverRequest/resolved",
+    ]
+    assert payload["approvals"] == [
+        {
+            "id": "approval-30-1",
+            "runId": "run-30",
+            "tenantId": "tenant-demo",
+            "status": "accepted",
+            "kind": "commandExecution",
+            "reason": "Launcher lifecycle needs operator review before the next apply loop.",
+            "decision": "accept",
+            "payload": {
+                "_requestId": "req-seed-run-30-1",
+                "command": "bash ./scripts/ccc start dev",
+                "source": "seed-fixture",
+            },
+        }
+    ]
+
+
 @pytest.mark.parametrize(
     ("tenant_id", "expected_owner"),
     [

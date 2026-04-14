@@ -17,6 +17,18 @@ async function expectTenantQueueWorkspace(page: Page, tenantLabel: string) {
   await expect(page.getByText("Backend-served default shell")).toHaveCount(0);
 }
 
+async function expectRunsWorkspace(page: Page, tenantLabel: string) {
+  await expect(page.locator('[data-platform-surface="tenant-runs-workspace"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="tenant-runs-list"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Runs Workspace" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary sections" })).toContainText("Workbench");
+  await expect(page.getByRole("navigation", { name: "Primary sections" })).toContainText("Repositories");
+  await expect(page.getByRole("navigation", { name: "Primary sections" })).toContainText("Runs");
+  await expect(page.getByRole("navigation", { name: "Primary sections" })).toContainText("Governance");
+  await expect(page.getByText(`Tenant: ${tenantLabel}`)).toBeVisible();
+  await expect(page.getByText("backend-owned runs", { exact: true })).toBeVisible();
+}
+
 test("renders the functional tenant queue from backend bootstrap on the default route @smoke @platform", async ({
   page,
 }) => {
@@ -230,6 +242,78 @@ test("catalog workspace supports selection, compact detail, and queue handoff @p
     "data-platform-open",
     "false",
   );
+});
+
+test("runs workspace supports hydration, selection, slice restoration, and change handoff @platform", async ({
+  page,
+}) => {
+  let runsRequests = 0;
+  let detailRequests = 0;
+
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/tenants/tenant-demo/runs") {
+      runsRequests += 1;
+    }
+    if (url.pathname === "/api/tenants/tenant-demo/runs/run-30") {
+      detailRequests += 1;
+    }
+  });
+
+  await gotoShippedApp(page, "/?workspace=runs");
+
+  await expectRunsWorkspace(page, "change-control-center-ui");
+  await expect(page).toHaveURL(/\?workspace=runs$/);
+  await expect.poll(() => runsRequests).toBe(1);
+
+  await page.locator('[data-platform-run-slice="all"]').click();
+  await expect(page).toHaveURL(/\?workspace=runs&runSlice=all$/);
+  await expect.poll(() => runsRequests).toBe(2);
+
+  await page.locator('[data-run-id="run-30"]').click();
+  await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText("run-30");
+  await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText(
+    "Launcher lifecycle needs operator review before the next apply loop.",
+  );
+  await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText(
+    "serverRequest/resolved",
+  );
+  await expect(page).toHaveURL(/\?workspace=runs&runSlice=all&run=run-30$/);
+  await expect.poll(() => detailRequests).toBe(1);
+
+  await reloadApp(page);
+
+  await expectRunsWorkspace(page, "change-control-center-ui");
+  await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText("run-30");
+  await expect(page).toHaveURL(/\?workspace=runs&runSlice=all&run=run-30$/);
+  await expect.poll(() => detailRequests).toBe(2);
+
+  await page.getByRole("button", { name: "Open owning change" }).click();
+  await expectTenantQueueWorkspace(page, "change-control-center-ui");
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(
+    "Land the canonical operator shell",
+  );
+  await expect(page).toHaveURL(/\?change=ch-142$/);
+});
+
+test("runs workspace preserves compact drawer behavior @platform", async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 900 });
+  await gotoShippedApp(page, "/?workspace=runs&run=run-30");
+
+  await expect(page.locator('[data-platform-shell="run-detail-workspace"]')).toHaveAttribute(
+    "data-platform-open",
+    "true",
+  );
+  await expect(page.getByRole("heading", { name: "run-30" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Back to runs" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Back to runs" }).click();
+
+  await expect(page.locator('[data-platform-shell="run-detail-workspace"]')).toHaveAttribute(
+    "data-platform-open",
+    "false",
+  );
+  await expect(page).toHaveURL(/\?workspace=runs$/);
 });
 
 test("surfaces bootstrap failure explicitly without falling back to client-only shell truth @platform", async ({

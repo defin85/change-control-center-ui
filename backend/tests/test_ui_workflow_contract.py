@@ -8,6 +8,7 @@ BOOTSTRAP_CONTROLLER = ROOT / "web/src/platform/navigation/useShellBootstrapCont
 BOOTSTRAP_SHELL = ROOT / "web/src/platform/shells/ShellBootstrapApp.tsx"
 REFERENCE_QUEUE_PAGE = ROOT / "web/src/reference/ReferenceTenantQueuePage.tsx"
 REFERENCE_CATALOG_PAGE = ROOT / "web/src/reference/ReferenceRepositoryCatalogPage.tsx"
+REFERENCE_RUNS_PAGE = ROOT / "web/src/reference/ReferenceRunsWorkspacePage.tsx"
 STATIC_REFERENCE = ROOT / "web/src/reference/OperatorStyleSamplePage.tsx"
 REMOVED_LEGACY_FILES = [
     ROOT / "web/src/api.ts",
@@ -49,14 +50,21 @@ def test_shell_bootstrap_controller_uses_shared_control_api_and_canonical_route_
     assert 'requestControlApi(BOOTSTRAP_ENDPOINT, bootstrapResponseSchema)' in source
     assert "changesResponseSchema" in source
     assert "changeDetailResponseSchema" in source
+    assert "runsResponseSchema" in source
+    assert "runDetailResponseSchema" in source
     assert "createTenantResponseSchema" in source
     assert "createChangeResponseSchema" in source
     assert "readOperatorRouteState" in source
     assert "buildOperatorRouteHref" in source
+    assert "runSlice" in source
     assert "viewId" in source
     assert "filterId" in source
     assert "changeId" in source
+    assert "runId" in source
     assert "tabId" in source
+    assert "setRunSlice" in source
+    assert "selectRun" in source
+    assert "openSelectedRunChange" in source
     assert "setQueueView" in source
     assert "setQueueFilter" in source
     assert "setQueueTab" in source
@@ -98,6 +106,18 @@ def test_bootstrap_shell_routes_catalog_workspace_into_backend_owned_reference_p
     assert "onSelectFilter={controller.setCatalogFilter}" in source
 
 
+def test_bootstrap_shell_routes_runs_workspace_into_backend_owned_reference_page() -> None:
+    source = _read(BOOTSTRAP_SHELL)
+
+    assert "ReferenceRunsWorkspacePage" in source
+    assert 'return (' in source
+    assert "runsWorkspace={controller.runsWorkspace}" in source
+    assert "onSelectRunSlice={controller.setRunSlice}" in source
+    assert "onSelectRun={controller.selectRun}" in source
+    assert "onOpenSelectedRunChange={controller.openSelectedRunChange}" in source
+    assert "onRetrySelectedRunDetail={controller.retrySelectedRunDetail}" in source
+
+
 def test_reference_queue_page_is_wired_for_live_queue_navigation_and_selected_change_handoff() -> None:
     source = _read(REFERENCE_QUEUE_PAGE)
 
@@ -121,6 +141,20 @@ def test_reference_catalog_page_is_wired_for_live_workspace_navigation_and_autho
     assert "onWorkspaceModeChange" in source
     assert "backend-owned catalog" in source
     assert "static catalog reference" not in source
+    assert "window.location.assign" not in source
+
+
+def test_reference_runs_page_is_wired_for_live_run_navigation_and_handoff() -> None:
+    source = _read(REFERENCE_RUNS_PAGE)
+
+    assert "buildWorkspaceHref" in source
+    assert "runsWorkspace" in source
+    assert "onSelectRunSlice" in source
+    assert "onSelectRun" in source
+    assert "onOpenSelectedRunChange" in source
+    assert "onRetrySelectedRunDetail" in source
+    assert "backend-owned runs" in source
+    assert "hidden legacy run surface" in source
     assert "window.location.assign" not in source
 
 

@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type {
+  ApprovalRecord,
   BootstrapResponse,
   ChangeDetailResponse,
   ChangeDetailTabId,
   ChangeSummary,
   RepositoryCatalogEntry,
+  RunDetailResponse,
+  RunListEntry,
+  RunListSlice,
+  RuntimeEvent,
   Tenant,
 } from "../../types";
 import {
@@ -15,24 +20,30 @@ import {
   createChangeResponseSchema,
   createTenantResponseSchema,
   requestControlApi,
+  runDetailResponseSchema,
+  runsResponseSchema,
 } from "../contracts";
 import {
   buildViewCounts,
   filterChanges,
+  filterRuns,
   OPERATOR_FILTERS,
   REPOSITORY_CATALOG_FILTERS,
   resolveTenantId,
   resolveViewId,
   resolveVisibleChangeSelection,
+  resolveVisibleRunSelection,
 } from "../server-state";
 
 import {
   buildOperatorRouteHref,
   DEFAULT_OPERATOR_FILTER_ID,
+  DEFAULT_OPERATOR_RUN_SLICE,
   DEFAULT_OPERATOR_TAB_ID,
   DEFAULT_OPERATOR_VIEW_ID,
   DEFAULT_OPERATOR_WORKSPACE_MODE,
   readOperatorRouteState,
+  type OperatorRunSlice,
   type OperatorWorkspaceMode,
 } from "./operatorRouteState";
 
@@ -50,11 +61,13 @@ const SUPPORTED_QUEUE_DETAIL_TABS: Array<{ id: ChangeDetailTabId }> = [
 
 export type FunctionalShellRouteState = {
   workspaceMode: OperatorWorkspaceMode;
+  runSlice: OperatorRunSlice;
   tenantId: string;
   viewId: string;
   filterId: string;
   searchQuery: string;
   changeId: string | null;
+  runId: string | null;
   tabId: ChangeDetailTabId;
 };
 
@@ -98,6 +111,45 @@ export type QueueWorkspaceState =
   | QueueWorkspaceStateError
   | QueueWorkspaceStateReady;
 
+export type RunsSelectionNotice = {
+  kind: "cleared";
+  message: string;
+};
+
+type RunsWorkspaceStateBase = {
+  tenantId: string;
+  activeRunSlice: RunListSlice;
+  searchQuery: string;
+  selectedRunId: string | null;
+  selectionNotice: RunsSelectionNotice | null;
+  detailStatus: "idle" | "loading" | "error" | "ready";
+  detailError: string | null;
+  detail: RunDetailResponse | null;
+};
+
+export type RunsWorkspaceStateLoading = RunsWorkspaceStateBase & {
+  status: "loading";
+};
+
+export type RunsWorkspaceStateError = RunsWorkspaceStateBase & {
+  status: "error";
+  error: string;
+};
+
+export type RunsWorkspaceStateReady = RunsWorkspaceStateBase & {
+  status: "ready";
+  runs: RunListEntry[];
+  visibleRuns: RunListEntry[];
+  selectedRun: RunListEntry | null;
+  selectedRunApprovals: ApprovalRecord[];
+  selectedRunEvents: RuntimeEvent[];
+};
+
+export type RunsWorkspaceState =
+  | RunsWorkspaceStateLoading
+  | RunsWorkspaceStateError
+  | RunsWorkspaceStateReady;
+
 type ShellBootstrapControllerBase = {
   retry: () => void;
 };
@@ -116,6 +168,7 @@ export type ShellBootstrapControllerReady = ShellBootstrapControllerBase & {
   bootstrap: BootstrapResponse;
   routeState: FunctionalShellRouteState;
   queueWorkspace: QueueWorkspaceState;
+  runsWorkspace: RunsWorkspaceState;
   activeTenant: Tenant | null;
   activeRepositoryEntry: RepositoryCatalogEntry | null;
   hasExplicitCatalogSelection: boolean;
@@ -124,6 +177,11 @@ export type ShellBootstrapControllerReady = ShellBootstrapControllerBase & {
   setTenantId: (tenantId: string) => void;
   setSearchQuery: (searchQuery: string) => void;
   setCatalogFilter: (filterId: string) => void;
+  setRunSlice: (runSlice: OperatorRunSlice) => void;
+  selectRun: (runId: string) => void;
+  clearSelectedRun: () => void;
+  openSelectedRunChange: () => void;
+  retrySelectedRunDetail: () => void;
   setQueueView: (viewId: string) => void;
   setQueueFilter: (filterId: string) => void;
   setQueueTab: (tabId: ChangeDetailTabId) => void;
@@ -154,18 +212,46 @@ type ChangeDetailHydrationState =
   | { status: "error"; tenantId: string; changeId: string; error: string }
   | { status: "ready"; tenantId: string; changeId: string; detail: ChangeDetailResponse };
 
+type RunsHydrationState =
+  | { status: "idle" }
+  | { status: "loading"; tenantId: string; runSlice: RunListSlice }
+  | {
+      status: "error";
+      tenantId: string;
+      runSlice: RunListSlice;
+      error: string;
+      selectionNotice: RunsSelectionNotice | null;
+    }
+  | {
+      status: "ready";
+      tenantId: string;
+      runSlice: RunListSlice;
+      runs: RunListEntry[];
+      selectionNotice: RunsSelectionNotice | null;
+    };
+
+type RunDetailHydrationState =
+  | { status: "idle" }
+  | { status: "loading"; tenantId: string; runId: string }
+  | { status: "error"; tenantId: string; runId: string; error: string }
+  | { status: "ready"; tenantId: string; runId: string; detail: RunDetailResponse };
+
 export function useShellBootstrapController(): ShellBootstrapController {
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
   const [routeState, setRouteState] = useState<FunctionalShellRouteState | null>(null);
   const [queueHydration, setQueueHydration] = useState<QueueHydrationState>({ status: "idle" });
-  const [detailHydration, setDetailHydration] = useState<ChangeDetailHydrationState>({ status: "idle" });
-  const [detailReloadCount, setDetailReloadCount] = useState(0);
+  const [changeDetailHydration, setChangeDetailHydration] = useState<ChangeDetailHydrationState>({ status: "idle" });
+  const [runsHydration, setRunsHydration] = useState<RunsHydrationState>({ status: "idle" });
+  const [runDetailHydration, setRunDetailHydration] = useState<RunDetailHydrationState>({ status: "idle" });
+  const [changeDetailReloadCount, setChangeDetailReloadCount] = useState(0);
+  const [runDetailReloadCount, setRunDetailReloadCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [reloadCount, setReloadCount] = useState(0);
   const [hasExplicitCatalogSelection, setHasExplicitCatalogSelection] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const routeStateRef = useRef<FunctionalShellRouteState | null>(null);
-  const detailHydrationRef = useRef<ChangeDetailHydrationState>({ status: "idle" });
+  const changeDetailHydrationRef = useRef<ChangeDetailHydrationState>({ status: "idle" });
+  const runDetailHydrationRef = useRef<RunDetailHydrationState>({ status: "idle" });
   const queueHydrationTenantId = routeState?.tenantId ?? null;
   const queueHydrationWorkspaceMode = routeState?.workspaceMode ?? null;
   const detailHydrationQueueChanges = queueHydration.status === "ready" ? queueHydration.changes : null;
@@ -174,14 +260,28 @@ export function useShellBootstrapController(): ShellBootstrapController {
     routeState?.workspaceMode === "queue" && routeState.changeId ? routeState.tenantId : null;
   const detailHydrationTargetChangeId =
     routeState?.workspaceMode === "queue" ? routeState.changeId : null;
+  const runsHydrationTenantId = routeState?.tenantId ?? null;
+  const runsHydrationWorkspaceMode = routeState?.workspaceMode ?? null;
+  const runsHydrationRunSlice = routeState?.runSlice ?? DEFAULT_OPERATOR_RUN_SLICE;
+  const detailHydrationRuns = runsHydration.status === "ready" ? runsHydration.runs : null;
+  const detailHydrationRunsTenantId = runsHydration.status === "ready" ? runsHydration.tenantId : null;
+  const detailHydrationRunsRunSlice = runsHydration.status === "ready" ? runsHydration.runSlice : null;
+  const runDetailTargetTenantId =
+    routeState?.workspaceMode === "runs" && routeState.runId ? routeState.tenantId : null;
+  const runDetailTargetRunId =
+    routeState?.workspaceMode === "runs" ? routeState.runId : null;
 
   useEffect(() => {
     routeStateRef.current = routeState;
   }, [routeState]);
 
   useEffect(() => {
-    detailHydrationRef.current = detailHydration;
-  }, [detailHydration]);
+    changeDetailHydrationRef.current = changeDetailHydration;
+  }, [changeDetailHydration]);
+
+  useEffect(() => {
+    runDetailHydrationRef.current = runDetailHydration;
+  }, [runDetailHydration]);
 
   const commitHydratedState = (
     payload: BootstrapResponse,
@@ -265,11 +365,18 @@ export function useShellBootstrapController(): ShellBootstrapController {
         queueHydration.status === "ready" && routeState?.tenantId === queueHydration.tenantId
           ? queueHydration.changes
           : undefined;
+      const currentRuns =
+        runsHydration.status === "ready" &&
+        routeState?.tenantId === runsHydration.tenantId &&
+        routeState?.runSlice === runsHydration.runSlice
+          ? runsHydration.runs
+          : undefined;
       const normalized = normalizeLocation(
         bootstrap,
         window.location.pathname,
         window.location.search,
         currentQueueChanges,
+        currentRuns,
       );
       if (normalized.shouldReplace) {
         window.history.replaceState(window.history.state, "", normalized.href);
@@ -283,7 +390,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [bootstrap, queueHydration, routeState?.tenantId]);
+  }, [bootstrap, queueHydration, routeState?.tenantId, routeState?.runSlice, runsHydration]);
 
   useEffect(() => {
     if (!bootstrap) {
@@ -381,7 +488,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
       return;
     }
 
-    const currentDetailHydration = detailHydrationRef.current;
+    const currentDetailHydration = changeDetailHydrationRef.current;
     const detailHydrationMatchesTarget =
       currentDetailHydration.status !== "idle" &&
       currentDetailHydration.tenantId === detailHydrationTargetTenantId &&
@@ -396,7 +503,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
     const activeChangeId = detailHydrationTargetChangeId;
 
     async function loadSelectedChangeDetail() {
-      setDetailHydration({ status: "loading", tenantId, changeId: activeChangeId });
+      setChangeDetailHydration({ status: "loading", tenantId, changeId: activeChangeId });
 
       try {
         const response = await requestControlApi(
@@ -407,7 +514,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           return;
         }
 
-        setDetailHydration({
+        setChangeDetailHydration({
           status: "ready",
           tenantId,
           changeId: activeChangeId,
@@ -418,7 +525,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           return;
         }
 
-        setDetailHydration({
+        setChangeDetailHydration({
           status: "error",
           tenantId,
           changeId: activeChangeId,
@@ -441,16 +548,189 @@ export function useShellBootstrapController(): ShellBootstrapController {
     detailHydrationQueueTenantId,
     detailHydrationTargetChangeId,
     detailHydrationTargetTenantId,
-    detailReloadCount,
+    changeDetailReloadCount,
     queueHydration.status,
+  ]);
+
+  useEffect(() => {
+    if (!bootstrap) {
+      return;
+    }
+
+    const bootstrapPayload = bootstrap;
+    const routeStateSnapshot = routeStateRef.current;
+
+    if (!bootstrapPayload || !routeStateSnapshot || routeStateSnapshot.workspaceMode !== "runs") {
+      return;
+    }
+
+    const runsRouteState: FunctionalShellRouteState = routeStateSnapshot;
+    const runsTenantId = runsRouteState.tenantId;
+    const runSlice = runsRouteState.runSlice;
+
+    let cancelled = false;
+
+    async function loadRuns() {
+      setRunsHydration({ status: "loading", tenantId: runsTenantId, runSlice });
+
+      try {
+        const response = await requestControlApi(
+          `/api/tenants/${runsTenantId}/runs?slice=${runSlice}`,
+          runsResponseSchema,
+        );
+        if (cancelled) {
+          return;
+        }
+
+        const normalizedRouteState = sanitizeRouteState(
+          bootstrapPayload,
+          runsRouteState,
+          undefined,
+          response.runs,
+        );
+        const selectionNotice = resolveRunsSelectionNotice(
+          runsRouteState,
+          normalizedRouteState,
+          response.runs,
+        );
+
+        if (!areRouteStatesEqual(runsRouteState, normalizedRouteState)) {
+          const href = buildFunctionalShellHref(
+            window.location.pathname,
+            bootstrapPayload,
+            normalizedRouteState,
+          );
+          const currentHref = `${window.location.pathname}${window.location.search}`;
+          if (currentHref !== href) {
+            window.history.replaceState(window.history.state, "", href);
+          }
+          setRouteState(normalizedRouteState);
+        }
+
+        setRunsHydration({
+          status: "ready",
+          tenantId: runsTenantId,
+          runSlice,
+          runs: response.runs,
+          selectionNotice,
+        });
+      } catch (caughtError) {
+        if (cancelled) {
+          return;
+        }
+
+        setRunsHydration({
+          status: "error",
+          tenantId: runsTenantId,
+          runSlice,
+          error:
+            caughtError instanceof Error
+              ? caughtError.message
+              : `Unable to hydrate runs for ${runsTenantId}.`,
+          selectionNotice: null,
+        });
+      }
+    }
+
+    void loadRuns();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bootstrap, runsHydrationRunSlice, runsHydrationTenantId, runsHydrationWorkspaceMode]);
+
+  useEffect(() => {
+    if (!bootstrap || !runDetailTargetTenantId || !runDetailTargetRunId) {
+      return;
+    }
+
+    if (
+      runsHydration.status !== "ready" ||
+      detailHydrationRunsTenantId !== runDetailTargetTenantId ||
+      detailHydrationRunsRunSlice !== (routeState?.runSlice ?? DEFAULT_OPERATOR_RUN_SLICE)
+    ) {
+      return;
+    }
+
+    if (!detailHydrationRuns?.some((run) => run.id === runDetailTargetRunId)) {
+      return;
+    }
+
+    const currentRunDetailHydration = runDetailHydrationRef.current;
+    const runDetailHydrationMatchesTarget =
+      currentRunDetailHydration.status !== "idle" &&
+      currentRunDetailHydration.tenantId === runDetailTargetTenantId &&
+      currentRunDetailHydration.runId === runDetailTargetRunId;
+
+    if (runDetailHydrationMatchesTarget) {
+      return;
+    }
+
+    let cancelled = false;
+    const tenantId = runDetailTargetTenantId;
+    const selectedRunId = runDetailTargetRunId;
+
+    async function loadSelectedRunDetail() {
+      setRunDetailHydration({ status: "loading", tenantId, runId: selectedRunId });
+
+      try {
+        const response = await requestControlApi(
+          `/api/tenants/${tenantId}/runs/${selectedRunId}`,
+          runDetailResponseSchema,
+        );
+        if (cancelled) {
+          return;
+        }
+
+        setRunDetailHydration({
+          status: "ready",
+          tenantId,
+          runId: selectedRunId,
+          detail: response,
+        });
+      } catch (caughtError) {
+        if (cancelled) {
+          return;
+        }
+
+        setRunDetailHydration({
+          status: "error",
+          tenantId,
+          runId: selectedRunId,
+          error:
+            caughtError instanceof Error
+              ? caughtError.message
+              : `Unable to hydrate selected run detail for ${selectedRunId}.`,
+        });
+      }
+    }
+
+    void loadSelectedRunDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    bootstrap,
+    detailHydrationRuns,
+    detailHydrationRunsRunSlice,
+    detailHydrationRunsTenantId,
+    routeState?.runSlice,
+    runDetailReloadCount,
+    runDetailTargetRunId,
+    runDetailTargetTenantId,
+    runsHydration.status,
   ]);
 
   const retry = () => {
     setBootstrap(null);
     setRouteState(null);
     setQueueHydration({ status: "idle" });
-    setDetailHydration({ status: "idle" });
-    setDetailReloadCount(0);
+    setChangeDetailHydration({ status: "idle" });
+    setRunsHydration({ status: "idle" });
+    setRunDetailHydration({ status: "idle" });
+    setChangeDetailReloadCount(0);
+    setRunDetailReloadCount(0);
     setError(null);
     setHasExplicitCatalogSelection(false);
     setToast(null);
@@ -478,8 +758,16 @@ export function useShellBootstrapController(): ShellBootstrapController {
       return null;
     }
 
-    return buildQueueWorkspaceState(bootstrap, routeState, queueHydration, detailHydration);
-  }, [bootstrap, detailHydration, queueHydration, routeState]);
+    return buildQueueWorkspaceState(bootstrap, routeState, queueHydration, changeDetailHydration);
+  }, [bootstrap, changeDetailHydration, queueHydration, routeState]);
+
+  const runsWorkspace = useMemo(() => {
+    if (!bootstrap || !routeState) {
+      return null;
+    }
+
+    return buildRunsWorkspaceState(routeState, runsHydration, runDetailHydration);
+  }, [bootstrap, routeState, runDetailHydration, runsHydration]);
 
   const applyRouteState = (
     nextRouteState: Partial<FunctionalShellRouteState>,
@@ -491,28 +779,54 @@ export function useShellBootstrapController(): ShellBootstrapController {
     }
 
     const queueChanges = resolveCurrentQueueChanges(queueHydration, routeState, nextRouteState.tenantId);
+    const currentRuns = resolveCurrentRuns(
+      runsHydration,
+      routeState,
+      nextRouteState.tenantId,
+      nextRouteState.runSlice,
+    );
     const requestedRouteState = sanitizeRouteState(bootstrap, { ...routeState, ...nextRouteState });
     const normalized = sanitizeRouteState(
       bootstrap,
       { ...routeState, ...nextRouteState },
       queueChanges,
+      currentRuns,
     );
     const href = buildFunctionalShellHref(window.location.pathname, bootstrap, normalized);
     const nextExplicitCatalogSelection =
       options?.explicitCatalogSelection ??
       (normalized.workspaceMode === "catalog" ? hasExplicitCatalogSelection : false);
-    const selectionNotice =
+    const queueSelectionNotice =
       queueChanges && normalized.workspaceMode === "queue"
         ? resolveQueueSelectionNotice(requestedRouteState, normalized, queueChanges)
+        : null;
+    const runsSelectionNotice =
+      currentRuns && normalized.workspaceMode === "runs"
+        ? resolveRunsSelectionNotice(requestedRouteState, normalized, currentRuns)
         : null;
 
     setRouteState(normalized);
     setHasExplicitCatalogSelection(nextExplicitCatalogSelection);
     setToast(null);
-    if (queueHydration.status === "ready" && normalized.workspaceMode === "queue") {
+    if (
+      queueHydration.status === "ready" &&
+      normalized.workspaceMode === "queue" &&
+      queueHydration.tenantId === normalized.tenantId
+    ) {
       setQueueHydration({
         ...queueHydration,
-        selectionNotice,
+        selectionNotice: queueSelectionNotice,
+      });
+    }
+    if (
+      runsHydration.status === "ready" &&
+      normalized.workspaceMode === "runs" &&
+      runsHydration.tenantId === normalized.tenantId &&
+      runsHydration.runSlice === normalized.runSlice
+    ) {
+      setRunsHydration({
+        ...runsHydration,
+        selectionNotice: runsSelectionNotice,
       });
     }
 
@@ -537,7 +851,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
     };
   }
 
-  if (!bootstrap || !routeState || !queueWorkspace) {
+  if (!bootstrap || !routeState || !queueWorkspace || !runsWorkspace) {
     return {
       status: "loading",
       retry,
@@ -549,6 +863,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
     bootstrap,
     routeState,
     queueWorkspace,
+    runsWorkspace,
     activeTenant,
     activeRepositoryEntry,
     hasExplicitCatalogSelection,
@@ -564,6 +879,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
         {
           tenantId,
           changeId: routeState.workspaceMode === "queue" ? null : routeState.changeId,
+          runId: routeState.workspaceMode === "runs" ? null : routeState.runId,
         },
         "push",
       );
@@ -573,6 +889,42 @@ export function useShellBootstrapController(): ShellBootstrapController {
     },
     setCatalogFilter: (filterId) => {
       applyRouteState({ workspaceMode: "catalog", filterId }, "push");
+    },
+    setRunSlice: (runSlice) => {
+      applyRouteState({ workspaceMode: "runs", runSlice }, "push");
+    },
+    selectRun: (runId) => {
+      applyRouteState({ workspaceMode: "runs", runId }, "push");
+    },
+    clearSelectedRun: () => {
+      applyRouteState({ workspaceMode: "runs", runId: null }, "replace");
+    },
+    openSelectedRunChange: () => {
+      const selectedRunChangeId =
+        runsWorkspace.status === "ready" ? runsWorkspace.selectedRun?.change.id ?? null : null;
+      if (!selectedRunChangeId) {
+        return;
+      }
+
+      applyRouteState(
+        {
+          workspaceMode: "queue",
+          viewId: DEFAULT_OPERATOR_VIEW_ID,
+          filterId: DEFAULT_OPERATOR_FILTER_ID,
+          searchQuery: "",
+          changeId: selectedRunChangeId,
+          tabId: DEFAULT_OPERATOR_TAB_ID,
+        },
+        "push",
+      );
+    },
+    retrySelectedRunDetail: () => {
+      if (!routeState.runId || routeState.workspaceMode !== "runs") {
+        return;
+      }
+
+      setRunDetailHydration({ status: "idle" });
+      setRunDetailReloadCount((count) => count + 1);
     },
     setQueueView: (viewId) => {
       applyRouteState({ workspaceMode: "queue", viewId }, "push");
@@ -594,8 +946,8 @@ export function useShellBootstrapController(): ShellBootstrapController {
         return;
       }
 
-      setDetailHydration({ status: "idle" });
-      setDetailReloadCount((count) => count + 1);
+      setChangeDetailHydration({ status: "idle" });
+      setChangeDetailReloadCount((count) => count + 1);
     },
     selectCatalogTenant: async (tenantId) => {
       applyRouteState({ workspaceMode: "catalog", tenantId }, "push", {
@@ -621,6 +973,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           filterId: DEFAULT_OPERATOR_FILTER_ID,
           searchQuery: "",
           changeId: null,
+          runId: null,
         },
         explicitCatalogSelection: true,
         toast: `Repository ${response.tenant.name} registered.`,
@@ -642,6 +995,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
           ...routeState,
           workspaceMode: "catalog",
           changeId: null,
+          runId: null,
         },
         explicitCatalogSelection: hasExplicitCatalogSelection,
         toast: `Change ${response.change.id} created for ${activeTenant?.name ?? routeState.tenantId}.`,
@@ -649,10 +1003,11 @@ export function useShellBootstrapController(): ShellBootstrapController {
     },
     buildWorkspaceHref: (workspaceMode) => {
       const queueChanges = resolveCurrentQueueChanges(queueHydration, routeState);
+      const currentRuns = resolveCurrentRuns(runsHydration, routeState);
       return buildFunctionalShellHref(
         window.location.pathname,
         bootstrap,
-        sanitizeRouteState(bootstrap, { ...routeState, workspaceMode }, queueChanges),
+        sanitizeRouteState(bootstrap, { ...routeState, workspaceMode }, queueChanges, currentRuns),
       );
     },
   };
@@ -765,25 +1120,140 @@ function resolveChangeDetailWorkspaceState(
   };
 }
 
+function buildRunsWorkspaceState(
+  routeState: FunctionalShellRouteState,
+  runsHydration: RunsHydrationState,
+  runDetailHydration: RunDetailHydrationState,
+): RunsWorkspaceState {
+  const detailState = resolveSelectedRunWorkspaceState(routeState, runDetailHydration);
+  const baseState = {
+    tenantId: routeState.tenantId,
+    activeRunSlice: routeState.runSlice,
+    searchQuery: routeState.searchQuery,
+    selectedRunId: routeState.runId,
+    selectionNotice: runsHydration.status === "ready" ? runsHydration.selectionNotice : null,
+    detailStatus: detailState.status,
+    detailError: detailState.error,
+    detail: detailState.detail,
+  };
+
+  if (
+    runsHydration.status === "error" &&
+    runsHydration.tenantId === routeState.tenantId &&
+    runsHydration.runSlice === routeState.runSlice
+  ) {
+    return {
+      ...baseState,
+      status: "error",
+      error: runsHydration.error,
+    };
+  }
+
+  if (
+    runsHydration.status === "ready" &&
+    runsHydration.tenantId === routeState.tenantId &&
+    runsHydration.runSlice === routeState.runSlice
+  ) {
+    const visibleRuns = filterRuns(runsHydration.runs, {
+      searchQuery: routeState.searchQuery,
+    });
+    const selectedRun = visibleRuns.find((run) => run.id === routeState.runId) ?? null;
+
+    return {
+      ...baseState,
+      status: "ready",
+      runs: runsHydration.runs,
+      visibleRuns,
+      selectedRun,
+      selectedRunApprovals: detailState.detail?.approvals ?? [],
+      selectedRunEvents: detailState.detail?.events ?? [],
+    };
+  }
+
+  return {
+    ...baseState,
+    status: "loading",
+  };
+}
+
+function resolveSelectedRunWorkspaceState(
+  routeState: FunctionalShellRouteState,
+  runDetailHydration: RunDetailHydrationState,
+) {
+  if (routeState.workspaceMode !== "runs" || !routeState.runId) {
+    return {
+      status: "idle" as const,
+      error: null,
+      detail: null,
+    };
+  }
+
+  if (
+    runDetailHydration.status === "loading" &&
+    runDetailHydration.tenantId === routeState.tenantId &&
+    runDetailHydration.runId === routeState.runId
+  ) {
+    return {
+      status: "loading" as const,
+      error: null,
+      detail: null,
+    };
+  }
+
+  if (
+    runDetailHydration.status === "error" &&
+    runDetailHydration.tenantId === routeState.tenantId &&
+    runDetailHydration.runId === routeState.runId
+  ) {
+    return {
+      status: "error" as const,
+      error: runDetailHydration.error,
+      detail: null,
+    };
+  }
+
+  if (
+    runDetailHydration.status === "ready" &&
+    runDetailHydration.tenantId === routeState.tenantId &&
+    runDetailHydration.runId === routeState.runId
+  ) {
+    return {
+      status: "ready" as const,
+      error: null,
+      detail: runDetailHydration.detail,
+    };
+  }
+
+  return {
+    status: "idle" as const,
+    error: null,
+    detail: null,
+  };
+}
+
 function normalizeLocation(
   bootstrap: BootstrapResponse,
   pathname: string,
   search: string,
   queueChanges?: ChangeSummary[],
+  runs?: RunListEntry[],
 ) {
   const parsed = readOperatorRouteState(search);
   const routeState = sanitizeRouteState(
     bootstrap,
     {
       workspaceMode: parsed.workspaceMode,
+      runSlice: parsed.runSlice,
       tenantId: parsed.tenantId,
       viewId: parsed.viewId,
       filterId: parsed.filterId,
       searchQuery: parsed.searchQuery,
       changeId: parsed.changeId ?? null,
+      runId: parsed.runId ?? null,
       tabId: parsed.tabId,
     },
     queueChanges,
+    runs,
   );
   const href = buildFunctionalShellHref(pathname, bootstrap, routeState);
   const currentHref = `${pathname}${search}`;
@@ -817,19 +1287,23 @@ function sanitizeRouteState(
   bootstrap: BootstrapResponse,
   routeState: Partial<FunctionalShellRouteState>,
   queueChanges?: ChangeSummary[],
+  runs?: RunListEntry[],
 ): FunctionalShellRouteState {
   const workspaceMode = routeState.workspaceMode ?? DEFAULT_OPERATOR_WORKSPACE_MODE;
   const tenantId = resolveTenantId(bootstrap, routeState.tenantId);
   const searchQuery = routeState.searchQuery?.trim() ?? "";
+  const runSlice = resolveRunSlice(routeState.runSlice);
 
   if (workspaceMode === "catalog") {
     return {
       workspaceMode,
+      runSlice: DEFAULT_OPERATOR_RUN_SLICE,
       tenantId,
       viewId: DEFAULT_OPERATOR_VIEW_ID,
       filterId: resolveCatalogFilterId(routeState.filterId),
       searchQuery,
       changeId: null,
+      runId: null,
       tabId: DEFAULT_OPERATOR_TAB_ID,
     };
   }
@@ -856,22 +1330,34 @@ function sanitizeRouteState(
 
     return {
       workspaceMode,
+      runSlice: DEFAULT_OPERATOR_RUN_SLICE,
       tenantId,
       viewId,
       filterId,
       searchQuery,
       changeId,
+      runId: null,
       tabId: resolveQueueTabId(routeState.tabId, changeId),
     };
   }
 
   return {
     workspaceMode,
+    runSlice,
     tenantId,
     viewId: DEFAULT_OPERATOR_VIEW_ID,
     filterId: DEFAULT_OPERATOR_FILTER_ID,
     searchQuery,
     changeId: null,
+    runId: runs
+      ? resolveVisibleRunSelection(
+          runs,
+          {
+            searchQuery,
+          },
+          routeState.runId ?? null,
+        )
+      : routeState.runId ?? null,
     tabId: DEFAULT_OPERATOR_TAB_ID,
   };
 }
@@ -883,6 +1369,7 @@ function buildFunctionalShellHref(
 ) {
   return buildOperatorRouteHref(pathname, {
     workspaceMode: routeState.workspaceMode,
+    runSlice: routeState.workspaceMode === "runs" ? routeState.runSlice : undefined,
     tenantId: routeState.tenantId === bootstrap.activeTenantId ? undefined : routeState.tenantId,
     viewId: routeState.workspaceMode === "queue" ? routeState.viewId : undefined,
     filterId:
@@ -891,6 +1378,7 @@ function buildFunctionalShellHref(
         : undefined,
     searchQuery: routeState.searchQuery || undefined,
     changeId: routeState.workspaceMode === "queue" ? routeState.changeId ?? undefined : undefined,
+    runId: routeState.workspaceMode === "runs" ? routeState.runId ?? undefined : undefined,
     tabId:
       routeState.workspaceMode === "queue" && routeState.changeId ? routeState.tabId : undefined,
   });
@@ -907,6 +1395,21 @@ function resolveCurrentQueueChanges(
     : undefined;
 }
 
+function resolveCurrentRuns(
+  runsHydration: RunsHydrationState,
+  routeState: FunctionalShellRouteState,
+  preferredTenantId?: string,
+  preferredRunSlice?: OperatorRunSlice,
+) {
+  const tenantId = preferredTenantId ?? routeState.tenantId;
+  const runSlice = preferredRunSlice ?? routeState.runSlice;
+  return runsHydration.status === "ready" &&
+    runsHydration.tenantId === tenantId &&
+    runsHydration.runSlice === runSlice
+    ? runsHydration.runs
+    : undefined;
+}
+
 function resolveCatalogFilterId(filterId?: string) {
   return REPOSITORY_CATALOG_FILTERS.some((filter) => filter.id === filterId)
     ? (filterId ?? DEFAULT_OPERATOR_FILTER_ID)
@@ -917,6 +1420,10 @@ function resolveQueueFilterId(filterId?: string) {
   return OPERATOR_FILTERS.some((filter) => filter.id === filterId)
     ? (filterId ?? DEFAULT_OPERATOR_FILTER_ID)
     : DEFAULT_OPERATOR_FILTER_ID;
+}
+
+function resolveRunSlice(runSlice?: OperatorRunSlice) {
+  return runSlice === "all" ? "all" : DEFAULT_OPERATOR_RUN_SLICE;
 }
 
 function resolveQueueTabId(tabId?: ChangeDetailTabId, changeId?: string | null) {
@@ -968,17 +1475,49 @@ function resolveQueueSelectionNotice(
   };
 }
 
+function resolveRunsSelectionNotice(
+  originalRouteState: FunctionalShellRouteState,
+  normalizedRouteState: FunctionalShellRouteState,
+  runs: RunListEntry[],
+): RunsSelectionNotice | null {
+  if (
+    originalRouteState.workspaceMode !== "runs" ||
+    !originalRouteState.runId ||
+    originalRouteState.runId === normalizedRouteState.runId
+  ) {
+    return null;
+  }
+
+  const visibleRuns = filterRuns(runs, {
+    searchQuery: normalizedRouteState.searchQuery,
+  });
+
+  if (visibleRuns.length === 0) {
+    return {
+      kind: "cleared",
+      message: `${originalRouteState.runId} is not available because this runs slice is empty.`,
+    };
+  }
+
+  return {
+    kind: "cleared",
+    message: `${originalRouteState.runId} is not available in the current runs slice.`,
+  };
+}
+
 function areRouteStatesEqual(
   currentRouteState: FunctionalShellRouteState,
   nextRouteState: FunctionalShellRouteState,
 ) {
   return (
     currentRouteState.workspaceMode === nextRouteState.workspaceMode &&
+    currentRouteState.runSlice === nextRouteState.runSlice &&
     currentRouteState.tenantId === nextRouteState.tenantId &&
     currentRouteState.viewId === nextRouteState.viewId &&
     currentRouteState.filterId === nextRouteState.filterId &&
     currentRouteState.searchQuery === nextRouteState.searchQuery &&
     currentRouteState.changeId === nextRouteState.changeId &&
+    currentRouteState.runId === nextRouteState.runId &&
     currentRouteState.tabId === nextRouteState.tabId
   );
 }

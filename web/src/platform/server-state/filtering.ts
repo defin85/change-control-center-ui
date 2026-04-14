@@ -1,4 +1,4 @@
-import type { BootstrapResponse, ChangeSummary, RepositoryCatalogEntry } from "../../types";
+import type { BootstrapResponse, ChangeSummary, RepositoryCatalogEntry, RunListEntry } from "../../types";
 
 export type OperatorFilterContext = {
   activeViewId: string;
@@ -8,6 +8,10 @@ export type OperatorFilterContext = {
 
 export type RepositoryCatalogFilterContext = {
   activeFilterId: RepositoryCatalogFilterId;
+  searchQuery: string;
+};
+
+export type RunFilterContext = {
   searchQuery: string;
 };
 
@@ -75,6 +79,36 @@ export function buildViewCounts(views: BootstrapResponse["views"], changes: Chan
     counts[view.id] = changes.filter((change) => matchesView(change, view.id)).length;
   }
   return counts;
+}
+
+export function filterRuns(runs: RunListEntry[], context: RunFilterContext) {
+  const query = context.searchQuery.trim().toLowerCase();
+
+  return runs.filter((run) => {
+    if (!query) {
+      return true;
+    }
+
+    return [
+      run.id,
+      run.kind,
+      run.status,
+      run.result,
+      run.outcome,
+      run.decision,
+      run.recentActivity,
+      run.change.id,
+      run.change.title,
+      run.change.subtitle,
+      run.change.state,
+      run.change.owner.id,
+      run.change.owner.label,
+      run.change.nextAction,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  });
 }
 
 export function filterRepositoryCatalog(
@@ -169,6 +203,19 @@ export function resolveVisibleChangeSelection(
     return null;
   }
   return resolveChangeSelection(visibleChanges, preferredChangeId);
+}
+
+export function resolveVisibleRunSelection(
+  runs: RunListEntry[],
+  context: RunFilterContext,
+  preferredRunId: string | null | undefined,
+) {
+  if (!preferredRunId) {
+    return null;
+  }
+
+  const visibleRuns = filterRuns(runs, context);
+  return visibleRuns.some((run) => run.id === preferredRunId) ? preferredRunId : null;
 }
 
 export function describeView(viewId: string) {

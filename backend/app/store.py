@@ -247,6 +247,16 @@ class SQLiteStore:
                         _json_dumps(run),
                     ),
                 )
+            for event in fixtures.get("runEvents", []):
+                self._connection.execute(
+                    "insert into run_events(run_id, event_type, payload_json) values (?, ?, ?)",
+                    (event["runId"], event["type"], _json_dumps(event["payload"])),
+                )
+            for approval in fixtures.get("approvals", []):
+                self._connection.execute(
+                    "insert into approval_requests(id, run_id, tenant_id, approval_json) values (?, ?, ?, ?)",
+                    (approval["id"], approval["runId"], approval["tenantId"], _json_dumps(approval)),
+                )
             for evidence in fixtures["evidence"]:
                 self._connection.execute(
                     "insert into evidence_artifacts(id, change_id, run_id, evidence_json) values (?, ?, ?, ?)",

@@ -334,6 +334,42 @@ SEED_FIXTURES = {
             },
         }
     ],
+    "runEvents": [
+        {
+            "runId": "run-30",
+            "type": "item/commandExecution/requestApproval",
+            "payload": {
+                "_requestId": "req-seed-run-30-1",
+                "reason": "Launcher lifecycle needs operator review before the next apply loop.",
+                "command": "bash ./scripts/ccc start dev",
+            },
+        },
+        {
+            "runId": "run-30",
+            "type": "serverRequest/resolved",
+            "payload": {
+                "requestId": "req-seed-run-30-1",
+                "status": "accepted",
+                "text": "Operator accepted the lifecycle investigation request.",
+            },
+        },
+    ],
+    "approvals": [
+        {
+            "id": "approval-30-1",
+            "runId": "run-30",
+            "tenantId": "tenant-demo",
+            "status": "accepted",
+            "kind": "commandExecution",
+            "reason": "Launcher lifecycle needs operator review before the next apply loop.",
+            "decision": "accept",
+            "payload": {
+                "_requestId": "req-seed-run-30-1",
+                "command": "bash ./scripts/ccc start dev",
+                "source": "seed-fixture",
+            },
+        }
+    ],
     "evidence": [
         {
             "id": "a-301",

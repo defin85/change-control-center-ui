@@ -1,0 +1,109 @@
+.reference-runs-shell {
+  min-height: 100vh;
+}
+
+.reference-runs-shell .operator-style-sample__page {
+  gap: 24px;
+}
+
+.reference-runs-utility {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(280px, 1fr) minmax(0, 1.3fr);
+  gap: 14px 16px;
+  align-items: center;
+}
+
+.reference-runs-utility__select {
+  width: 100%;
+}
+
+.reference-runs-utility-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--sample-muted);
+  font-size: 0.85rem;
+}
+
+.reference-runs-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.reference-runs-metric {
+  display: grid;
+  gap: 10px;
+  min-height: 142px;
+  padding: 20px;
+  border: 1px solid var(--sample-line);
+  border-radius: 24px;
+  background: var(--sample-surface);
+  box-shadow: 0 14px 34px rgba(24, 35, 52, 0.06);
+}
+
+.reference-runs-metric strong {
+  font-size: clamp(2rem, 2vw, 2.45rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.reference-runs-metric p {
+  margin: 0;
+  color: var(--sample-muted);
+  font-size: 0.9rem;
+}
+
+.reference-runs-stage {
+  display: grid;
+  gap: 16px;
+}
+
+.reference-runs-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.reference-runs-shell .reference-panel,
+.reference-runs-shell .reference-detail-card,
+.reference-runs-shell .reference-detail-block,
+.reference-runs-shell .run-inspection-panel {
+  background: var(--sample-surface);
+}
+
+.reference-runs-navigation,
+.reference-runs-list-panel {
+  min-height: 100%;
+}
+
+.reference-runs-detail-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.reference-runs-facts {
+  margin: 0;
+}
+
+@media (max-width: 1180px) {
+  .reference-runs-utility {
+    grid-template-columns: 1fr;
+  }
+
+  .reference-runs-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .reference-runs-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .reference-runs-utility-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
