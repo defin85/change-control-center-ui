@@ -75,8 +75,8 @@ npm run test:e2e:platform
 ## Browser Tier Matrix
 
 - Smoke tier: `bash ./scripts/ccc verify ui-smoke` доказывает backend-served functional shell baseline на canonical route surfaces `/`, `?workspace=catalog`, и `?workspace=runs`; это уже не static-only placeholder proof.
-- Platform tier: `bash ./scripts/ccc verify ui-platform` поверх smoke path доказывает deterministic contract behavior для selected-change detail, runs detail, operator commands, collaboration flows, approvals, и realtime degradation/reconciliation.
-- Full tier: `bash ./scripts/ccc verify ui-full` композитно прогоняет smoke + platform tiers, а затем запускает dedicated `@full` cross-workspace proof journeys для functional shell.
+- Platform tier: `bash ./scripts/ccc verify ui-platform` поверх smoke path доказывает deterministic contract behavior для selected-change detail, runs detail, operator commands, collaboration flows, approval surfaces, и realtime degradation/reconciliation.
+- Full tier: `bash ./scripts/ccc verify ui-full` композитно прогоняет smoke + platform tiers, а затем запускает dedicated full-only `@full` cross-workspace proof journeys для functional shell.
 
 ## Что именно доказывает smoke path
 
@@ -88,8 +88,8 @@ npm run test:e2e:platform
 - `npm run lint` и `npm run test:e2e:platform` обязательны дополнительно, когда change трогает operator UI platform contract.
 - Browser smoke дополнительно rebuild-ит web artifact перед стартом backend stack, чтобы smoke path не зависел от старого `web/dist`.
 - Smoke tier теперь включает canonical workspace navigation и доказывает, что shipped shell реально гидрирует `Queue`, `Repositories`, и `Runs`, а не только static default route.
-- Platform tier покрывает expanded functional-shell proofs: explicit bootstrap failure handling, fail-closed route normalization, `Runs` workspace с selected run detail/handoff, operator command workflows, clarification/approval/memory flows, и realtime degradation/reconciliation.
-- `npm run test:e2e:full` теперь является dedicated `@full` phase для cross-workspace proof journeys; canonical `bash ./scripts/ccc verify ui-full` сначала прогоняет smoke и platform tiers, а уже затем этот full phase.
+- Platform tier покрывает expanded functional-shell proofs: explicit bootstrap failure handling, fail-closed route normalization, `Runs` workspace с selected run detail/handoff, operator command workflows, clarification/memory flows, approval surfaces, и realtime degradation/reconciliation.
+- `npm run test:e2e:full` теперь является dedicated full-only `@full` phase для cross-workspace proof journeys; canonical `bash ./scripts/ccc verify ui-full` сначала прогоняет smoke и platform tiers, а уже затем этот full phase.
 - Текущие suites доказывают bootstrap-hydrated shell baseline, shipped tenant `Queue` на `/`, backend-owned selected-change detail внутри queue shell, shipped `Repositories` workspace на `workspace=catalog`, shipped `Runs` workspace на `workspace=runs`, explicit operator command workflows для `New repository`, `New change`, `Delete change`, `Run next step`, `Escalate`, и `Mark blocked by spec`, clarification round generation/answer, tenant-memory promotion, run approval decisions, shared realtime reconciliation, explicit degraded/recovery visibility, и stale-refresh protection для shipped shell.
 - Smoke path считается пройденным только после всех трёх шагов.
 - Уже существующий `web/dist` не считается достаточным доказательством: smoke всегда начинается с нового `npm run build`.
@@ -141,7 +141,7 @@ cd /home/egor/code/change-control-center-ui
 bash ./scripts/ccc verify ui-full
 ```
 
-Этот repo-owned entrypoint сначала прогоняет `ui-smoke` и `ui-platform`, а затем запускает dedicated `@full` cross-workspace proof journeys через `npm run test:e2e:full`.
+Этот repo-owned entrypoint сначала прогоняет `ui-smoke` и `ui-platform`, а затем запускает dedicated full-only `@full` cross-workspace proof journeys через `npm run test:e2e:full`.
 
 ### Fast Development Loop
 

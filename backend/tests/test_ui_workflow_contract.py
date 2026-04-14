@@ -243,12 +243,16 @@ def test_reference_runs_page_is_wired_for_live_run_navigation_and_handoff() -> N
 
 def test_playwright_proof_pack_defines_smoke_platform_and_full_functional_shell_tiers() -> None:
     source = _read(PLAYWRIGHT_APP_SPEC)
+    full_lines = [line.strip() for line in source.splitlines() if line.strip().startswith('test("') and "@full" in line]
 
     assert "@smoke" in source
     assert "@platform" in source
     assert "@full" in source
+    assert len(full_lines) >= 2
+    assert all("@platform" not in line and "@smoke" not in line for line in full_lines)
     assert "smoke tier navigates the shipped functional shell across queue, catalog, and runs" in source
-    assert "tenant realtime events reconcile clarification detail without manual refresh @platform @full" in source
+    assert "tenant realtime events reconcile clarification detail without manual refresh @platform" in source
+    assert "full proof pack reconciles external clarification activity after catalog authoring without losing workspace context @full" in source
     assert "full proof pack spans catalog authoring, collaboration, commands, runs, approvals, and owning-change handoff @full" in source
 
 

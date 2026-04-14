@@ -7,6 +7,7 @@ from scripts.check_ui_readiness import (
     LAUNCHER_PROFILES_PATH,
     LAUNCHER_VERIFY_PATH,
     PACKAGE_JSON_PATH,
+    PLAYWRIGHT_APP_SPEC_PATH,
     PLAYWRIGHT_CONFIG_PATH,
     README_PATH,
     collect_ui_readiness_errors,
@@ -21,6 +22,7 @@ def _current_inputs() -> dict[str, str]:
         "agents_text": AGENTS_PATH.read_text(encoding="utf-8"),
         "package_json_text": PACKAGE_JSON_PATH.read_text(encoding="utf-8"),
         "playwright_config_text": PLAYWRIGHT_CONFIG_PATH.read_text(encoding="utf-8"),
+        "playwright_app_spec_text": PLAYWRIGHT_APP_SPEC_PATH.read_text(encoding="utf-8"),
         "launcher_text": LAUNCHER_PATH.read_text(encoding="utf-8"),
         "launcher_profiles_text": LAUNCHER_PROFILES_PATH.read_text(encoding="utf-8"),
         "launcher_verify_text": LAUNCHER_VERIFY_PATH.read_text(encoding="utf-8"),
@@ -85,3 +87,27 @@ def test_ui_readiness_contract_requires_tier_matrix_in_docs() -> None:
     errors = collect_ui_readiness_errors(**inputs)
 
     assert any("Smoke tier:" in error for error in errors)
+
+
+def test_ui_readiness_contract_rejects_shared_full_tier_tags() -> None:
+    inputs = _current_inputs()
+    inputs["playwright_app_spec_text"] = inputs["playwright_app_spec_text"].replace(
+        "full proof pack reconciles external clarification activity after catalog authoring without losing workspace context @full",
+        "full proof pack reconciles external clarification activity after catalog authoring without losing workspace context @platform @full",
+    )
+
+    errors = collect_ui_readiness_errors(**inputs)
+
+    assert any("dedicated tier" in error for error in errors)
+
+
+def test_ui_readiness_contract_requires_multiple_full_only_proofs() -> None:
+    inputs = _current_inputs()
+    inputs["playwright_app_spec_text"] = inputs["playwright_app_spec_text"].replace(
+        "full proof pack spans catalog authoring, collaboration, commands, runs, approvals, and owning-change handoff @full",
+        "full proof pack spans catalog authoring, collaboration, commands, runs, approvals, and owning-change handoff @platform",
+    )
+
+    errors = collect_ui_readiness_errors(**inputs)
+
+    assert any("at least two dedicated full-only" in error for error in errors)

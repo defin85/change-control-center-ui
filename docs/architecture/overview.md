@@ -52,8 +52,8 @@ Browser UI (bootstrap shell + functional tenant queue + selected-change detail +
 ## Verification Map
 
 - Default operator UI smoke: `bash ./scripts/ccc verify ui-smoke` for functional shell baseline on `/`, `workspace=catalog`, and `workspace=runs`
-- Platform contract gate: `bash ./scripts/ccc verify ui-platform` for deterministic detail/command/collaboration/realtime proofs
-- Full browser pass: `bash ./scripts/ccc verify ui-full` for dedicated `@full` cross-workspace proof journeys on top of smoke + platform
+- Platform contract gate: `bash ./scripts/ccc verify ui-platform` for deterministic detail/command/collaboration/approval-surface/realtime proofs
+- Full browser pass: `bash ./scripts/ccc verify ui-full` for dedicated full-only `@full` cross-workspace proof journeys on top of smoke + platform
 - Drift guard for docs + launcher + Playwright alignment: `uv run python scripts/check_ui_readiness.py`
 - Canonical workflow details: [docs/agent/verification.md](/home/egor/code/change-control-center-ui/docs/agent/verification.md)
 

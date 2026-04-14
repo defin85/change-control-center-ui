@@ -110,8 +110,8 @@ bash ./scripts/ccc verify ui-smoke
 Этот entrypoint прогоняет `uv run pytest backend/tests -q`, затем `npm run build`, затем `npm run test:e2e`. `npm run test:e2e` не должен заменяться frontend-only dev server path и не должен reuse already running backend-served stack на `127.0.0.1:8000`.
 
 - Smoke tier: functional shell baseline на `/`, `?workspace=catalog`, и `?workspace=runs`.
-- Platform tier: deterministic contract proofs для detail, commands, collaboration, approvals, и realtime.
-- Full tier: dedicated `@full` cross-workspace proof journeys поверх smoke + platform tiers.
+- Platform tier: deterministic contract proofs для detail, commands, collaboration, approval surfaces, и realtime.
+- Full tier: dedicated full-only `@full` cross-workspace proof journeys поверх smoke + platform tiers.
 
 Для operator UI platform contract поверх smoke gate используйте:
 
@@ -127,6 +127,6 @@ cd /home/egor/code/change-control-center-ui
 bash ./scripts/ccc verify ui-full
 ```
 
-`bash ./scripts/ccc verify ui-full` сначала прогоняет smoke и platform tiers, а затем запускает dedicated `npm run test:e2e:full` phase для `@full` proof journeys.
+`bash ./scripts/ccc verify ui-full` сначала прогоняет smoke и platform tiers, а затем запускает dedicated full-only `npm run test:e2e:full` phase для `@full` proof journeys.
 
 Machine-checkable readiness gate запускается через `uv run python scripts/check_ui_readiness.py`.

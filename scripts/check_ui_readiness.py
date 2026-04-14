@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,7 @@ README_PATH = ROOT / "README.md"
 AGENTS_PATH = ROOT / "AGENTS.md"
 PACKAGE_JSON_PATH = ROOT / "web/package.json"
 PLAYWRIGHT_CONFIG_PATH = ROOT / "web/playwright.config.ts"
+PLAYWRIGHT_APP_SPEC_PATH = ROOT / "web/e2e/app.spec.ts"
 LAUNCHER_PATH = ROOT / "scripts/ccc"
 LAUNCHER_PROFILES_PATH = ROOT / "scripts/lib/ccc/profiles.sh"
 LAUNCHER_VERIFY_PATH = ROOT / "scripts/lib/ccc/verify.sh"
@@ -36,6 +38,7 @@ def collect_ui_readiness_errors(
     agents_text: str,
     package_json_text: str,
     playwright_config_text: str,
+    playwright_app_spec_text: str,
     launcher_text: str,
     launcher_profiles_text: str,
     launcher_verify_text: str,
@@ -50,7 +53,7 @@ def collect_ui_readiness_errors(
         "Smoke tier:",
         "Platform tier:",
         "Full tier:",
-        "dedicated `@full` cross-workspace proof journeys",
+        "dedicated full-only `@full` cross-workspace proof journeys",
         "uv run pytest backend/tests -q",
         "npm run lint",
         "npm run build",
@@ -119,6 +122,31 @@ def collect_ui_readiness_errors(
         actual = scripts.get(name)
         if actual != expected:
             errors.append(f"web/package.json script {name!r} must equal {expected!r}, got {actual!r}")
+
+    playwright_titles = re.findall(r'^\s*test\("([^"]+)"', playwright_app_spec_text, flags=re.MULTILINE)
+    full_titles = [title for title in playwright_titles if "@full" in title]
+    full_only_titles = [
+        title for title in full_titles if "@platform" not in title and "@smoke" not in title
+    ]
+    shared_full_titles = [
+        title for title in full_titles if "@platform" in title or "@smoke" in title
+    ]
+    required_full_only_titles = [
+        "full proof pack reconciles external clarification activity after catalog authoring without losing workspace context @full",
+        "full proof pack spans catalog authoring, collaboration, commands, runs, approvals, and owning-change handoff @full",
+    ]
+
+    if len(full_only_titles) < 2:
+        errors.append("web/e2e/app.spec.ts must define at least two dedicated full-only @full proof scenarios")
+
+    if shared_full_titles:
+        errors.append(
+            "web/e2e/app.spec.ts must keep @full as a dedicated tier instead of dual-tagging smoke/platform tests"
+        )
+
+    for title in required_full_only_titles:
+        if title not in full_only_titles:
+            errors.append(f"web/e2e/app.spec.ts must contain dedicated full-tier proof: {title}")
 
     for snippet in [
         'baseURL: "http://127.0.0.1:8000"',
@@ -231,6 +259,7 @@ def main() -> int:
         agents_text=AGENTS_PATH.read_text(encoding="utf-8"),
         package_json_text=PACKAGE_JSON_PATH.read_text(encoding="utf-8"),
         playwright_config_text=PLAYWRIGHT_CONFIG_PATH.read_text(encoding="utf-8"),
+        playwright_app_spec_text=PLAYWRIGHT_APP_SPEC_PATH.read_text(encoding="utf-8"),
         launcher_text=LAUNCHER_PATH.read_text(encoding="utf-8"),
         launcher_profiles_text=LAUNCHER_PROFILES_PATH.read_text(encoding="utf-8"),
         launcher_verify_text=LAUNCHER_VERIFY_PATH.read_text(encoding="utf-8"),
