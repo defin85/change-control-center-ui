@@ -64,3 +64,24 @@ def test_ui_readiness_contract_requires_repo_owned_verify_entrypoint_in_docs() -
     errors = collect_ui_readiness_errors(**inputs)
 
     assert any("bash ./scripts/ccc verify ui-smoke" in error for error in errors)
+
+
+def test_ui_readiness_contract_rejects_missing_full_tier_phase_script() -> None:
+    inputs = _current_inputs()
+    inputs["package_json_text"] = inputs["package_json_text"].replace(
+        '"test:e2e:full": "playwright test --grep @full"',
+        '"test:e2e:full": "playwright test"',
+    )
+
+    errors = collect_ui_readiness_errors(**inputs)
+
+    assert any("test:e2e:full" in error and "@full" in error for error in errors)
+
+
+def test_ui_readiness_contract_requires_tier_matrix_in_docs() -> None:
+    inputs = _current_inputs()
+    inputs["doc_text"] = inputs["doc_text"].replace("Smoke tier:", "Smoke:")
+
+    errors = collect_ui_readiness_errors(**inputs)
+
+    assert any("Smoke tier:" in error for error in errors)

@@ -196,6 +196,27 @@ test("restores supported queue route state and strips unsupported params @smoke 
   await expect(page).toHaveURL(/\?tenant=tenant-sandbox&view=ready&q=sandbox&change=ch-201&tab=gaps$/);
 });
 
+test("smoke tier navigates the shipped functional shell across queue, catalog, and runs @smoke @platform", async ({
+  page,
+}) => {
+  await gotoShippedApp(page);
+
+  await expectTenantQueueWorkspace(page, "change-control-center-ui");
+  await page.locator('[data-platform-action="workspace-catalog"]').click();
+
+  await expect(page.locator('[data-platform-surface="repository-catalog-workspace"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-catalog"]')).toBeVisible();
+  await expect(page).toHaveURL(/\?workspace=catalog$/);
+
+  await page.locator('[data-platform-action="workspace-runs"]').click();
+  await expectRunsWorkspace(page, "change-control-center-ui");
+  await expect(page).toHaveURL(/\?workspace=runs$/);
+
+  await page.locator('[data-platform-action="workspace-queue"]').click();
+  await expectTenantQueueWorkspace(page, "change-control-center-ui");
+  await expect(page).toHaveURL(/\/$/);
+});
+
 test("queue workspace supports selected-change handoff, filtering, and tenant switching @platform", async ({
   page,
 }) => {
@@ -643,7 +664,7 @@ test("selected-change clarification and memory workflows reconcile through shipp
   await expect(page.locator('[data-platform-surface="change-memory-facts"]')).toContainText(factBody);
 });
 
-test("tenant realtime events reconcile clarification detail without manual refresh @platform", async ({
+test("tenant realtime events reconcile clarification detail without manual refresh @platform @full", async ({
   page,
   request,
 }) => {
@@ -1023,6 +1044,83 @@ test("selected-change commands surface explicit failure, block-by-spec success, 
   await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(
     "Choose a queue row",
   );
+});
+
+test("full proof pack spans catalog authoring, collaboration, commands, runs, approvals, and owning-change handoff @full", async ({
+  page,
+}) => {
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `operator-full-proof-${suffix}`;
+  const repositoryPath = `/tmp/operator-full-proof-${suffix}`;
+  const factTitle = `Full proof fact ${suffix}`;
+  const factBody = "Cross-workspace proof journeys should leave durable operator evidence behind.";
+  const changeId = await createRepositoryChangeAndOpenQueue(page, repositoryName, repositoryPath);
+
+  await page.getByRole("tab", { name: "Clarifications" }).click();
+  await page.locator('[data-platform-action="generate-clarification-round"]').click();
+  const roundId = await extractToastIdentifier(
+    page,
+    /Clarification round (clar-[a-z0-9]+) created for /,
+    "clarification round id",
+  );
+
+  await page.getByLabel("What problem should this change solve?", { exact: true }).selectOption("yes");
+  await page
+    .getByLabel("What problem should this change solve? note")
+    .fill("Full proof journey answered from the shipped operator shell.");
+  await page.locator('[data-platform-action="submit-clarification-answers"]').click();
+  await expect(page.locator(".toast")).toContainText(`Clarification round ${roundId} answered.`);
+  await expect(page.locator(`[data-clarification-round-id="${roundId}"]`)).toHaveAttribute(
+    "data-clarification-round-status",
+    "answered",
+  );
+
+  await page.getByRole("tab", { name: "Chief" }).click();
+  await page.getByLabel("Fact title").fill(factTitle);
+  await page.getByLabel("Fact body").fill(factBody);
+  await page.locator('[data-platform-action="promote-tenant-fact"]').click();
+  await expect(page.locator(".toast")).toContainText(`Fact ${factTitle} promoted to tenant memory.`);
+  await expect(page.locator('[data-platform-surface="tenant-memory-list"]')).toContainText(factTitle);
+  await expect(page.locator('[data-platform-surface="change-memory-facts"]')).toContainText(factTitle);
+
+  await page.locator('[data-platform-action="run-next-step"]').click();
+  const runId = await extractToastIdentifier(
+    page,
+    new RegExp(`Run (run-[a-z0-9]+) started for ${changeId}\\.`),
+    "run id",
+  );
+
+  await page.locator('[data-platform-action="workspace-runs"]').click();
+  await expectRunsWorkspace(page, repositoryName);
+  await page.locator(`[data-run-id="${runId}"]`).click();
+  await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText(runId);
+  await expect(page.locator('[data-platform-surface="run-approvals"] [data-approval-id]')).toHaveCount(1);
+
+  await page.locator('[data-platform-action="accept-approval"]').click();
+  const approvalId = await extractToastIdentifier(
+    page,
+    /Approval ([a-z0-9-]+) accepted\./,
+    "approval id",
+  );
+  await expect(page.locator(`[data-approval-id="${approvalId}"]`)).toContainText("Accepted");
+
+  await page.getByRole("button", { name: "Open owning change" }).click();
+  await expectTenantQueueWorkspace(page, repositoryName);
+  await expect(page).toHaveURL(new RegExp(`change=${changeId}`));
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(changeId);
+
+  await page.getByRole("tab", { name: "Clarifications" }).click();
+  await expect(page.locator(`[data-clarification-round-id="${roundId}"]`)).toHaveAttribute(
+    "data-clarification-round-status",
+    "answered",
+  );
+  await expect(page.locator('[data-platform-surface="open-clarification-round"]')).toHaveCount(0);
+
+  await page.getByRole("tab", { name: "Chief" }).click();
+  await expect(page.locator('[data-platform-surface="tenant-memory-list"]')).toContainText(factTitle);
+  await expect(page.locator('[data-platform-surface="tenant-memory-list"]')).toContainText(factBody);
+  await expect(page.locator('[data-platform-surface="change-memory-facts"]')).toContainText(factTitle);
+  await expect(page.locator('[data-platform-surface="change-memory-facts"]')).toContainText(factBody);
 });
 
 test("surfaces bootstrap failure explicitly without falling back to client-only shell truth @platform", async ({

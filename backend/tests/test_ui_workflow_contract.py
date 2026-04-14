@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 APP_ENTRY = ROOT / "web/src/App.tsx"
+PLAYWRIGHT_APP_SPEC = ROOT / "web/e2e/app.spec.ts"
 BOOTSTRAP_CONTROLLER = ROOT / "web/src/platform/navigation/useShellBootstrapController.ts"
 BOOTSTRAP_SHELL = ROOT / "web/src/platform/shells/ShellBootstrapApp.tsx"
 REALTIME_BOUNDARY = ROOT / "web/src/platform/realtime/useTenantRealtimeBoundary.ts"
@@ -238,6 +239,17 @@ def test_reference_runs_page_is_wired_for_live_run_navigation_and_handoff() -> N
     assert "backend-owned runs" in source
     assert "hidden legacy run surface" in source
     assert "window.location.assign" not in source
+
+
+def test_playwright_proof_pack_defines_smoke_platform_and_full_functional_shell_tiers() -> None:
+    source = _read(PLAYWRIGHT_APP_SPEC)
+
+    assert "@smoke" in source
+    assert "@platform" in source
+    assert "@full" in source
+    assert "smoke tier navigates the shipped functional shell across queue, catalog, and runs" in source
+    assert "tenant realtime events reconcile clarification detail without manual refresh @platform @full" in source
+    assert "full proof pack spans catalog authoring, collaboration, commands, runs, approvals, and owning-change handoff @full" in source
 
 
 def test_selected_change_workspace_surfaces_supported_command_boundaries_and_fail_closed_copy() -> None:

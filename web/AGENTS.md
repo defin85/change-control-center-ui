@@ -23,7 +23,7 @@
 
 ## Verify
 
-- Default UI smoke: `bash ./scripts/ccc verify ui-smoke`
-- Platform contract changes: `bash ./scripts/ccc verify ui-platform`
-- Full browser pass when needed: `bash ./scripts/ccc verify ui-full`
+- Default UI smoke: `bash ./scripts/ccc verify ui-smoke` for functional shell baseline on queue/catalog/runs
+- Platform contract changes: `bash ./scripts/ccc verify ui-platform` for deterministic detail, command, collaboration, and realtime proofs
+- Full browser pass when needed: `bash ./scripts/ccc verify ui-full` for dedicated `@full` cross-workspace proof journeys
 - If a task matches a repo-owned UI skill profile, follow [docs/agent/ui-skills.md](/home/egor/code/change-control-center-ui/docs/agent/ui-skills.md)

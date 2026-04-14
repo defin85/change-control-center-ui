@@ -189,6 +189,65 @@ ccc_run_verify_playwright_phase "test:e2e:platform"
     ]
 
 
+def test_ccc_verify_ui_platform_composes_smoke_then_platform_gate(tmp_path: Path) -> None:
+    marker = tmp_path / "verify-ui-platform.log"
+    result = _run_shell(
+        f"""
+set -euo pipefail
+source "{COMMON_SH}"
+source "{VERIFY_SH}"
+ccc_run_in_dir() {{
+  local workdir="$1"
+  shift
+  printf 'run:%s:%s\\n' "$workdir" "$*" >>"{marker}"
+}}
+ccc_run_verify_playwright_phase() {{
+  printf 'playwright:%s\\n' "$1" >>"{marker}"
+}}
+ccc_verify ui-platform
+"""
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert marker.read_text(encoding="utf-8").splitlines() == [
+        f"run:{ROOT}:uv run pytest backend/tests -q",
+        f"run:{ROOT / 'web'}:npm run build",
+        "playwright:test:e2e",
+        f"run:{ROOT / 'web'}:npm run lint",
+        "playwright:test:e2e:platform",
+    ]
+
+
+def test_ccc_verify_ui_full_composes_platform_then_full_gate(tmp_path: Path) -> None:
+    marker = tmp_path / "verify-ui-full.log"
+    result = _run_shell(
+        f"""
+set -euo pipefail
+source "{COMMON_SH}"
+source "{VERIFY_SH}"
+ccc_run_in_dir() {{
+  local workdir="$1"
+  shift
+  printf 'run:%s:%s\\n' "$workdir" "$*" >>"{marker}"
+}}
+ccc_run_verify_playwright_phase() {{
+  printf 'playwright:%s\\n' "$1" >>"{marker}"
+}}
+ccc_verify ui-full
+"""
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert marker.read_text(encoding="utf-8").splitlines() == [
+        f"run:{ROOT}:uv run pytest backend/tests -q",
+        f"run:{ROOT / 'web'}:npm run build",
+        "playwright:test:e2e",
+        f"run:{ROOT / 'web'}:npm run lint",
+        "playwright:test:e2e:platform",
+        "playwright:test:e2e:full",
+    ]
+
+
 def test_ccc_start_component_keeps_detached_group_alive_after_wrapper_exit() -> None:
     port = _reserve_port()
     start = _run_shell(

@@ -47,6 +47,10 @@ def collect_ui_readiness_errors(
         "bash ./scripts/ccc verify ui-smoke",
         "bash ./scripts/ccc verify ui-platform",
         "bash ./scripts/ccc verify ui-full",
+        "Smoke tier:",
+        "Platform tier:",
+        "Full tier:",
+        "dedicated `@full` cross-workspace proof journeys",
         "uv run pytest backend/tests -q",
         "npm run lint",
         "npm run build",
@@ -72,6 +76,9 @@ def collect_ui_readiness_errors(
             "bash ./scripts/ccc verify ui-smoke",
             "bash ./scripts/ccc verify ui-platform",
             "bash ./scripts/ccc verify ui-full",
+            "Smoke tier:",
+            "Platform tier:",
+            "Full tier:",
             "uv run pytest backend/tests -q",
             "uv run python scripts/check_ui_readiness.py",
             "legacy/prototype/README.md",
@@ -106,7 +113,7 @@ def collect_ui_readiness_errors(
         "build": "tsc -b && vite build",
         "test:e2e": "playwright test --grep @smoke",
         "test:e2e:platform": "playwright test --grep @platform",
-        "test:e2e:full": "playwright test",
+        "test:e2e:full": "playwright test --grep @full",
     }
     for name, expected in expected_scripts.items():
         actual = scripts.get(name)
