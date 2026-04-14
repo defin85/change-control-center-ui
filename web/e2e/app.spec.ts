@@ -539,6 +539,73 @@ test("selected-change clarification and memory workflows reconcile through shipp
   await expect(page.locator('[data-platform-surface="change-memory-facts"]')).toContainText(factBody);
 });
 
+test("selected-change clarification workflow surfaces stale round 409 explicitly @platform", async ({
+  page,
+  request,
+}) => {
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `operator-clarifications-stale-${suffix}`;
+  const repositoryPath = `/tmp/operator-clarifications-stale-${suffix}`;
+  const changeId = await createRepositoryChangeAndOpenQueue(page, repositoryName, repositoryPath);
+
+  await page.getByRole("tab", { name: "Clarifications" }).click();
+  await expect(page.locator('[data-platform-surface="selected-change-tab-panel"]')).toHaveAttribute(
+    "data-platform-tab",
+    "clarifications",
+  );
+
+  await page.locator('[data-platform-action="generate-clarification-round"]').click();
+  const roundId = await extractToastIdentifier(
+    page,
+    /Clarification round (clar-[a-z0-9]+) created for /,
+    "clarification round id",
+  );
+
+  await page.getByLabel("What problem should this change solve?", { exact: true }).selectOption("yes");
+  await page
+    .getByLabel("What problem should this change solve? note")
+    .fill("Answered elsewhere before this stale UI submits.");
+
+  const tenantId = new URL(page.url()).searchParams.get("tenant");
+  if (!tenantId) {
+    throw new Error(`Tenant id missing from stale clarification URL: ${page.url()}`);
+  }
+
+  const externalAnswerResponse = await request.post(
+    `/api/tenants/${tenantId}/clarifications/${roundId}/answers`,
+    {
+      data: {
+        answers: [
+          {
+            questionId: "q-1",
+            selectedOptionId: "yes",
+            freeformNote: "Answered by another actor.",
+          },
+        ],
+      },
+    },
+  );
+  expect(externalAnswerResponse.ok()).toBeTruthy();
+
+  await page.locator('[data-platform-action="submit-clarification-answers"]').click();
+  await expect(page.locator('[data-platform-governance="clarification-command-error"]').last()).toContainText(
+    "Clarification round is already historical",
+  );
+  await expect(page.locator('[data-platform-surface="open-clarification-round"]')).toBeVisible();
+  await expect(page.locator(".toast")).not.toContainText(`Clarification round ${roundId} answered.`);
+
+  await reloadApp(page);
+
+  await expectTenantQueueWorkspace(page, repositoryName);
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(changeId);
+  await page.getByRole("tab", { name: "Clarifications" }).click();
+  await expect(page.locator('[data-platform-surface="open-clarification-round"]')).toHaveCount(0);
+  await expect(page.locator(`[data-clarification-round-id="${roundId}"]`)).toHaveAttribute(
+    "data-clarification-round-status",
+    "answered",
+  );
+});
+
 test("run approval decisions surface explicit errors and reconcile to accepted state @platform", async ({
   page,
 }) => {
@@ -589,6 +656,46 @@ test("run approval decisions surface explicit errors and reconcile to accepted s
   await expect(page.locator(`[data-approval-id="${approvalId}"] [data-platform-action="accept-approval"]`)).toHaveCount(0);
   await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText(
     "serverRequest/resolved",
+  );
+});
+
+test("run approval decisions reconcile to declined state and close the action surface @platform", async ({
+  page,
+}) => {
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `operator-approval-decline-${suffix}`;
+  const repositoryPath = `/tmp/operator-approval-decline-${suffix}`;
+  const changeId = await createRepositoryChangeAndOpenQueue(page, repositoryName, repositoryPath);
+
+  await page.locator('[data-platform-action="run-next-step"]').click();
+  const runId = await extractToastIdentifier(
+    page,
+    new RegExp(`Run (run-[a-z0-9]+) started for ${changeId}\\.`),
+    "run id",
+  );
+
+  await page.locator('[data-platform-action="workspace-runs"]').click();
+  await expectRunsWorkspace(page, repositoryName);
+  await page.locator(`[data-run-id="${runId}"]`).click();
+  await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText(runId);
+
+  await delayMutationOnce(
+    page,
+    /\/api\/tenants\/[^/]+\/approvals\/[^/]+\/decision$/,
+    "POST",
+  );
+  await page.locator('[data-platform-action="decline-approval"]').click();
+  await expect(page.locator('[data-platform-governance="run-approval-pending"]')).toBeVisible();
+  const approvalId = await extractToastIdentifier(
+    page,
+    /Approval ([a-z0-9-]+) declined\./,
+    "approval id",
+  );
+  await expect(page.locator(`[data-approval-id="${approvalId}"]`)).toContainText("Declined");
+  await expect(page.locator(`[data-approval-id="${approvalId}"]`)).toContainText("Decision: decline");
+  await expect(page.locator(`[data-approval-id="${approvalId}"] [data-platform-action="decline-approval"]`)).toHaveCount(0);
+  await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText(
+    "Resolved approvals remain read-only after reconciliation.",
   );
 });
 
