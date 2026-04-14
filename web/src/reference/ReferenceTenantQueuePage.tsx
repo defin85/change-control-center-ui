@@ -30,6 +30,7 @@ export function ReferenceTenantQueuePage({
   activeTenantId,
   buildWorkspaceHref,
   queueWorkspace,
+  toast,
   tenants,
   views,
   onWorkspaceModeChange,
@@ -41,6 +42,10 @@ export function ReferenceTenantQueuePage({
   onSelectQueueChange,
   onClearQueueSelection,
   onRetrySelectedChangeDetail,
+  onDeleteSelectedChange,
+  onRunSelectedChangeNextStep,
+  onEscalateSelectedChange,
+  onBlockSelectedChangeBySpec,
 }: ReferenceTenantQueuePageProps) {
   const [isCompactViewport, setIsCompactViewport] = useState(() =>
     window.matchMedia("(max-width: 1080px)").matches,
@@ -86,6 +91,10 @@ export function ReferenceTenantQueuePage({
           queueWorkspace={queueWorkspace}
           onSelectTab={onSelectQueueTab}
           onRetryDetail={onRetrySelectedChangeDetail}
+          onDeleteSelectedChange={onDeleteSelectedChange}
+          onRunSelectedChangeNextStep={onRunSelectedChangeNextStep}
+          onEscalateSelectedChange={onEscalateSelectedChange}
+          onBlockSelectedChangeBySpec={onBlockSelectedChangeBySpec}
         />
       }
     />
@@ -285,6 +294,7 @@ export function ReferenceTenantQueuePage({
         </div>
       }
       detailWorkspace={isCompactViewport ? detailWorkspace : null}
+      toast={toast ? <div className="toast">{toast}</div> : null}
     />
   );
 }
@@ -294,6 +304,7 @@ type ReferenceTenantQueuePageProps = {
   activeTenantId: string;
   buildWorkspaceHref: (workspaceMode: OperatorWorkspaceMode) => string;
   queueWorkspace: QueueWorkspaceState;
+  toast?: string | null;
   tenants: Tenant[];
   views: BootstrapResponse["views"];
   onWorkspaceModeChange: (workspaceMode: OperatorWorkspaceMode) => void;
@@ -305,6 +316,10 @@ type ReferenceTenantQueuePageProps = {
   onSelectQueueChange: (changeId: string) => void;
   onClearQueueSelection: () => void;
   onRetrySelectedChangeDetail: () => void;
+  onDeleteSelectedChange: () => Promise<void>;
+  onRunSelectedChangeNextStep: () => Promise<void>;
+  onEscalateSelectedChange: () => Promise<void>;
+  onBlockSelectedChangeBySpec: () => Promise<void>;
 };
 
 type QueueNavigationPanelProps = {

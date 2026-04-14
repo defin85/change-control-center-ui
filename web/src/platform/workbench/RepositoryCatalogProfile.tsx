@@ -31,7 +31,12 @@ export function RepositoryCatalogProfile({
           Repository catalog management stays backend-owned. Start by selecting an existing repository or registering a
           new one.
           <div className="empty-state-actions">
-            <button type="button" className="ghost-button" onClick={onOpenCreateTenant}>
+            <button
+              type="button"
+              className="ghost-button"
+              data-platform-action="new-repository"
+              onClick={onOpenCreateTenant}
+            >
               New repository
             </button>
           </div>
@@ -83,12 +88,19 @@ export function RepositoryCatalogProfile({
           <button
             type="button"
             className="primary-button"
+            data-platform-action={entry.changeCount === 0 ? "create-first-change" : "open-queue"}
             disabled={isCreateChangePending}
             onClick={entry.changeCount === 0 ? handleCreateChange : onOpenQueue}
           >
             {primaryActionLabel}
           </button>
-          <button type="button" className="ghost-button" disabled={isCreateChangePending} onClick={handleCreateChange}>
+          <button
+            type="button"
+            className="ghost-button"
+            data-platform-action="new-change"
+            disabled={isCreateChangePending}
+            onClick={handleCreateChange}
+          >
             New change
           </button>
         </div>

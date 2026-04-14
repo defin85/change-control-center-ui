@@ -276,6 +276,83 @@ def test_create_change_schema_accepts_real_backend_payload(client: TestClient) -
     assert result["issues"] == []
 
 
+def test_create_change_schema_accepts_escalate_action_payload(client: TestClient) -> None:
+    create_response = client.post(
+        "/api/tenants/tenant-demo/changes",
+        json={"title": "Escalate schema boundary"},
+    )
+    assert create_response.status_code == 201
+    change_id = create_response.json()["change"]["id"]
+
+    response = client.post(f"/api/tenants/tenant-demo/changes/{change_id}/actions/escalate")
+    assert response.status_code == 200
+
+    result = _validate_against_schema("createChangeResponseSchema", response.json())
+
+    assert result["success"] is True
+    assert result["issues"] == []
+
+
+def test_create_change_schema_accepts_block_by_spec_action_payload(client: TestClient) -> None:
+    create_response = client.post(
+        "/api/tenants/tenant-demo/changes",
+        json={"title": "Block schema boundary"},
+    )
+    assert create_response.status_code == 201
+    change_id = create_response.json()["change"]["id"]
+
+    response = client.post(f"/api/tenants/tenant-demo/changes/{change_id}/actions/block-by-spec")
+    assert response.status_code == 200
+
+    result = _validate_against_schema("createChangeResponseSchema", response.json())
+
+    assert result["success"] is True
+    assert result["issues"] == []
+
+
+def test_run_mutation_schema_accepts_real_backend_payload(
+    make_client,
+    app_env: dict[str, str],
+) -> None:
+    script_path = Path(__file__).with_name("fake_stdio_app_server.py")
+    app_env["CCC_RUNTIME_TRANSPORT"] = "stdio"
+    app_env["CCC_RUNTIME_COMMAND"] = f"{sys.executable} {script_path}"
+    os.environ.update(app_env)
+
+    with make_client() as client:
+        create_response = client.post(
+            "/api/tenants/tenant-demo/changes",
+            json={"title": "Run mutation schema boundary"},
+        )
+        assert create_response.status_code == 201
+        change_id = create_response.json()["change"]["id"]
+
+        response = client.post(f"/api/tenants/tenant-demo/changes/{change_id}/actions/run-next")
+        assert response.status_code == 201
+
+    result = _validate_against_schema("runMutationResponseSchema", response.json())
+
+    assert result["success"] is True
+    assert result["issues"] == []
+
+
+def test_delete_change_schema_accepts_real_backend_payload(client: TestClient) -> None:
+    create_response = client.post(
+        "/api/tenants/tenant-demo/changes",
+        json={"title": "Delete schema boundary"},
+    )
+    assert create_response.status_code == 201
+    change_id = create_response.json()["change"]["id"]
+
+    response = client.delete(f"/api/tenants/tenant-demo/changes/{change_id}")
+    assert response.status_code == 200
+
+    result = _validate_against_schema("deleteChangeResponseSchema", response.json())
+
+    assert result["success"] is True
+    assert result["issues"] == []
+
+
 def test_control_api_boundary_normalizes_bootstrap_transport_failure() -> None:
     result = _run_request_control_api("""
 async () => {

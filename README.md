@@ -92,7 +92,7 @@ bash ./scripts/ccc stop all
 - shipped shell больше не показывает user-facing bridge в live/legacy workbench path и не падает обратно в client-only sample truth при bootstrap failure
 - shipped queue теперь включает backend-owned `Selected change` workspace с вкладками `Overview`, `Traceability`, `Gaps`, `Evidence`, `Git`, `Chief` и `Clarifications`
 - `Runs` workspace читает backend-owned run list/detail, approvals и runtime events без возврата к legacy `Run Studio`
-- текущая последовательность follow-up changes теперь продолжается с `07-add-operator-command-workflows` и заканчивается `10-harden-functional-shell-proof-pack`
+- текущая последовательность follow-up changes теперь продолжается с `08-add-approval-decision-ui` и заканчивается `10-harden-functional-shell-proof-pack`
 
 ## Проверки
 

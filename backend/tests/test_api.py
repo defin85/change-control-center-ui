@@ -733,6 +733,116 @@ def test_tenant_scoping_prevents_cross_tenant_leakage(client: TestClient) -> Non
     assert payload["clarificationRounds"] == []
 
 
+def test_run_next_action_starts_inferred_backend_owned_run_and_reconciles_queue(
+    make_client,
+    app_env: dict[str, str],
+) -> None:
+    script_path = Path(__file__).with_name("fake_stdio_app_server.py")
+    app_env["CCC_RUNTIME_TRANSPORT"] = "stdio"
+    app_env["CCC_RUNTIME_COMMAND"] = f"{sys.executable} {script_path}"
+    os.environ.update(app_env)
+
+    with make_client() as client:
+        tenant_response = client.post(
+            "/api/tenants",
+            json={
+                "name": "command-workflow-run-next",
+                "repoPath": "/tmp/command-workflow-run-next",
+                "description": "Fresh tenant for run-next action proof.",
+            },
+        )
+        assert tenant_response.status_code == 201
+        tenant_id = tenant_response.json()["tenant"]["id"]
+
+        change_response = client.post(
+            f"/api/tenants/{tenant_id}/changes",
+            json={"title": "Run next from the shipped operator shell"},
+        )
+        assert change_response.status_code == 201
+        change_id = change_response.json()["change"]["id"]
+
+        response = client.post(f"/api/tenants/{tenant_id}/changes/{change_id}/actions/run-next")
+
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["run"]["changeId"] == change_id
+        assert payload["run"]["kind"] == "design"
+        assert payload["run"]["status"] == "inProgress"
+        assert payload["approvals"]
+        assert payload["change"]["id"] == change_id
+        assert payload["change"]["summary"] == "A backend-owned run is currently executing."
+        assert payload["change"]["nextAction"] == "Run in progress"
+        assert payload["change"]["blocker"] == "Waiting for runtime completion"
+
+        detail_response = client.get(f"/api/tenants/{tenant_id}/changes/{change_id}")
+        assert detail_response.status_code == 200
+        assert detail_response.json()["change"]["summary"] == "A backend-owned run is currently executing."
+
+        runs_response = client.get(f"/api/tenants/{tenant_id}/runs")
+        assert runs_response.status_code == 200
+        run_entry = next(run for run in runs_response.json()["runs"] if run["id"] == payload["run"]["id"])
+        assert run_entry["change"]["id"] == change_id
+        assert run_entry["requiresAttention"] is True
+
+
+def test_escalate_action_updates_change_state_across_detail_and_queue(client: TestClient) -> None:
+    create_response = client.post(
+        "/api/tenants/tenant-demo/changes",
+        json={"title": "Escalate me from the supported shell"},
+    )
+    assert create_response.status_code == 201
+    change_id = create_response.json()["change"]["id"]
+
+    response = client.post(f"/api/tenants/tenant-demo/changes/{change_id}/actions/escalate")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["change"]["id"] == change_id
+    assert payload["change"]["state"] == "escalated"
+    assert payload["change"]["nextAction"] == "Operator intervention required"
+    assert payload["change"]["blocker"] == "Escalated by chief"
+    assert payload["change"]["summary"] == "Chief escalated the change for operator review."
+
+    detail_response = client.get(f"/api/tenants/tenant-demo/changes/{change_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["change"]["state"] == "escalated"
+
+    queue_response = client.get("/api/tenants/tenant-demo/changes")
+    assert queue_response.status_code == 200
+    queue_change = next(change for change in queue_response.json()["changes"] if change["id"] == change_id)
+    assert queue_change["state"] == "escalated"
+    assert queue_change["nextAction"] == "Operator intervention required"
+
+
+def test_block_by_spec_action_updates_change_state_across_detail_and_queue(client: TestClient) -> None:
+    create_response = client.post(
+        "/api/tenants/tenant-demo/changes",
+        json={"title": "Block me from the supported shell"},
+    )
+    assert create_response.status_code == 201
+    change_id = create_response.json()["change"]["id"]
+
+    response = client.post(f"/api/tenants/tenant-demo/changes/{change_id}/actions/block-by-spec")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["change"]["id"] == change_id
+    assert payload["change"]["state"] == "blocked_by_spec"
+    assert payload["change"]["nextAction"] == "Clarify specification"
+    assert payload["change"]["blocker"] == "Blocked by specification ambiguity"
+    assert payload["change"]["summary"] == "Chief blocked the change until the specification is clarified."
+
+    detail_response = client.get(f"/api/tenants/tenant-demo/changes/{change_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["change"]["state"] == "blocked_by_spec"
+
+    queue_response = client.get("/api/tenants/tenant-demo/changes")
+    assert queue_response.status_code == 200
+    queue_change = next(change for change in queue_response.json()["changes"] if change["id"] == change_id)
+    assert queue_change["state"] == "blocked_by_spec"
+    assert queue_change["nextAction"] == "Clarify specification"
+
+
 def test_change_deletion_cascades_backend_owned_records(
     make_client,
     app_env: dict[str, str],

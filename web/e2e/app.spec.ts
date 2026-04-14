@@ -29,6 +29,65 @@ async function expectRunsWorkspace(page: Page, tenantLabel: string) {
   await expect(page.getByText("backend-owned runs", { exact: true })).toBeVisible();
 }
 
+function buildUniqueSuffix() {
+  return `${Date.now()}-${Math.round(Math.random() * 1000)}`;
+}
+
+async function delayMutationOnce(page: Page, url: string | RegExp, method: string, delayMs = 300) {
+  let delayed = false;
+
+  await page.route(url, async (route, request) => {
+    if (request.method() !== method || delayed) {
+      await route.continue();
+      return;
+    }
+
+    delayed = true;
+    const response = await route.fetch();
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await route.fulfill({ response });
+  });
+}
+
+async function failMutationOnce(page: Page, url: string | RegExp, method: string, detail: string) {
+  let failed = false;
+
+  await page.route(url, async (route, request) => {
+    if (request.method() !== method || failed) {
+      await route.continue();
+      return;
+    }
+
+    failed = true;
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail }),
+    });
+  });
+}
+
+async function startRepositoryCreation(page: Page, repositoryName: string, repositoryPath: string) {
+  await page.locator('[data-platform-action="new-repository"]').first().click();
+  await page.getByLabel("Repository name").fill(repositoryName);
+  await page.getByLabel("Repository path").fill(repositoryPath);
+  await page.getByLabel("Repository description").fill("Workflow proof repository created from Playwright.");
+  await page.getByRole("button", { name: "Create repository" }).click();
+}
+
+async function extractToastIdentifier(page: Page, pattern: RegExp, label: string) {
+  const toast = page.locator(".toast");
+  await expect(toast).toContainText(pattern);
+  const message = await toast.innerText();
+  const match = message.match(pattern);
+
+  if (!match?.[1]) {
+    throw new Error(`Unable to parse ${label} from toast: ${message}`);
+  }
+
+  return match[1];
+}
+
 test("renders the functional tenant queue from backend bootstrap on the default route @smoke @platform", async ({
   page,
 }) => {
@@ -244,6 +303,37 @@ test("catalog workspace supports selection, compact detail, and queue handoff @p
   );
 });
 
+test("catalog workspace ships repository and change creation workflows with explicit reconciliation @platform", async ({
+  page,
+}) => {
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `command-workflow-${suffix}`;
+  const repositoryPath = `/tmp/command-workflow-${suffix}`;
+
+  await delayMutationOnce(page, "**/api/tenants", "POST");
+  await delayMutationOnce(page, "**/api/tenants/*/changes", "POST");
+  await gotoShippedApp(page, "/?workspace=catalog");
+
+  await startRepositoryCreation(page, repositoryName, repositoryPath);
+  await expect(page.locator('[data-platform-governance="create-repository-pending"]')).toBeVisible();
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(repositoryName);
+  await expect(page.locator(".toast")).toContainText(`Repository ${repositoryName} registered.`);
+
+  await page.locator('[data-platform-action="create-first-change"]').click();
+  await expect(page.locator('[data-platform-governance="create-change-pending"]')).toBeVisible();
+  const changeId = await extractToastIdentifier(
+    page,
+    /Change (ch-[a-z0-9]+) created for /,
+    "change id",
+  );
+
+  await expect(page.locator('[data-platform-action="open-queue"]')).toBeVisible();
+  await page.locator('[data-platform-action="open-queue"]').click();
+
+  await expectTenantQueueWorkspace(page, repositoryName);
+  await expect(page.locator(`[data-change-id="${changeId}"]`)).toBeVisible();
+});
+
 test("runs workspace supports hydration, selection, slice restoration, and change handoff @platform", async ({
   page,
 }) => {
@@ -314,6 +404,124 @@ test("runs workspace preserves compact drawer behavior @platform", async ({ page
     "false",
   );
   await expect(page).toHaveURL(/\?workspace=runs$/);
+});
+
+test("selected-change commands run next, fail closed, and hand off into the runs workspace @platform", async ({
+  page,
+}) => {
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `operator-command-run-${suffix}`;
+  const repositoryPath = `/tmp/operator-command-run-${suffix}`;
+
+  await gotoShippedApp(page, "/?workspace=catalog");
+  await startRepositoryCreation(page, repositoryName, repositoryPath);
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(repositoryName);
+
+  await page.locator('[data-platform-action="create-first-change"]').click();
+  const changeId = await extractToastIdentifier(
+    page,
+    /Change (ch-[a-z0-9]+) created for /,
+    "change id",
+  );
+
+  await page.locator('[data-platform-action="open-queue"]').click();
+  await expectTenantQueueWorkspace(page, repositoryName);
+  await page.locator(`[data-change-id="${changeId}"]`).click();
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(changeId);
+
+  await delayMutationOnce(
+    page,
+    new RegExp(`/api/tenants/[^/]+/changes/${changeId}/actions/run-next$`),
+    "POST",
+  );
+  await page.locator('[data-platform-action="run-next-step"]').click();
+  await expect(page.locator('[data-platform-governance="selected-change-command-pending"]')).toBeVisible();
+  const runId = await extractToastIdentifier(
+    page,
+    new RegExp(`Run (run-[a-z0-9]+) started for ${changeId}\\.`),
+    "run id",
+  );
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toHaveAttribute(
+    "data-platform-detail-status",
+    "ready",
+    { timeout: 15000 },
+  );
+
+  await expect(page.locator('[data-platform-governance="selected-change-command-unavailable"]')).toContainText(
+    "Run next step stays disabled while a backend-owned run is already active.",
+  );
+  await expect(page.locator('[data-platform-governance="selected-change-command-unavailable"]')).toContainText(
+    "Delete change stays disabled while a backend-owned run is still active.",
+  );
+  await expect(page.locator('[data-platform-action="run-next-step"]')).toBeDisabled();
+  await expect(page.locator('[data-platform-action="delete-change"]')).toBeDisabled();
+
+  await page.locator('[data-platform-action="workspace-runs"]').click();
+  await expectRunsWorkspace(page, repositoryName);
+  await expect(page.locator(`[data-run-id="${runId}"]`)).toBeVisible();
+  await page.locator(`[data-run-id="${runId}"]`).click();
+  await expect(page.locator('[data-platform-surface="selected-run-workspace"]')).toContainText(runId);
+
+  await page.getByRole("button", { name: "Open owning change" }).click();
+  await expectTenantQueueWorkspace(page, repositoryName);
+  await expect(page).toHaveURL(new RegExp(`change=${changeId}`));
+});
+
+test("selected-change commands surface explicit failure, block-by-spec success, and delete reconciliation @platform", async ({
+  page,
+}) => {
+  const suffix = buildUniqueSuffix();
+  const repositoryName = `operator-command-block-${suffix}`;
+  const repositoryPath = `/tmp/operator-command-block-${suffix}`;
+
+  await gotoShippedApp(page, "/?workspace=catalog");
+  await startRepositoryCreation(page, repositoryName, repositoryPath);
+  await expect(page.locator('[data-platform-surface="repository-profile"]')).toContainText(repositoryName);
+
+  await page.locator('[data-platform-action="create-first-change"]').click();
+  const changeId = await extractToastIdentifier(
+    page,
+    /Change (ch-[a-z0-9]+) created for /,
+    "change id",
+  );
+
+  await page.locator('[data-platform-action="open-queue"]').click();
+  await expectTenantQueueWorkspace(page, repositoryName);
+  await page.locator(`[data-change-id="${changeId}"]`).click();
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(changeId);
+
+  await failMutationOnce(
+    page,
+    new RegExp(`/api/tenants/[^/]+/changes/${changeId}/actions/escalate$`),
+    "POST",
+    "forced operator command failure",
+  );
+  await page.locator('[data-platform-action="escalate-change"]').click();
+  await expect(page.locator('[data-platform-governance="selected-change-command-error"]')).toContainText(
+    "forced operator command failure",
+  );
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(changeId);
+
+  await page.locator('[data-platform-action="block-change-by-spec"]').click();
+  await expect(page.locator(".toast")).toContainText(`Change ${changeId} marked blocked by spec.`);
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toHaveAttribute(
+    "data-platform-detail-status",
+    "ready",
+    { timeout: 15000 },
+  );
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(
+    "Blocked by specification ambiguity",
+  );
+  await expect(page.locator('[data-platform-governance="selected-change-command-unavailable"]')).toContainText(
+    "Run next step stays disabled once the change is blocked, escalated, or already done.",
+  );
+
+  await page.locator('[data-platform-action="delete-change"]').click();
+  await expect(page.locator(".toast")).toContainText(`Change ${changeId} deleted.`);
+  await expect(page.locator(`[data-change-id="${changeId}"]`)).toHaveCount(0);
+  await expect(page.locator('[data-platform-surface="queue-selected-change-workspace"]')).toContainText(
+    "Choose a queue row",
+  );
 });
 
 test("surfaces bootstrap failure explicitly without falling back to client-only shell truth @platform", async ({

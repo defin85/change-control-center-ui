@@ -146,6 +146,22 @@
   gap: 14px;
 }
 
+.reference-selected-change-commands {
+  display: grid;
+  gap: 14px;
+}
+
+.reference-selected-change-command-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.reference-selected-change-command-grid .ghost-button,
+.reference-selected-change-command-grid .primary-button {
+  width: 100%;
+}
+
 .reference-detail-list {
   margin: 0;
   padding-left: 18px;
@@ -194,7 +210,8 @@
   }
 
   .reference-selected-change-workspace .grid-two,
-  .reference-selected-change-workspace .reference-overview-grid {
+  .reference-selected-change-workspace .reference-overview-grid,
+  .reference-selected-change-command-grid {
     grid-template-columns: 1fr;
   }
 }

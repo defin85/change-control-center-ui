@@ -1,5 +1,10 @@
 import { formatStateLabel } from "../lib";
-import { PlatformPrimitives, StatusBadge, type QueueWorkspaceState } from "../platform";
+import {
+  PlatformPrimitives,
+  StatusBadge,
+  useAsyncWorkflowCommandMachine,
+  type QueueWorkspaceState,
+} from "../platform";
 import type { ChangeDetailResponse, ChangeDetailTabId } from "../types";
 
 const DETAIL_TABS: Array<{ id: ChangeDetailTabId; label: string }> = [
@@ -16,12 +21,20 @@ type ReferenceSelectedChangeWorkspaceProps = {
   queueWorkspace: QueueWorkspaceState;
   onSelectTab: (tabId: ChangeDetailTabId) => void;
   onRetryDetail: () => void;
+  onDeleteSelectedChange: () => Promise<void>;
+  onRunSelectedChangeNextStep: () => Promise<void>;
+  onEscalateSelectedChange: () => Promise<void>;
+  onBlockSelectedChangeBySpec: () => Promise<void>;
 };
 
 export function ReferenceSelectedChangeWorkspace({
   queueWorkspace,
   onSelectTab,
   onRetryDetail,
+  onDeleteSelectedChange,
+  onRunSelectedChangeNextStep,
+  onEscalateSelectedChange,
+  onBlockSelectedChangeBySpec,
 }: ReferenceSelectedChangeWorkspaceProps) {
   if (queueWorkspace.status === "error") {
     return (
@@ -193,6 +206,15 @@ export function ReferenceSelectedChangeWorkspace({
         </div>
       </div>
 
+      <SelectedChangeCommands
+        key={queueWorkspace.detail.change.id}
+        detail={queueWorkspace.detail}
+        onDeleteSelectedChange={onDeleteSelectedChange}
+        onRunSelectedChangeNextStep={onRunSelectedChangeNextStep}
+        onEscalateSelectedChange={onEscalateSelectedChange}
+        onBlockSelectedChangeBySpec={onBlockSelectedChangeBySpec}
+      />
+
       <PlatformPrimitives.Tabs.Root
         value={queueWorkspace.activeTabId}
         onValueChange={(value) => {
@@ -239,6 +261,153 @@ export function ReferenceSelectedChangeWorkspace({
       </div>
     </section>
   );
+}
+
+type SelectedChangeCommandsProps = {
+  detail: ChangeDetailResponse;
+  onDeleteSelectedChange: () => Promise<void>;
+  onRunSelectedChangeNextStep: () => Promise<void>;
+  onEscalateSelectedChange: () => Promise<void>;
+  onBlockSelectedChangeBySpec: () => Promise<void>;
+};
+
+function SelectedChangeCommands({
+  detail,
+  onDeleteSelectedChange,
+  onRunSelectedChangeNextStep,
+  onEscalateSelectedChange,
+  onBlockSelectedChangeBySpec,
+}: SelectedChangeCommandsProps) {
+  const {
+    activeLabel,
+    error: commandError,
+    isPending,
+    runCommand,
+  } = useAsyncWorkflowCommandMachine();
+  const availability = resolveSelectedChangeCommandAvailability(detail);
+  const unavailableMessages = Array.from(
+    new Set(
+      [availability.runNext.reason, availability.escalate.reason, availability.blockBySpec.reason, availability.delete.reason].filter(
+        (reason): reason is string => Boolean(reason),
+      ),
+    ),
+  );
+
+  return (
+    <div className="reference-detail-block reference-selected-change-commands">
+      <div className="reference-detail-block-head">
+        <h3>Operator commands</h3>
+        <span>Explicit backend-owned mutation boundaries</span>
+      </div>
+      <div className="reference-selected-change-command-grid">
+        <button
+          type="button"
+          className="primary-button"
+          data-platform-action="run-next-step"
+          disabled={!availability.runNext.enabled || isPending}
+          onClick={() =>
+            runCommand({
+              label: `Run next step for ${detail.change.id}`,
+              execute: onRunSelectedChangeNextStep,
+            })
+          }
+        >
+          Run next step
+        </button>
+        <button
+          type="button"
+          className="ghost-button"
+          data-platform-action="escalate-change"
+          disabled={!availability.escalate.enabled || isPending}
+          onClick={() =>
+            runCommand({
+              label: `Escalate ${detail.change.id}`,
+              execute: onEscalateSelectedChange,
+            })
+          }
+        >
+          Escalate
+        </button>
+        <button
+          type="button"
+          className="ghost-button"
+          data-platform-action="block-change-by-spec"
+          disabled={!availability.blockBySpec.enabled || isPending}
+          onClick={() =>
+            runCommand({
+              label: `Mark ${detail.change.id} blocked by spec`,
+              execute: onBlockSelectedChangeBySpec,
+            })
+          }
+        >
+          Mark blocked by spec
+        </button>
+        <button
+          type="button"
+          className="ghost-button"
+          data-platform-action="delete-change"
+          disabled={!availability.delete.enabled || isPending}
+          onClick={() =>
+            runCommand({
+              label: `Delete ${detail.change.id}`,
+              execute: onDeleteSelectedChange,
+            })
+          }
+        >
+          Delete change
+        </button>
+      </div>
+      {isPending ? (
+        <p className="governance-note" data-platform-governance="selected-change-command-pending">
+          {activeLabel ?? "Running backend-owned operator command..."}
+        </p>
+      ) : null}
+      {commandError ? (
+        <p className="governance-note" data-platform-governance="selected-change-command-error">
+          <strong>Command failed.</strong> {commandError}
+        </p>
+      ) : null}
+      {unavailableMessages.length > 0 ? (
+        <p className="governance-note" data-platform-governance="selected-change-command-unavailable">
+          <strong>Unavailable commands stay closed.</strong> {unavailableMessages.join(" ")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function resolveSelectedChangeCommandAvailability(detail: ChangeDetailResponse) {
+  const { change, runs } = detail;
+  const hasActiveRun = runs.some((run) => !["completed", "failed", "interrupted"].includes(run.status));
+
+  return {
+    runNext: {
+      enabled: !hasActiveRun && !["blocked_by_spec", "escalated", "done"].includes(change.state),
+      reason: hasActiveRun
+        ? "Run next step stays disabled while a backend-owned run is already active."
+        : ["blocked_by_spec", "escalated", "done"].includes(change.state)
+          ? "Run next step stays disabled once the change is blocked, escalated, or already done."
+          : null,
+    },
+    escalate: {
+      enabled: !["escalated", "done"].includes(change.state),
+      reason: ["escalated", "done"].includes(change.state)
+        ? "Escalate stays disabled once the change is already escalated or done."
+        : null,
+    },
+    blockBySpec: {
+      enabled: !["blocked_by_spec", "done"].includes(change.state),
+      reason: ["blocked_by_spec", "done"].includes(change.state)
+        ? "Mark blocked by spec stays disabled once the change is already blocked or done."
+        : null,
+    },
+    delete: {
+      enabled: !hasActiveRun,
+      reason: hasActiveRun
+        ? "Delete change stays disabled while a backend-owned run is still active."
+        : null,
+    },
+  };
 }
 
 function OverviewTab({ detail }: { detail: ChangeDetailResponse }) {

@@ -62,6 +62,7 @@ export function ShellBootstrapApp() {
         activeTenantId={routeState.tenantId}
         buildWorkspaceHref={controller.buildWorkspaceHref}
         queueWorkspace={controller.queueWorkspace}
+        toast={toast}
         tenants={bootstrap.tenants}
         views={bootstrap.views}
         onWorkspaceModeChange={controller.setWorkspaceMode}
@@ -73,6 +74,10 @@ export function ShellBootstrapApp() {
         onSelectQueueChange={controller.selectQueueChange}
         onClearQueueSelection={controller.clearQueueSelection}
         onRetrySelectedChangeDetail={controller.retrySelectedChangeDetail}
+        onDeleteSelectedChange={controller.deleteSelectedChange}
+        onRunSelectedChangeNextStep={controller.runSelectedChangeNextStep}
+        onEscalateSelectedChange={controller.escalateSelectedChange}
+        onBlockSelectedChangeBySpec={controller.blockSelectedChangeBySpec}
       />
     );
   }

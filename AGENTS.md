@@ -31,7 +31,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - Treat that bootstrap-hydrated shell and its shipped `Queue`, selected-change detail, `Repositories`, and `Runs` workspaces as the source of truth for default-route behavior, browser proofs, and backend-served UX copy unless a task explicitly says to work on later rollout slices.
 - Do not assume `legacyWorkbench=1` or other removed live-workbench route state is a supported product path. Current canonical shell state includes `workspace`, `tenant`, queue `view`, queue/catalog `filter`, `q`, queue `change`, selected-change `tab`, runs `runSlice`, and selected `run`.
 - Internal reference artifacts such as `web/src/reference/OperatorStyleSamplePage.tsx` still exist, but they are visual references rather than the default shipped route.
-- If a task would restore a supported hidden fallback or skip the ordered `07..10` rollout sequence, confirm scope through OpenSpec before coding.
+- If a task would restore a supported hidden fallback or skip the ordered `08..10` rollout sequence, confirm scope through OpenSpec before coding.
 
 ## Issue Tracking
 

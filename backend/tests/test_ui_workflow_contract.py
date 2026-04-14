@@ -9,6 +9,9 @@ BOOTSTRAP_SHELL = ROOT / "web/src/platform/shells/ShellBootstrapApp.tsx"
 REFERENCE_QUEUE_PAGE = ROOT / "web/src/reference/ReferenceTenantQueuePage.tsx"
 REFERENCE_CATALOG_PAGE = ROOT / "web/src/reference/ReferenceRepositoryCatalogPage.tsx"
 REFERENCE_RUNS_PAGE = ROOT / "web/src/reference/ReferenceRunsWorkspacePage.tsx"
+REFERENCE_SELECTED_CHANGE_WORKSPACE = ROOT / "web/src/reference/ReferenceSelectedChangeWorkspace.tsx"
+REPOSITORY_AUTHORING_DIALOG = ROOT / "web/src/platform/workbench/RepositoryAuthoringDialog.tsx"
+REPOSITORY_CATALOG_PROFILE = ROOT / "web/src/platform/workbench/RepositoryCatalogProfile.tsx"
 STATIC_REFERENCE = ROOT / "web/src/reference/OperatorStyleSamplePage.tsx"
 REMOVED_LEGACY_FILES = [
     ROOT / "web/src/api.ts",
@@ -54,6 +57,8 @@ def test_shell_bootstrap_controller_uses_shared_control_api_and_canonical_route_
     assert "runDetailResponseSchema" in source
     assert "createTenantResponseSchema" in source
     assert "createChangeResponseSchema" in source
+    assert "runMutationResponseSchema" in source
+    assert "deleteChangeResponseSchema" in source
     assert "readOperatorRouteState" in source
     assert "buildOperatorRouteHref" in source
     assert "runSlice" in source
@@ -70,6 +75,10 @@ def test_shell_bootstrap_controller_uses_shared_control_api_and_canonical_route_
     assert "setQueueTab" in source
     assert "selectQueueChange" in source
     assert "retrySelectedChangeDetail" in source
+    assert "deleteSelectedChange" in source
+    assert "runSelectedChangeNextStep" in source
+    assert "escalateSelectedChange" in source
+    assert "blockSelectedChangeBySpec" in source
     assert "setCatalogFilter" in source
     assert "selectCatalogTenant" in source
     assert "window.history.replaceState" in source
@@ -90,10 +99,15 @@ def test_bootstrap_shell_routes_queue_workspace_into_backend_owned_reference_pag
     assert "ReferenceTenantQueuePage" in source
     assert 'if (routeState.workspaceMode === "queue")' in source
     assert "queueWorkspace={controller.queueWorkspace}" in source
+    assert "toast={toast}" in source
     assert "onSelectQueueView={controller.setQueueView}" in source
     assert "onSelectQueueTab={controller.setQueueTab}" in source
     assert "onSelectQueueChange={controller.selectQueueChange}" in source
     assert "onRetrySelectedChangeDetail={controller.retrySelectedChangeDetail}" in source
+    assert "onDeleteSelectedChange={controller.deleteSelectedChange}" in source
+    assert "onRunSelectedChangeNextStep={controller.runSelectedChangeNextStep}" in source
+    assert "onEscalateSelectedChange={controller.escalateSelectedChange}" in source
+    assert "onBlockSelectedChangeBySpec={controller.blockSelectedChangeBySpec}" in source
 
 
 def test_bootstrap_shell_routes_catalog_workspace_into_backend_owned_reference_page() -> None:
@@ -128,6 +142,11 @@ def test_reference_queue_page_is_wired_for_live_queue_navigation_and_selected_ch
     assert "onSelectQueueTab" in source
     assert "onSelectQueueChange" in source
     assert "onRetrySelectedChangeDetail" in source
+    assert "toast" in source
+    assert "onDeleteSelectedChange" in source
+    assert "onRunSelectedChangeNextStep" in source
+    assert "onEscalateSelectedChange" in source
+    assert "onBlockSelectedChangeBySpec" in source
     assert "backend-owned queue" in source
     assert "full detail hydration" not in source
     assert "Queue summary only" not in source
@@ -156,6 +175,35 @@ def test_reference_runs_page_is_wired_for_live_run_navigation_and_handoff() -> N
     assert "backend-owned runs" in source
     assert "hidden legacy run surface" in source
     assert "window.location.assign" not in source
+
+
+def test_selected_change_workspace_surfaces_supported_command_boundaries_and_fail_closed_copy() -> None:
+    source = _read(REFERENCE_SELECTED_CHANGE_WORKSPACE)
+
+    assert "useAsyncWorkflowCommandMachine" in source
+    assert "Explicit backend-owned mutation boundaries" in source
+    assert 'data-platform-action="run-next-step"' in source
+    assert 'data-platform-action="escalate-change"' in source
+    assert 'data-platform-action="block-change-by-spec"' in source
+    assert 'data-platform-action="delete-change"' in source
+    assert 'data-platform-governance="selected-change-command-pending"' in source
+    assert 'data-platform-governance="selected-change-command-error"' in source
+    assert 'data-platform-governance="selected-change-command-unavailable"' in source
+    assert "Run next step stays disabled while a backend-owned run is already active." in source
+    assert "Delete change stays disabled while a backend-owned run is still active." in source
+
+
+def test_repository_authoring_and_change_creation_surface_explicit_command_boundaries() -> None:
+    dialog_source = _read(REPOSITORY_AUTHORING_DIALOG)
+    profile_source = _read(REPOSITORY_CATALOG_PROFILE)
+
+    assert 'data-platform-governance="create-repository-error"' in dialog_source
+    assert 'data-platform-governance="create-repository-pending"' in dialog_source
+    assert 'data-platform-governance="create-change-error"' in profile_source
+    assert 'data-platform-governance="create-change-pending"' in profile_source
+    assert 'data-platform-action="new-repository"' in profile_source
+    assert 'data-platform-action="new-change"' in profile_source
+    assert 'data-platform-action={entry.changeCount === 0 ? "create-first-change" : "open-queue"}' in profile_source
 
 
 def test_static_reference_shell_remains_a_repo_artifact_without_live_bridge_affordances() -> None:

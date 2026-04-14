@@ -19,8 +19,10 @@ import {
   changesResponseSchema,
   createChangeResponseSchema,
   createTenantResponseSchema,
+  deleteChangeResponseSchema,
   requestControlApi,
   runDetailResponseSchema,
+  runMutationResponseSchema,
   runsResponseSchema,
 } from "../contracts";
 import {
@@ -182,6 +184,10 @@ export type ShellBootstrapControllerReady = ShellBootstrapControllerBase & {
   clearSelectedRun: () => void;
   openSelectedRunChange: () => void;
   retrySelectedRunDetail: () => void;
+  deleteSelectedChange: () => Promise<void>;
+  runSelectedChangeNextStep: () => Promise<void>;
+  escalateSelectedChange: () => Promise<void>;
+  blockSelectedChangeBySpec: () => Promise<void>;
   setQueueView: (viewId: string) => void;
   setQueueFilter: (filterId: string) => void;
   setQueueTab: (tabId: ChangeDetailTabId) => void;
@@ -491,6 +497,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
     const currentDetailHydration = changeDetailHydrationRef.current;
     const detailHydrationMatchesTarget =
       currentDetailHydration.status !== "idle" &&
+      currentDetailHydration.status !== "loading" &&
       currentDetailHydration.tenantId === detailHydrationTargetTenantId &&
       currentDetailHydration.changeId === detailHydrationTargetChangeId;
 
@@ -659,6 +666,7 @@ export function useShellBootstrapController(): ShellBootstrapController {
     const currentRunDetailHydration = runDetailHydrationRef.current;
     const runDetailHydrationMatchesTarget =
       currentRunDetailHydration.status !== "idle" &&
+      currentRunDetailHydration.status !== "loading" &&
       currentRunDetailHydration.tenantId === runDetailTargetTenantId &&
       currentRunDetailHydration.runId === runDetailTargetRunId;
 
@@ -843,6 +851,17 @@ export function useShellBootstrapController(): ShellBootstrapController {
     window.history.replaceState(window.history.state, "", href);
   };
 
+  const requireSelectedQueueChange = (actionLabel: string) => {
+    if (!routeState || routeState.workspaceMode !== "queue" || !routeState.changeId) {
+      throw new Error(`Select a backend-owned change before ${actionLabel.toLowerCase()}.`);
+    }
+
+    return {
+      tenantId: routeState.tenantId,
+      changeId: routeState.changeId,
+    };
+  };
+
   if (error) {
     return {
       status: "error",
@@ -925,6 +944,95 @@ export function useShellBootstrapController(): ShellBootstrapController {
 
       setRunDetailHydration({ status: "idle" });
       setRunDetailReloadCount((count) => count + 1);
+    },
+    deleteSelectedChange: async () => {
+      const { tenantId, changeId } = requireSelectedQueueChange("Delete change");
+
+      const response = await requestControlApi(
+        `/api/tenants/${tenantId}/changes/${changeId}`,
+        deleteChangeResponseSchema,
+        {
+          method: "DELETE",
+        },
+      );
+
+      setChangeDetailHydration({ status: "idle" });
+      await refreshBootstrap({
+        historyMode: "replace",
+        nextRouteState: {
+          ...routeState,
+          workspaceMode: "queue",
+          changeId: null,
+          tabId: DEFAULT_OPERATOR_TAB_ID,
+        },
+        toast: `Change ${response.deletedChangeId} deleted.`,
+      });
+    },
+    runSelectedChangeNextStep: async () => {
+      const { tenantId, changeId } = requireSelectedQueueChange("Run next step");
+
+      const response = await requestControlApi(
+        `/api/tenants/${tenantId}/changes/${changeId}/actions/run-next`,
+        runMutationResponseSchema,
+        {
+          method: "POST",
+        },
+      );
+
+      setChangeDetailHydration({ status: "idle" });
+      await refreshBootstrap({
+        historyMode: "replace",
+        nextRouteState: {
+          ...routeState,
+          workspaceMode: "queue",
+          changeId,
+        },
+        toast: `Run ${response.run.id} started for ${changeId}.`,
+      });
+    },
+    escalateSelectedChange: async () => {
+      const { tenantId, changeId } = requireSelectedQueueChange("Escalate");
+
+      await requestControlApi(
+        `/api/tenants/${tenantId}/changes/${changeId}/actions/escalate`,
+        createChangeResponseSchema,
+        {
+          method: "POST",
+        },
+      );
+
+      setChangeDetailHydration({ status: "idle" });
+      await refreshBootstrap({
+        historyMode: "replace",
+        nextRouteState: {
+          ...routeState,
+          workspaceMode: "queue",
+          changeId,
+        },
+        toast: `Change ${changeId} escalated.`,
+      });
+    },
+    blockSelectedChangeBySpec: async () => {
+      const { tenantId, changeId } = requireSelectedQueueChange("Mark blocked by spec");
+
+      await requestControlApi(
+        `/api/tenants/${tenantId}/changes/${changeId}/actions/block-by-spec`,
+        createChangeResponseSchema,
+        {
+          method: "POST",
+        },
+      );
+
+      setChangeDetailHydration({ status: "idle" });
+      await refreshBootstrap({
+        historyMode: "replace",
+        nextRouteState: {
+          ...routeState,
+          workspaceMode: "queue",
+          changeId,
+        },
+        toast: `Change ${changeId} marked blocked by spec.`,
+      });
     },
     setQueueView: (viewId) => {
       applyRouteState({ workspaceMode: "queue", viewId }, "push");

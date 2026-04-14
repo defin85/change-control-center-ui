@@ -102,6 +102,11 @@ export function RepositoryAuthoringDialog({
                     <strong>Repository creation failed.</strong> {workflow.error}
                   </p>
                 ) : null}
+                {workflow.isPending ? (
+                  <p className="governance-note" data-platform-governance="create-repository-pending">
+                    {workflow.activeLabel ?? "Creating backend-owned repository workspace..."}
+                  </p>
+                ) : null}
                 <div className="dialog-actions">
                   <button
                     type="button"
